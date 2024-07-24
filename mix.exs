@@ -8,6 +8,7 @@ defmodule Agens.MixProject do
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      description: "Library for creating AI agents",
       package: package()
     ]
   end
