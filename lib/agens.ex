@@ -5,13 +5,12 @@ defmodule Agens do
 
   alias Agens.{Archetypes, Manager}
 
-  Application.put_env(:nx, :default_backend, EXLA.Backend)
-
   defmodule Agent do
     defstruct [:name, :archetype, :context, :knowledge]
   end
 
   def init() do
+    Application.put_env(:nx, :default_backend, EXLA.Backend)
     Supervisor.start_link(
       [
         {Manager, name: Manager}
