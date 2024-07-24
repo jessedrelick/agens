@@ -12,8 +12,12 @@ defmodule Agens do
   end
 
   def init() do
-    Manager.start_link([])
-    Manager.init(:ok)
+    Supervisor.start_link(
+      [
+        {Manager, name: Manager}
+      ],
+      strategy: :one_for_one
+    )
 
     [
       %Agent{
