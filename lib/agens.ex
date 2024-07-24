@@ -3,6 +3,8 @@ defmodule Agens do
   Documentation for `Agens`.
   """
 
+  alias Agens.{Archetypes, Manager}
+
   Application.put_env(:nx, :default_backend, EXLA.Backend)
 
   defmodule Agent do
@@ -10,17 +12,28 @@ defmodule Agens do
   end
 
   def init() do
-    serving = Agens.Archetypes.text_generation()
+    Manager.start_link([])
+    Manager.init(:ok)
 
-    Supervisor.start_link(
-      [
-        {Nx.Serving, serving: serving, name: Agens.SimpleServing, batch_timeout: 100}
-      ],
-      strategy: :one_for_one
-    )
+    [
+      %Agent{
+        name: Agens.FirstAgent,
+        archetype: Archetypes.text_generation(),
+        context: "",
+        knowledge: ""
+      }
+    ]
+    |> start()
   end
 
-  def message(text) do
-    Nx.Serving.batched_run(Agens.SimpleServing, text)
+  def start(agents) when is_list(agents) do
+    agents
+    |> Enum.map(fn agent ->
+      Manager.start_worker(agent)
+    end)
+  end
+
+  def message(module, text) do
+    Nx.Serving.batched_run(module, text)
   end
 end
