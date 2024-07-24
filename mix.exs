@@ -24,7 +24,8 @@ defmodule Agens.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:bumblebee, "~> 0.5.3"}
+      {:bumblebee, "~> 0.5.3"},
+      {:exla, "~> 0.7.0"}
     ]
   end
 
