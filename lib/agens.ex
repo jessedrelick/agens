@@ -24,6 +24,12 @@ defmodule Agens do
         archetype: Archetypes.text_generation(),
         context: "",
         knowledge: ""
+      },
+      %Agent{
+        name: Agens.AnotherAgent,
+        archetype: Archetypes.text_generation(),
+        context: "",
+        knowledge: ""
       }
     ]
     |> start()
