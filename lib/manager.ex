@@ -20,11 +20,14 @@ defmodule Agens.Manager do
   end
 
   def stop_worker(module) do
-    pid =
-      module
-      |> Module.concat("Supervisor")
-      |> Process.whereis()
-
-    DynamicSupervisor.terminate_child(__MODULE__, pid)
+    module
+    |> Module.concat("Supervisor")
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :not_found}
+      pid ->
+        DynamicSupervisor.terminate_child(__MODULE__, pid)
+    end
   end
 end

@@ -26,7 +26,7 @@ defmodule Agens do
         knowledge: ""
       },
       %Agent{
-        name: Agens.AnotherAgent,
+        name: :another_agent,
         archetype: Archetypes.text_generation(),
         context: "",
         knowledge: ""
