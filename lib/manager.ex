@@ -19,7 +19,12 @@ defmodule Agens.Manager do
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
-  def stop_worker(pid) do
+  def stop_worker(module) do
+    pid =
+      module
+      |> Module.concat("Supervisor")
+      |> Process.whereis()
+
     DynamicSupervisor.terminate_child(__MODULE__, pid)
   end
 end
