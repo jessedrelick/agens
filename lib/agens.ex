@@ -1,18 +1,18 @@
 defmodule Agens do
-  @moduledoc """
-  Documentation for `Agens`.
-  """
+  use DynamicSupervisor
 
-  alias Agens.Manager
+  def start_link(_) do
+    DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
+  end
 
-  defmodule Agent do
-    defstruct [:name, :archetype, :context, :knowledge]
+  def init(:ok) do
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
 
   def start(agents) when is_list(agents) do
     agents
     |> Enum.map(fn agent ->
-      Manager.start_worker(agent)
+      start_worker(agent)
     end)
   end
 
@@ -24,5 +24,35 @@ defmodule Agens do
       nil ->
         {:error, :agent_not_running}
     end
+  end
+
+  def start_worker(agent) do
+    serving = agent.archetype
+
+    spec = %{
+      id: agent.name,
+      start: {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, spec)
+  end
+
+  @spec stop_worker(atom() | binary()) :: :ok | {:error, :agent_not_found | :not_found}
+  def stop_worker(module) do
+    module
+    |> Module.concat("Supervisor")
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :agent_not_found}
+
+      pid ->
+        DynamicSupervisor.terminate_child(__MODULE__, pid)
+    end
+  end
+
+  def start_job(config) do
+    spec = Agens.Job.child_spec(config)
+    DynamicSupervisor.start_child(__MODULE__, spec)
   end
 end

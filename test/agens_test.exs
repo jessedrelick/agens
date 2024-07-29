@@ -2,16 +2,16 @@ defmodule AgensTest do
   use ExUnit.Case
   doctest Agens
 
-  alias Agens.{Agent, Archetypes, Job, Manager}
+  alias Agens.{Agent, Archetypes, Job}
 
   setup_all do
     IO.puts("Enabling EXLA Backend")
     Application.put_env(:nx, :default_backend, EXLA.Backend)
-    IO.puts("Starting Manager Supervisor")
+    IO.puts("Starting Agens Supervisor")
 
     Supervisor.start_link(
       [
-        {Manager, name: Manager}
+        {Agens, name: Agens}
       ],
       strategy: :one_for_one
     )
@@ -54,7 +54,7 @@ defmodule AgensTest do
     end
 
     test "stop agent" do
-      result = Manager.stop_worker(:another_agent)
+      result = Agens.stop_worker(:another_agent)
       assert result
 
       result = Agens.message(:another_agent, "hello my name is")
@@ -88,7 +88,7 @@ defmodule AgensTest do
     end
 
     test "stop non-existent agent" do
-      result = Manager.stop_worker(:missing_agent)
+      result = Agens.stop_worker(:missing_agent)
       assert result == {:error, :agent_not_found}
     end
 
@@ -115,7 +115,7 @@ defmodule AgensTest do
         ]
       }
 
-      {:ok, pid} = Manager.start_job(job)
+      {:ok, pid} = Agens.start_job(job)
       assert is_pid(pid)
     end
   end
