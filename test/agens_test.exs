@@ -54,7 +54,7 @@ defmodule AgensTest do
     end
 
     test "stop agent" do
-      result = Agens.stop_worker(:another_agent)
+      result = Agens.stop_agent(:another_agent)
       assert result
 
       result = Agens.message(:another_agent, "hello my name is")
@@ -88,7 +88,7 @@ defmodule AgensTest do
     end
 
     test "stop non-existent agent" do
-      result = Agens.stop_worker(:missing_agent)
+      result = Agens.stop_agent(:missing_agent)
       assert result == {:error, :agent_not_found}
     end
 

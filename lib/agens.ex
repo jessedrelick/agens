@@ -12,7 +12,7 @@ defmodule Agens do
   def start(agents) when is_list(agents) do
     agents
     |> Enum.map(fn agent ->
-      start_worker(agent)
+      start_agent(agent)
     end)
   end
 
@@ -26,7 +26,7 @@ defmodule Agens do
     end
   end
 
-  def start_worker(agent) do
+  def start_agent(agent) do
     serving = agent.archetype
 
     spec = %{
@@ -37,8 +37,8 @@ defmodule Agens do
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
-  def stop_worker(module) do
-    module
+  def stop_agent(name) do
+    name
     |> Module.concat("Supervisor")
     |> Process.whereis()
     |> case do
