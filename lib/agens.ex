@@ -37,7 +37,6 @@ defmodule Agens do
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
-  @spec stop_worker(atom() | binary()) :: :ok | {:error, :agent_not_found | :not_found}
   def stop_worker(module) do
     module
     |> Module.concat("Supervisor")
