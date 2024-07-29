@@ -26,7 +26,7 @@ defmodule Agens.Manager do
     |> Process.whereis()
     |> case do
       nil ->
-        {:error, :not_found}
+        {:error, :agent_not_found}
 
       pid ->
         DynamicSupervisor.terminate_child(__MODULE__, pid)

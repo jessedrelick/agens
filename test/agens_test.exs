@@ -87,6 +87,11 @@ defmodule AgensTest do
       assert result == {:error, :agent_not_running}
     end
 
+    test "stop non-existent agent" do
+      result = Manager.stop_worker(:missing_agent)
+      assert result == {:error, :agent_not_found}
+    end
+
     test "start jobs" do
       jobs = [
         %Job{
