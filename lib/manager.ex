@@ -11,6 +11,7 @@ defmodule Agens.Manager do
 
   def start_worker(agent) do
     serving = agent.archetype
+
     spec = %{
       id: agent.name,
       start: {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
@@ -26,6 +27,7 @@ defmodule Agens.Manager do
     |> case do
       nil ->
         {:error, :not_found}
+
       pid ->
         DynamicSupervisor.terminate_child(__MODULE__, pid)
     end

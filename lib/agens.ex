@@ -3,36 +3,10 @@ defmodule Agens do
   Documentation for `Agens`.
   """
 
-  alias Agens.{Archetypes, Manager}
+  alias Agens.Manager
 
   defmodule Agent do
     defstruct [:name, :archetype, :context, :knowledge]
-  end
-
-  def init() do
-    Application.put_env(:nx, :default_backend, EXLA.Backend)
-    Supervisor.start_link(
-      [
-        {Manager, name: Manager}
-      ],
-      strategy: :one_for_one
-    )
-
-    [
-      %Agent{
-        name: Agens.FirstAgent,
-        archetype: Archetypes.text_generation(),
-        context: "",
-        knowledge: ""
-      },
-      %Agent{
-        name: :another_agent,
-        archetype: Archetypes.text_generation(),
-        context: "",
-        knowledge: ""
-      }
-    ]
-    |> start()
   end
 
   def start(agents) when is_list(agents) do
@@ -46,6 +20,7 @@ defmodule Agens do
     case Process.whereis(module) do
       pid when is_pid(pid) ->
         Nx.Serving.batched_run(module, text)
+
       nil ->
         {:error, :agent_not_running}
     end
