@@ -82,6 +82,11 @@ defmodule AgensTest do
       assert output == 20
     end
 
+    test "message non-existent agent" do
+      result = Agens.message(:missing_agent, "hello my name is")
+      assert result == {:error, :agent_not_running}
+    end
+
     test "start jobs" do
       jobs = [
         %Job{
