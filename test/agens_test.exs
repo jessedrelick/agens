@@ -92,32 +92,31 @@ defmodule AgensTest do
       assert result == {:error, :agent_not_found}
     end
 
-    test "start jobs" do
-      jobs = [
-        %Job{
-          name: :first_job,
-          objective: "to create a sequence of steps",
-          steps: [
-            %Job.Step{
-              agent: Agens.FirstAgent,
-              prompt: "",
-              conditions: ""
-            },
-            %Job.Step{
-              agent: :another_agent,
-              prompt: "",
-              conditions: ""
-            },
-            %Job.Step{
-              agent: :verifier,
-              prompt: "",
-              conditions: ""
-            }
-          ]
-        }
-      ]
+    test "start job" do
+      job = %Job.Config{
+        name: :first_job,
+        objective: "to create a sequence of steps",
+        steps: [
+          %Job.Step{
+            agent: Agens.FirstAgent,
+            prompt: "",
+            conditions: ""
+          },
+          %Job.Step{
+            agent: :another_agent,
+            prompt: "",
+            conditions: ""
+          },
+          %Job.Step{
+            agent: :verifier,
+            prompt: "",
+            conditions: ""
+          }
+        ]
+      }
 
-      assert length(jobs) == 1
+      {:ok, pid} = Manager.start_job(job)
+      assert is_pid(pid)
     end
   end
 end

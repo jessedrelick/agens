@@ -32,4 +32,9 @@ defmodule Agens.Manager do
         DynamicSupervisor.terminate_child(__MODULE__, pid)
     end
   end
+
+  def start_job(config) do
+    spec = Agens.Job.child_spec(config)
+    DynamicSupervisor.start_child(__MODULE__, spec)
+  end
 end
