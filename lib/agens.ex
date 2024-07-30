@@ -16,10 +16,10 @@ defmodule Agens do
     end)
   end
 
-  def message(module, text) do
-    case Process.whereis(module) do
+  def message(agent_name, text) do
+    case Process.whereis(agent_name) do
       pid when is_pid(pid) ->
-        Nx.Serving.batched_run(module, text)
+        Nx.Serving.batched_run(agent_name, text)
 
       nil ->
         {:error, :agent_not_running}
