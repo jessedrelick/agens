@@ -2,7 +2,18 @@ defmodule AgensTest do
   use ExUnit.Case
   doctest Agens
 
-  alias Agens.{Agent, Archetypes, Job}
+  alias Agens.{Agent, Job}
+
+  defp serving() do
+    auth_token = System.get_env("HF_AUTH_TOKEN")
+    repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
+
+    {:ok, model} = Bumblebee.load_model(repo, type: :bf16)
+    {:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
+    {:ok, generation_config} = Bumblebee.load_generation_config(repo)
+
+    Bumblebee.Text.generation(model, tokenizer, generation_config)
+  end
 
   setup_all do
     IO.puts("Enabling EXLA Backend")
@@ -16,9 +27,9 @@ defmodule AgensTest do
       strategy: :one_for_one
     )
 
-    IO.puts("Building Archetype")
+    IO.puts("Building Serving")
 
-    text_generation = Archetypes.text_generation()
+    text_generation = serving()
 
     IO.puts("Starting Agents")
 
