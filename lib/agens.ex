@@ -27,11 +27,9 @@ defmodule Agens do
   end
 
   def start_agent(agent) do
-    serving = agent.archetype
-
     spec = %{
       id: agent.name,
-      start: {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
+      start: {Nx.Serving, :start_link, [[serving: agent.serving, name: agent.name]]}
     }
 
     DynamicSupervisor.start_child(__MODULE__, spec)

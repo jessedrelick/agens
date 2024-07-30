@@ -37,7 +37,7 @@ defmodule AgensTest do
       [
         %Agent{
           name: :first_agent,
-          archetype: text_generation,
+          serving: text_generation,
           context: """
           You are an agent for testing a multi-agent workflow. Your job is to take an input letter of the English alphabet, like 'J', and return only the letter that comes after the next letter in the alphabet.
 
@@ -56,7 +56,7 @@ defmodule AgensTest do
         },
         %Agent{
           name: :second_agent,
-          archetype: text_generation,
+          serving: text_generation,
           context: """
           You are an agent for testing a multi-agent workflow. Your job is to take an input letter of the English alphabet, like 'J', and return only the letter that comes before that letter in the alphabet.
 
@@ -75,7 +75,7 @@ defmodule AgensTest do
         },
         %Agent{
           name: :verifier_agent,
-          archetype: text_generation,
+          serving: text_generation,
           context: "",
           knowledge: ""
         }
