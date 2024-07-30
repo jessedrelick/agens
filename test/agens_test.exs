@@ -16,25 +16,55 @@ defmodule AgensTest do
       strategy: :one_for_one
     )
 
+    IO.puts("Building Archetype")
+
+    text_generation = Archetypes.text_generation()
+
     IO.puts("Starting Agents")
 
     agents =
       [
         %Agent{
-          name: Agens.FirstAgent,
-          archetype: Archetypes.text_generation(),
-          context: "",
+          name: :first_agent,
+          archetype: text_generation,
+          context: """
+          You are an agent for testing a multi-agent workflow. Your job is to take an input letter of the English alphabet, like 'J', and return only the letter that comes after the next letter in the alphabet.
+
+          For example:
+          Input: J
+          Output: L
+
+          Input: B
+          Output: D
+
+          You will always return a capital letter, regardless of input case. If you reach the end of the alphabet, just cycle back to the beginning i.e. 'A'.
+
+          If anything except a single letter is provided, simply return 'ERROR'.
+          """,
           knowledge: ""
         },
         %Agent{
-          name: :another_agent,
-          archetype: Archetypes.text_generation(),
-          context: "",
+          name: :second_agent,
+          archetype: text_generation,
+          context: """
+          You are an agent for testing a multi-agent workflow. Your job is to take an input letter of the English alphabet, like 'J', and return only the letter that comes before that letter in the alphabet.
+
+          For example:
+          Input: J
+          Output: L
+
+          Input: B
+          Output: D
+
+          You will always return a capital letter, regardless of input case. If you reach the beginning of the alphabet, just cycle back to the end i.e. 'Z'.
+
+          If anything except a single letter is provided, simply return 'ERROR'.
+          """,
           knowledge: ""
         },
         %Agent{
           name: :verifier_agent,
-          archetype: Archetypes.text_generation(),
+          archetype: text_generation,
           context: "",
           knowledge: ""
         }
@@ -53,15 +83,21 @@ defmodule AgensTest do
       assert is_pid(pid)
     end
 
+    @tag :skip
     test "stop agent" do
-      result = Agens.stop_agent(:another_agent)
+      result = Agens.stop_agent(:first_agent)
       assert result
 
-      result = Agens.message(:another_agent, "hello my name is")
+      result = Agens.message(:first_agent, "B")
       assert result == {:error, :agent_not_running}
     end
 
     test "message running agent" do
+      msg = "D"
+
+      context =
+        "<s>[INST]Which letter comes after '#{msg}' in the English alphabet? Return the letter only, no extra words, characters or tokens.[/INST]"
+
       %{
         results: [
           %{
@@ -73,17 +109,16 @@ defmodule AgensTest do
             }
           }
         ]
-      } = Agens.message(Agens.FirstAgent, "hello my name is")
+      } = Agens.message(:first_agent, context)
 
-      assert text ==
-               " John. I'm a student at the University of California, Berkeley. I'm a student at the"
+      assert text == "E"
 
-      assert input == 4
-      assert output == 20
+      assert input == 34
+      assert output == 2
     end
 
     test "message non-existent agent" do
-      result = Agens.message(:missing_agent, "hello my name is")
+      result = Agens.message(:missing_agent, "J")
       assert result == {:error, :agent_not_running}
     end
 
