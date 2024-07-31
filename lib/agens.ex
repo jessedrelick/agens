@@ -21,7 +21,7 @@ defmodule Agens do
       [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
         Nx.Serving.batched_run(agent_name, text)
 
-      nil ->
+      [] ->
         {:error, :agent_not_running}
     end
   end
