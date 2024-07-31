@@ -17,8 +17,8 @@ defmodule Agens do
   end
 
   def message(agent_name, text) do
-    case Process.whereis(agent_name) do
-      pid when is_pid(pid) ->
+    case Registry.lookup(Agens.Registry.Agents, agent_name) do
+      [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
         Nx.Serving.batched_run(agent_name, text)
 
       nil ->
@@ -32,7 +32,9 @@ defmodule Agens do
       start: {Nx.Serving, :start_link, [[serving: agent.serving, name: agent.name]]}
     }
 
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    {:ok, pid} = DynamicSupervisor.start_child(__MODULE__, spec)
+    Registry.register(Agens.Registry.Agents, agent.name, {pid, agent})
+    {:ok, pid}
   end
 
   def stop_agent(name) do

@@ -22,7 +22,8 @@ defmodule AgensTest do
 
     Supervisor.start_link(
       [
-        {Agens, name: Agens}
+        {Agens, name: Agens},
+        {Registry, keys: :unique, name: Agens.Registry.Agents},
       ],
       strategy: :one_for_one
     )
