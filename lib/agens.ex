@@ -16,10 +16,12 @@ defmodule Agens do
     end)
   end
 
-  def message(agent_name, text) do
+  def message(agent_name, input) do
     case Registry.lookup(Agens.Registry.Agents, agent_name) do
       [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
-        Nx.Serving.batched_run(agent_name, text)
+        base = Agens.Agent.base_prompt(agent_config.prompt, input)
+        prompt = "<s>[INST]#{base}[/INST]"
+        Nx.Serving.batched_run(agent_name, prompt)
 
       [] ->
         {:error, :agent_not_running}
