@@ -1,10 +1,57 @@
 defmodule AgensTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Agens
 
   alias Agens.{Agent, Job}
 
-  defp serving() do
+  @real_llm false
+
+  defmodule TestServing do
+    use GenServer
+
+    def run(prompt) do
+      GenServer.call(__MODULE__, {:run, prompt})
+    end
+
+    def start_link(opts) do
+      GenServer.start_link(__MODULE__, opts, opts)
+    end
+
+    def init(opts) do
+      {:ok, opts}
+    end
+
+    def handle_call({:run, _prompt, input}, _, state) do
+      agent = Keyword.get(state, :config)
+      text = map_input(agent.name, input)
+      output = %{results: [%{text: text}]}
+      {:reply, output, state}
+    end
+
+    defp map_input(:first_agent, input) do
+      %{
+        "D" => "C",
+        "E" => "D",
+        "F" => "E"
+      }
+      |> Map.get(input, "ERROR")
+    end
+
+    defp map_input(:second_agent, input) do
+      %{
+        "C" => "E",
+        "D" => "F",
+        "E" => "G"
+      }
+      |> Map.get(input, "ERROR")
+    end
+
+    defp map_input(:verifier_agent, input) do
+      if input == "G", do: "TRUE", else: "FALSE"
+    end
+  end
+
+  defp serving(true) do
     auth_token = System.get_env("HF_AUTH_TOKEN")
     repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
 
@@ -15,9 +62,11 @@ defmodule AgensTest do
     Bumblebee.Text.generation(model, tokenizer, generation_config)
   end
 
-  defp post_process(text) do
-    IO.inspect(text, label: "PROCESSING RESPONSE")
+  defp serving(_) do
+    TestServing
+  end
 
+  defp post_process(text) do
     cond do
       String.contains?(text, "Based on the given input") ->
         text
@@ -35,6 +84,13 @@ defmodule AgensTest do
 
       String.contains?(text, "FALSE") ->
         "FALSE"
+
+      true ->
+        if @real_llm do
+          IO.inspect(text, label: "NO POST PROCESS MATCH")
+        end
+
+        text
     end
   end
 
@@ -53,7 +109,7 @@ defmodule AgensTest do
 
     IO.puts("Building Serving")
 
-    text_generation = serving()
+    text_generation = serving(@real_llm)
 
     IO.puts("Starting Agents")
 

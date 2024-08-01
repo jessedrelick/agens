@@ -21,7 +21,17 @@ defmodule Agens do
       [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
         base = Agens.Agent.base_prompt(agent_config.prompt, input)
         prompt = "<s>[INST]#{base}[/INST]"
-        Nx.Serving.batched_run(agent_name, prompt)
+        serving = agent_config.serving
+
+        cond do
+          is_atom(serving) ->
+            GenServer.call(agent_pid, {:run, prompt, input})
+            # GenServer.call(agent_name, {:run, input})
+            # apply(serving, :run, [input])
+
+          %Nx.Serving{} = serving ->
+            Nx.Serving.batched_run(agent_name, prompt)
+        end
 
       [] ->
         {:error, :agent_not_running}
@@ -31,7 +41,7 @@ defmodule Agens do
   def start_agent(agent) do
     spec = %{
       id: agent.name,
-      start: {Nx.Serving, :start_link, [[serving: agent.serving, name: agent.name]]}
+      start: start_function(agent)
     }
 
     {:ok, pid} = DynamicSupervisor.start_child(__MODULE__, spec)
@@ -55,5 +65,13 @@ defmodule Agens do
   def start_job(config) do
     spec = Agens.Job.child_spec(config)
     DynamicSupervisor.start_child(__MODULE__, spec)
+  end
+
+  defp start_function(%Agens.Agent{serving: %Nx.Serving{} = serving} = agent) do
+    {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
+  end
+
+  defp start_function(%Agens.Agent{serving: serving} = agent) do
+    {serving, :start_link, [[name: agent.name, config: agent]]}
   end
 end
