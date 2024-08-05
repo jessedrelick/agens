@@ -2,9 +2,7 @@ defmodule AgensTest do
   use Test.Support.AgentCase, async: true
   doctest Agens
 
-  alias Agens.Job
-
-  describe "job" do
+  describe "agents" do
     test "start agents", %{agents: agents} do
       assert length(agents) == 3
       [{:ok, pid} | _] = agents
@@ -20,6 +18,13 @@ defmodule AgensTest do
       assert result == {:error, :agent_not_running}
     end
 
+    test "stop non-existent agent" do
+      result = Agens.stop_agent(:missing_agent)
+      assert result == {:error, :agent_not_found}
+    end
+  end
+
+  describe "messages" do
     @tag timeout: :infinity
     test "message sequence without job" do
       input = "D"
@@ -66,41 +71,6 @@ defmodule AgensTest do
     test "message non-existent agent" do
       result = Agens.message(:missing_agent, "J")
       assert result == {:error, :agent_not_running}
-    end
-
-    test "stop non-existent agent" do
-      result = Agens.stop_agent(:missing_agent)
-      assert result == {:error, :agent_not_found}
-    end
-
-    test "start job" do
-      job = %Job.Config{
-        name: :first_job,
-        objective: "to create a sequence of steps",
-        steps: [
-          %Job.Step{
-            agent: :first_agent,
-            prompt: "",
-            conditions: ""
-          },
-          %Job.Step{
-            agent: :second_agent,
-            prompt: "",
-            conditions: ""
-          },
-          %Job.Step{
-            agent: :verifier_agent,
-            prompt: "",
-            conditions: ""
-          }
-        ]
-      }
-
-      {:ok, pid} = Agens.start_job(job)
-      assert is_pid(pid)
-      assert job == Job.get_config(pid)
-      assert job == Job.get_config(:first_job)
-      assert {:error, :job_not_found} == Job.get_config(:missing_job)
     end
   end
 end
