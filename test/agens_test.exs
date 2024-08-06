@@ -29,6 +29,7 @@ defmodule AgensTest do
     test "message sequence without job" do
       input = "D"
 
+      # 0
       %{results: [%{text: text0}]} = Agens.message(:first_agent, input)
       input1 = post_process(text0)
       assert input1 == "C"
@@ -39,6 +40,7 @@ defmodule AgensTest do
       verify1 = post_process(text2)
       assert verify1 == "FALSE"
 
+      # 1
       %{results: [%{text: text3}]} = Agens.message(:first_agent, input2)
       input4 = post_process(text3)
       assert input4 == "D"
@@ -49,6 +51,7 @@ defmodule AgensTest do
       verify2 = post_process(text5)
       assert verify2 == "FALSE"
 
+      # 2
       %{results: [%{text: text6}]} = Agens.message(:first_agent, input5)
       input7 = post_process(text6)
       assert input7 == "E"

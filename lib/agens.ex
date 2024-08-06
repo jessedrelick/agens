@@ -26,8 +26,9 @@ defmodule Agens do
         cond do
           is_atom(serving) ->
             GenServer.call(agent_pid, {:run, prompt, input})
-            # GenServer.call(agent_name, {:run, input})
-            # apply(serving, :run, [input])
+
+          # GenServer.call(agent_name, {:run, input})
+          # apply(serving, :run, [input])
 
           %Nx.Serving{} = serving ->
             Nx.Serving.batched_run(agent_name, prompt)

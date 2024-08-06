@@ -1,5 +1,4 @@
 defmodule Test.Support.Helpers do
-
   def post_process(text) do
     cond do
       String.contains?(text, "Based on the given input") ->
