@@ -87,7 +87,11 @@ defmodule Agens.Job do
   end
 
   @impl true
-  def handle_cast({:step, index, input}, %State{} = state) when is_integer(index) do
+  def handle_cast({:step, index, input}, %State{} = state) do
+    unless is_integer(index) do
+      raise "Invalid step index: #{inspect(index)}"
+    end
+
     new_state = %State{state | step_index: index}
     do_step(input, new_state)
     {:noreply, new_state}
@@ -98,6 +102,12 @@ defmodule Agens.Job do
     new_state = %State{state | status: :complete}
     send(state.parent, {:job_ended, name, :complete})
     {:stop, :complete, new_state}
+  end
+
+  @impl true
+  def terminate({error, _}, %State{config: %{name: name}} = state) do
+    send(state.parent, {:job_ended, name, {:error, error}})
+    :ok
   end
 
   defp do_step(input, %State{config: config} = state) do

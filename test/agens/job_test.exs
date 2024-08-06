@@ -81,4 +81,59 @@ defmodule Agens.JobTest do
       assert_receive {:job_ended, ^name, :complete}
     end
   end
+
+  describe "restart" do
+    @tag capture_log: true
+    test "crash" do
+      name = :crash_job
+
+      job = %Job.Config{
+        name: name,
+        objective: "to simulate a crash",
+        steps: [
+          %Job.Step{
+            agent: :first_agent,
+            prompt: "",
+            conditions: nil
+          },
+          %Job.Step{
+            agent: :verifier_agent,
+            prompt: "",
+            conditions: %{
+              "TRUE" => :end,
+              "__DEFAULT__" => :invalid
+            }
+          }
+        ]
+      }
+
+      {:ok, pid} = Agens.start_job(job)
+
+      input = "F"
+      assert is_pid(pid)
+      result = Agens.Job.start(name, input)
+      assert result == :ok
+      assert_receive {:job_started, ^name}
+
+      assert_receive {:step_started, ^name, 0, "F"}
+      assert_receive {:step_result, ^name, 0, "E"}
+      assert_receive {:step_started, ^name, 1, "E"}
+      assert_receive {:step_result, ^name, 1, "FALSE"}
+
+      assert_receive {:job_ended, ^name,
+                      {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
+
+      Process.sleep(100)
+      refute Process.alive?(pid)
+
+      new_pid = GenServer.whereis(name)
+      assert is_pid(new_pid)
+      refute pid == new_pid
+      assert Process.alive?(new_pid)
+
+      result = Agens.Job.start(name, input)
+      assert result == :ok
+      assert_receive {:job_started, ^name}
+    end
+  end
 end
