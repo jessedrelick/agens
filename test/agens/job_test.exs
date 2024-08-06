@@ -49,7 +49,7 @@ defmodule Agens.JobTest do
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
       assert is_pid(pid)
-      result = Agens.Job.start(pid, input)
+      result = Agens.Job.start(name, input)
 
       assert result == :ok
       assert_receive {:job_started, ^name}

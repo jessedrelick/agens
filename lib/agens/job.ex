@@ -17,6 +17,18 @@ defmodule Agens.Job do
     GenServer.call(pid, {:start, input})
   end
 
+  def start(name, input) when is_atom(name) do
+    name
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :job_not_found}
+
+      pid when is_pid(pid) ->
+        start(pid, input)
+    end
+  end
+
   def get_config(pid) when is_pid(pid), do: GenServer.call(pid, :get_config)
 
   def get_config(name) when is_atom(name) do
