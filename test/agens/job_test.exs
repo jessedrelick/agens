@@ -3,6 +3,7 @@ defmodule Agens.JobTest do
   doctest Agens
 
   alias Agens.Job
+  alias Test.Support.Tools.NoopTool
 
   setup_all do
     job = %Job.Config{
@@ -134,6 +135,50 @@ defmodule Agens.JobTest do
       result = Agens.Job.start(name, input)
       assert result == :ok
       assert_receive {:job_started, ^name}
+    end
+  end
+
+  describe "tool use" do
+    test "noop tool" do
+      name = :noop_job
+
+      job = %Job.Config{
+        name: name,
+        objective: "to test tool usage",
+        steps: [
+          %Job.Step{
+            agent: :first_agent,
+            prompt: "",
+            conditions: nil
+          },
+          %Job.Step{
+            agent: :verifier_agent,
+            prompt: "",
+            conditions: %{
+              "TRUE" => :end,
+              "__DEFAULT__" => 0
+            },
+            tool: NoopTool
+          }
+        ]
+      }
+
+      {:ok, pid} = Agens.start_job(job)
+
+      input = "F"
+      assert is_pid(pid)
+      result = Agens.Job.start(name, input)
+      assert result == :ok
+      assert_receive {:job_started, ^name}
+
+      assert_receive {:step_started, ^name, 0, "F"}
+      assert_receive {:step_result, ^name, 0, "E"}
+      assert_receive {:step_started, ^name, 1, "E"}
+      assert_receive {:step_result, ^name, 1, "FALSE"}
+      assert_receive {:tool_started, ^name, 1, "FALSE"}
+      assert_receive {:tool_raw, ^name, 1, %{}}
+      assert_receive {:tool_result, ^name, 1, "TRUE"}
+      assert_receive {:job_ended, ^name, :complete}
     end
   end
 end

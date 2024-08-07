@@ -161,8 +161,12 @@ defmodule Agens.Job do
       |> tool.to_args()
       |> tool.execute()
 
-    send(state.parent, {:tool_result, state.config.name, state.step_index, raw})
+    send(state.parent, {:tool_raw, state.config.name, state.step_index, raw})
 
-    tool.post(raw)
+    result = tool.post(raw)
+
+    send(state.parent, {:tool_result, state.config.name, state.step_index, result})
+
+    result
   end
 end
