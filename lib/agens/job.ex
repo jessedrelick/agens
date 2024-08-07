@@ -6,7 +6,7 @@ defmodule Agens.Job do
   end
 
   defmodule Step do
-    defstruct [:agent, :prompt, :conditions]
+    defstruct [:agent, :prompt, :conditions, :tool]
   end
 
   defmodule State do
@@ -111,15 +111,18 @@ defmodule Agens.Job do
   end
 
   defp do_step(input, %State{config: config} = state) do
-    %Step{agent: agent, prompt: prompt, conditions: conditions} =
-      Enum.at(config.steps, state.step_index)
+    %Step{tool: tool} = step = Enum.at(config.steps, state.step_index)
+
+    msg = build_msg(step, input)
 
     send(state.parent, {:step_started, config.name, state.step_index, input})
-    %{results: [%{text: text}]} = Agens.message(agent, "#{prompt}#{input}")
+    %{results: [%{text: text}]} = Agens.message(step.agent, msg)
     send(state.parent, {:step_result, config.name, state.step_index, text})
 
-    if conditions do
-      do_conditions(conditions, text, input)
+    text = use_tool(tool, text, state)
+
+    if step.conditions do
+      do_conditions(step.conditions, text, input)
     else
       GenServer.cast(self(), {:next, text})
     end
@@ -140,5 +143,26 @@ defmodule Agens.Job do
 
   defp do_conditions(_conditions, _text, _input) do
     {:error, :not_implemented}
+  end
+
+  defp build_msg(%Step{tool: nil, prompt: prompt}, input), do: "#{prompt}#{input}"
+
+  defp build_msg(%Step{tool: tool, prompt: prompt}, input) do
+    "#{prompt} #{tool.instructions()} #{tool.pre(input)}"
+  end
+
+  defp use_tool(nil, text, _state), do: text
+
+  defp use_tool(tool, text, state) do
+    send(state.parent, {:tool_started, state.config.name, state.step_index, text})
+
+    raw =
+      text
+      |> tool.to_args()
+      |> tool.execute()
+
+    send(state.parent, {:tool_result, state.config.name, state.step_index, raw})
+
+    tool.post(raw)
   end
 end
