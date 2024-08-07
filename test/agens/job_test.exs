@@ -3,7 +3,6 @@ defmodule Agens.JobTest do
   doctest Agens
 
   alias Agens.Job
-  alias Test.Support.Tools.NoopTool
 
   setup_all do
     job = %Job.Config{
@@ -152,13 +151,12 @@ defmodule Agens.JobTest do
             conditions: nil
           },
           %Job.Step{
-            agent: :verifier_agent,
+            agent: :tool_agent,
             prompt: "",
             conditions: %{
               "TRUE" => :end,
               "__DEFAULT__" => 0
-            },
-            tool: NoopTool
+            }
           }
         ]
       }
@@ -174,10 +172,11 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, ^name, 0, "F"}
       assert_receive {:step_result, ^name, 0, "E"}
       assert_receive {:step_started, ^name, 1, "E"}
-      assert_receive {:step_result, ^name, 1, "FALSE"}
-      assert_receive {:tool_started, ^name, 1, "FALSE"}
-      assert_receive {:tool_raw, ^name, 1, %{}}
-      assert_receive {:tool_result, ^name, 1, "TRUE"}
+      # assert_receive {:tool_started, ^name, 1, "FALSE"}
+      # assert_receive {:tool_raw, ^name, 1, %{}}
+      # assert_receive {:tool_result, ^name, 1, "TRUE"}
+      assert_receive {:step_result, ^name, 1, "TRUE"}
+
       assert_receive {:job_ended, ^name, :complete}
     end
   end

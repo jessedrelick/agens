@@ -4,7 +4,7 @@ defmodule AgensTest do
 
   describe "agents" do
     test "start agents", %{agents: agents} do
-      assert length(agents) == 3
+      assert length(agents) == 4
       [{:ok, pid} | _] = agents
       assert is_pid(pid)
     end
@@ -30,35 +30,35 @@ defmodule AgensTest do
       input = "D"
 
       # 0
-      %{results: [%{text: text0}]} = Agens.message(:first_agent, input)
+      {:ok, text0} = Agens.message(:first_agent, input)
       input1 = post_process(text0)
       assert input1 == "C"
-      %{results: [%{text: text1}]} = Agens.message(:second_agent, input1)
+      {:ok, text1} = Agens.message(:second_agent, input1)
       input2 = post_process(text1)
       assert input2 == "E"
-      %{results: [%{text: text2}]} = Agens.message(:verifier_agent, input2)
+      {:ok, text2} = Agens.message(:verifier_agent, input2)
       verify1 = post_process(text2)
       assert verify1 == "FALSE"
 
       # 1
-      %{results: [%{text: text3}]} = Agens.message(:first_agent, input2)
+      {:ok, text3} = Agens.message(:first_agent, input2)
       input4 = post_process(text3)
       assert input4 == "D"
-      %{results: [%{text: text4}]} = Agens.message(:second_agent, input4)
+      {:ok, text4} = Agens.message(:second_agent, input4)
       input5 = post_process(text4)
       assert input5 == "F"
-      %{results: [%{text: text5}]} = Agens.message(:verifier_agent, input5)
+      {:ok, text5} = Agens.message(:verifier_agent, input5)
       verify2 = post_process(text5)
       assert verify2 == "FALSE"
 
       # 2
-      %{results: [%{text: text6}]} = Agens.message(:first_agent, input5)
+      {:ok, text6} = Agens.message(:first_agent, input5)
       input7 = post_process(text6)
       assert input7 == "E"
-      %{results: [%{text: text7}]} = Agens.message(:second_agent, input7)
+      {:ok, text7} = Agens.message(:second_agent, input7)
       input8 = post_process(text7)
       assert input8 == "G"
-      %{results: [%{text: text8}]} = Agens.message(:verifier_agent, input8)
+      {:ok, text8} = Agens.message(:verifier_agent, input8)
       verify3 = post_process(text8)
       assert verify3 == "TRUE"
     end
@@ -66,7 +66,7 @@ defmodule AgensTest do
     test "invalid message returns error" do
       msg = "Here is some invalid input"
 
-      %{results: [%{text: text}]} = Agens.message(:second_agent, msg)
+      {:ok, text} = Agens.message(:second_agent, msg)
 
       assert text == "ERROR"
     end

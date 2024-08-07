@@ -41,4 +41,6 @@ defmodule Test.Support.Serving do
   defp map_input(:verifier_agent, input) do
     if input == "G", do: "TRUE", else: "FALSE"
   end
+
+  defp map_input(:tool_agent, "E"), do: "FALSE"
 end

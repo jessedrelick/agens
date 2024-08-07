@@ -1,6 +1,8 @@
 defmodule Agens do
   use DynamicSupervisor
 
+  alias Agens.Agent
+
   def start_link(_) do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
   end
@@ -19,20 +21,25 @@ defmodule Agens do
   def message(agent_name, input) do
     case Registry.lookup(Agens.Registry.Agents, agent_name) do
       [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
-        base = Agens.Agent.base_prompt(agent_config.prompt, input)
+        base = Agent.base_prompt(agent_config, input)
         prompt = "<s>[INST]#{base}[/INST]"
         serving = agent_config.serving
 
-        cond do
-          is_atom(serving) ->
-            GenServer.call(agent_pid, {:run, prompt, input})
+        %{results: [%{text: text}]} =
+          cond do
+            is_atom(serving) ->
+              GenServer.call(agent_pid, {:run, prompt, input})
 
-          # GenServer.call(agent_name, {:run, input})
-          # apply(serving, :run, [input])
+            # GenServer.call(agent_name, {:run, input})
+            # apply(serving, :run, [input])
 
-          %Nx.Serving{} = serving ->
-            Nx.Serving.batched_run(agent_name, prompt)
-        end
+            %Nx.Serving{} = serving ->
+              Nx.Serving.batched_run(agent_name, prompt)
+          end
+
+        result = Agent.maybe_use_tool(agent_config.tool, text)
+
+        {:ok, result}
 
       [] ->
         {:error, :agent_not_running}
@@ -68,11 +75,11 @@ defmodule Agens do
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
-  defp start_function(%Agens.Agent{serving: %Nx.Serving{} = serving} = agent) do
+  defp start_function(%Agent{serving: %Nx.Serving{} = serving} = agent) do
     {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
   end
 
-  defp start_function(%Agens.Agent{serving: serving} = agent) do
+  defp start_function(%Agent{serving: serving} = agent) do
     {serving, :start_link, [[name: agent.name, config: agent]]}
   end
 end

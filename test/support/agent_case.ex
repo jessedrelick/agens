@@ -9,6 +9,7 @@ defmodule Test.Support.AgentCase do
   end
 
   alias Agens.Agent
+  alias Test.Support.Tools.NoopTool
 
   @real_llm false
 
@@ -66,6 +67,11 @@ defmodule Test.Support.AgentCase do
           serving: text_generation,
           prompt: "Return 'TRUE' if input is 'G', otherwise return 'FALSE'",
           knowledge: ""
+        },
+        %Agent{
+          name: :tool_agent,
+          serving: text_generation,
+          tool: NoopTool
         }
       ]
       |> Agens.start()
