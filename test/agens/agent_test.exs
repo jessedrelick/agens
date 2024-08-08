@@ -1,4 +1,4 @@
-defmodule AgensTest do
+defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
   doctest Agens
 
