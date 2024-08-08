@@ -6,7 +6,68 @@ defmodule Agens.Agent do
     defstruct [:identity, :context, :constraints, :examples, :reflection, :input]
   end
 
-  def base_prompt(%__MODULE__{prompt: %Prompt{} = prompt, tool: tool}, input) do
+  @registry Agens.Registry.Agents
+
+  def start(agents) when is_list(agents) do
+    agents
+    |> Enum.map(fn agent ->
+      start(agent)
+    end)
+  end
+
+  def start(%__MODULE__{} = agent) do
+    spec = %{
+      id: agent.name,
+      start: start_function(agent)
+    }
+
+    {:ok, pid} = DynamicSupervisor.start_child(Agens, spec)
+    Registry.register(@registry, agent.name, {pid, agent})
+    {:ok, pid}
+  end
+
+  def stop(name) do
+    name
+    |> Module.concat("Supervisor")
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :agent_not_found}
+
+      pid ->
+        DynamicSupervisor.terminate_child(Agens, pid)
+    end
+  end
+
+  def message(agent_name, input) do
+    case Registry.lookup(@registry, agent_name) do
+      [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
+        base = base_prompt(agent_config, input)
+        prompt = "<s>[INST]#{base}[/INST]"
+        serving = agent_config.serving
+
+        %{results: [%{text: text}]} =
+          cond do
+            is_atom(serving) ->
+              GenServer.call(agent_pid, {:run, prompt, input})
+
+            # GenServer.call(agent_name, {:run, input})
+            # apply(serving, :run, [input])
+
+            %Nx.Serving{} = serving ->
+              Nx.Serving.batched_run(agent_name, prompt)
+          end
+
+        result = maybe_use_tool(agent_config.tool, text)
+
+        {:ok, result}
+
+      [] ->
+        {:error, :agent_not_running}
+    end
+  end
+
+  defp base_prompt(%__MODULE__{prompt: %Prompt{} = prompt, tool: tool}, input) do
     """
     ## Identity
     You are a specialized agent with the following capabilities and expertise: #{prompt.identity}
@@ -27,15 +88,15 @@ defmodule Agens.Agent do
     """
   end
 
-  def base_prompt(%__MODULE__{prompt: prompt, tool: nil}, input),
+  defp base_prompt(%__MODULE__{prompt: prompt, tool: nil}, input),
     do: "Agent: #{prompt} Input: #{input}"
 
-  def base_prompt(%__MODULE__{prompt: prompt, tool: tool}, input) when is_atom(tool),
+  defp base_prompt(%__MODULE__{prompt: prompt, tool: tool}, input) when is_atom(tool),
     do: "Agent: #{prompt} Tool: #{tool.instructions()} Input: #{tool.pre(input)}"
 
-  def maybe_use_tool(nil, text), do: text
+  defp maybe_use_tool(nil, text), do: text
 
-  def maybe_use_tool(tool, text) do
+  defp maybe_use_tool(tool, text) do
     # send(parent, {:tool_started, {job_name, step_index}, text})
 
     raw =
@@ -57,5 +118,13 @@ defmodule Agens.Agent do
     ## Tool Instructions
     #{tool.instructions()}
     """
+  end
+
+  defp start_function(%__MODULE__{serving: %Nx.Serving{} = serving} = agent) do
+    {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
+  end
+
+  defp start_function(%__MODULE__{serving: serving} = agent) do
+    {serving, :start_link, [[name: agent.name, config: agent]]}
   end
 end

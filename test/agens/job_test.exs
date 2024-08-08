@@ -2,9 +2,13 @@ defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: true
   doctest Agens
 
-  alias Agens.Job
+  alias Agens.{Agent, Job}
 
-  setup_all do
+  defp start_job %{text_generation: text_generation} do
+    text_generation
+    |> get_agent_configs()
+    |> Agent.start()
+
     job = %Job.Config{
       name: :first_job,
       objective: "to create a sequence of steps",
@@ -30,7 +34,7 @@ defmodule Agens.JobTest do
       ]
     }
 
-    {:ok, pid} = Agens.start_job(job)
+    {:ok, pid} = Job.start(job)
 
     [
       job: job,
@@ -38,18 +42,31 @@ defmodule Agens.JobTest do
     ]
   end
 
-  describe "job" do
-    test "config", %{job: job, pid: pid} do
+  describe "config" do
+    test "config" do
+      job = %Job.Config{
+        name: :job_config,
+        objective: "",
+        steps: []
+      }
+
+      {:ok, pid} = Job.start(job)
+
       assert is_pid(pid)
       assert job == Job.get_config(pid)
-      assert job == Job.get_config(:first_job)
+      assert job == Job.get_config(:job_config)
       assert {:error, :job_not_found} == Job.get_config(:missing_job)
     end
+  end
 
+  describe "job" do
+    setup :start_job
+
+    @tag capture_log: true
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
       assert is_pid(pid)
-      result = Agens.Job.start(name, input)
+      result = Job.run(name, input)
 
       assert result == :ok
       assert_receive {:job_started, ^name}
@@ -107,11 +124,11 @@ defmodule Agens.JobTest do
         ]
       }
 
-      {:ok, pid} = Agens.start_job(job)
+      {:ok, pid} = Job.start(job)
 
       input = "F"
       assert is_pid(pid)
-      result = Agens.Job.start(name, input)
+      result = Job.run(name, input)
       assert result == :ok
       assert_receive {:job_started, ^name}
 
@@ -131,13 +148,14 @@ defmodule Agens.JobTest do
       refute pid == new_pid
       assert Process.alive?(new_pid)
 
-      result = Agens.Job.start(name, input)
+      result = Job.run(name, input)
       assert result == :ok
       assert_receive {:job_started, ^name}
     end
   end
 
   describe "tool use" do
+    @tag capture_log: true
     test "noop tool" do
       name = :noop_job
 
@@ -161,11 +179,11 @@ defmodule Agens.JobTest do
         ]
       }
 
-      {:ok, pid} = Agens.start_job(job)
+      {:ok, pid} = Job.start(job)
 
       input = "F"
       assert is_pid(pid)
-      result = Agens.Job.start(name, input)
+      result = Job.run(name, input)
       assert result == :ok
       assert_receive {:job_started, ^name}
 

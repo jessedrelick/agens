@@ -13,11 +13,18 @@ defmodule Agens.Job do
     defstruct [:status, :step_index, :config, :parent]
   end
 
-  def start(pid, input) when is_pid(pid) do
+  alias Agens.{Agent, Job}
+
+  def start(config) do
+    spec = Job.child_spec(config)
+    DynamicSupervisor.start_child(__MODULE__, spec)
+  end
+
+  def run(pid, input) when is_pid(pid) do
     GenServer.call(pid, {:start, input})
   end
 
-  def start(name, input) when is_atom(name) do
+  def run(name, input) when is_atom(name) do
     name
     |> Process.whereis()
     |> case do
@@ -25,7 +32,7 @@ defmodule Agens.Job do
         {:error, :job_not_found}
 
       pid when is_pid(pid) ->
-        start(pid, input)
+        run(pid, input)
     end
   end
 
@@ -119,7 +126,7 @@ defmodule Agens.Job do
     step = Enum.at(config.steps, state.step_index)
 
     send(state.parent, {:step_started, config.name, state.step_index, input})
-    {:ok, text} = Agens.message(step.agent, input)
+    {:ok, text} = Agent.message(step.agent, input)
     send(state.parent, {:step_result, config.name, state.step_index, text})
 
     if step.conditions do
