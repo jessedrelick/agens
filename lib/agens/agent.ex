@@ -1,6 +1,25 @@
 defmodule Agens.Agent do
   @moduledoc """
   The Agent module provides struct and function definitions for an Agent process.
+
+  ## Example
+
+      # Ensure the test registry is running (see `Test.Support.AgentCase`)
+      iex> Process.whereis(Agens.Registry.Agents) |> is_pid()
+      true
+      # Start an Agent with a name and serving module
+      iex> {:ok, pid} = %Agens.Agent.Config{
+      ...>   name: :test_agent,
+      ...>   serving: Test.Support.Serving
+      ...> }
+      ...> |> Agens.Agent.start()
+      iex> is_pid(pid)
+      true
+      # Send a message to the Agent by agent name
+      iex> {:ok, text} = Agens.Agent.message(:test_agent, "hello")
+      iex> is_binary(text)
+      true
+
   """
 
   defmodule Prompt do
@@ -8,9 +27,6 @@ defmodule Agens.Agent do
     The Prompt struct represents a prompt for an Agent process.
     """
 
-    @doc """
-    The Prompt struct represents a prompt for an Agent process.
-    """
     @derive Jason.Encoder
 
     @type t :: %__MODULE__{
@@ -26,34 +42,37 @@ defmodule Agens.Agent do
     defstruct [:identity, :context, :constraints, :examples, :reflection, :input]
   end
 
-  @doc """
-  The Agent struct represents an Agent process.
+  defmodule Config do
+    @moduledoc """
+    The `Config` struct represents an Agent process.
 
-  ## Fields
+    ## Fields
     - `:name` - The name of the Agent process.
     - `:serving` - The serving module or Nx.Serving struct for the Agent. Default is nil.
     - `:context` - The context or goal of the Agent. Default is nil.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil.
     - `:prompt` - The `Prompt` struct for the Agent. Default is nil.
     - `:tool` - The tool module for the Agent. Default is nil.
-  """
-  @enforce_keys [:name, :serving]
-  @type t :: %__MODULE__{
-    name: atom(),
-    serving: module() | Nx.Serving.t(),
-    context: String.t() | nil,
-    knowledge: module() | nil,
-    prompt: __MODULE__.Prompt.t() | String.t() | nil,
-    tool: module() | nil
-  }
-  defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
+    """
+
+    @enforce_keys [:name, :serving]
+    @type t :: %__MODULE__{
+      name: atom(),
+      serving: module() | Nx.Serving.t(),
+      context: String.t() | nil,
+      knowledge: module() | nil,
+      prompt: Agens.Agent.Prompt.t() | String.t() | nil,
+      tool: module() | nil
+    }
+    defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
+  end
 
   @registry Agens.Registry.Agents
 
   @doc """
   Starts one or more agents
   """
-  @spec start([t()] | t()) :: [pid()] | {:ok, pid()}
+  @spec start([Config.t()] | Config.t()) :: [pid()] | {:ok, pid()}
   def start(agents) when is_list(agents) do
     agents
     |> Enum.map(fn agent ->
@@ -61,9 +80,9 @@ defmodule Agens.Agent do
     end)
   end
 
-  @spec start(t()) :: {:ok, pid()}
+  @spec start(Config.t()) :: {:ok, pid()}
   @type start_result :: {:ok, pid()}
-  def start(%__MODULE__{} = agent) do
+  def start(%Config{} = agent) do
     spec = %{
       id: agent.name,
       start: start_function(agent)
@@ -125,7 +144,7 @@ defmodule Agens.Agent do
     end
   end
 
-  defp base_prompt(%__MODULE__{prompt: %Prompt{} = prompt, tool: tool}, input) do
+  defp base_prompt(%Config{prompt: %Prompt{} = prompt, tool: tool}, input) do
     """
     ## Identity
     You are a specialized agent with the following capabilities and expertise: #{prompt.identity}
@@ -146,10 +165,10 @@ defmodule Agens.Agent do
     """
   end
 
-  defp base_prompt(%__MODULE__{prompt: prompt, tool: nil}, input),
+  defp base_prompt(%Config{prompt: prompt, tool: nil}, input),
     do: "Agent: #{prompt} Input: #{input}"
 
-  defp base_prompt(%__MODULE__{prompt: prompt, tool: tool}, input) when is_atom(tool),
+  defp base_prompt(%Config{prompt: prompt, tool: tool}, input) when is_atom(tool),
     do: "Agent: #{prompt} Tool: #{tool.instructions()} Input: #{tool.pre(input)}"
 
   defp maybe_use_tool(nil, text), do: text
@@ -178,11 +197,11 @@ defmodule Agens.Agent do
     """
   end
 
-  defp start_function(%__MODULE__{serving: %Nx.Serving{} = serving} = agent) do
+  defp start_function(%Config{serving: %Nx.Serving{} = serving} = agent) do
     {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
   end
 
-  defp start_function(%__MODULE__{serving: serving} = agent) do
+  defp start_function(%Config{serving: serving} = agent) do
     {serving, :start_link, [[name: agent.name, config: agent]]}
   end
 end

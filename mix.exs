@@ -1,21 +1,19 @@
 defmodule Agens.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :agens,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Library for creating AI agents",
       package: package(),
-      docs: [
-        main: "Agens",
-        extras: ["README.md"],
-        source_url: "https://github.com/jessedrelick/agens"
-      ]
+      docs: docs()
     ]
   end
 
@@ -41,6 +39,30 @@ defmodule Agens.MixProject do
       maintainers: ["Jesse Drelick"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/jessedrelick/agens"}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "Agens",
+      extras: ["README.md"],
+      source_url: "https://github.com/jessedrelick/agens",
+      groups_for_modules: [
+        "Agent": [
+          Agens.Agent,
+          Agens.Agent.Config,
+          Agens.Agent.Prompt
+        ],
+        "Job": [
+          Agens.Job,
+          Agens.Job.State,
+          Agens.Job.Config,
+          Agens.Job.Step
+        ],
+        "Tool": [
+          Agens.Tool
+        ]
+      ]
     ]
   end
 

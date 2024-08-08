@@ -1,6 +1,6 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
-  doctest Agens
+  doctest Agens.Agent
 
   alias Agens.Agent
 
@@ -8,7 +8,7 @@ defmodule Agens.AgentTest do
     test "start agents", %{text_generation: text_generation} do
       agents =
         [
-          %Agent{
+          %Agent.Config{
             name: :test_start_agent,
             serving: text_generation
           }
@@ -24,7 +24,7 @@ defmodule Agens.AgentTest do
     test "stop agent", %{text_generation: text_generation} do
       agents =
         [
-          %Agent{
+          %Agent.Config{
             name: :test_stop_agent,
             serving: text_generation
           }
@@ -94,7 +94,7 @@ defmodule Agens.AgentTest do
     @tag :skip
     test "invalid message returns error", %{text_generation: text_generation} do
       [
-        %Agent{
+        %Agent.Config{
           name: :test_start_agent,
           serving: text_generation
         }
