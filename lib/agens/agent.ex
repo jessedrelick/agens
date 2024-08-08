@@ -1,13 +1,59 @@
 defmodule Agens.Agent do
-  defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
+  @moduledoc """
+  The Agent module provides struct and function definitions for an Agent process.
+  """
 
   defmodule Prompt do
+    @moduledoc """
+    The Prompt struct represents a prompt for an Agent process.
+    """
+
+    @doc """
+    The Prompt struct represents a prompt for an Agent process.
+    """
     @derive Jason.Encoder
+
+    @type t :: %__MODULE__{
+            identity: String.t(),
+            context: String.t(),
+            constraints: String.t(),
+            examples: String.t(),
+            reflection: String.t(),
+            input: String.t()
+          }
+
+    @enforce_keys []
     defstruct [:identity, :context, :constraints, :examples, :reflection, :input]
   end
 
+  @doc """
+  The Agent struct represents an Agent process.
+
+  ## Fields
+    - `:name` - The name of the Agent process.
+    - `:serving` - The serving module or Nx.Serving struct for the Agent. Default is nil.
+    - `:context` - The context or goal of the Agent. Default is nil.
+    - `:knowledge` - The knowledge base or data source of the Agent. Default is nil.
+    - `:prompt` - The `Prompt` struct for the Agent. Default is nil.
+    - `:tool` - The tool module for the Agent. Default is nil.
+  """
+  @enforce_keys [:name, :serving]
+  @type t :: %__MODULE__{
+    name: atom(),
+    serving: module() | Nx.Serving.t(),
+    context: String.t() | nil,
+    knowledge: module() | nil,
+    prompt: __MODULE__.Prompt.t() | String.t() | nil,
+    tool: module() | nil
+  }
+  defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
+
   @registry Agens.Registry.Agents
 
+  @doc """
+  Starts one or more agents
+  """
+  @spec start([t()] | t()) :: [pid()] | {:ok, pid()}
   def start(agents) when is_list(agents) do
     agents
     |> Enum.map(fn agent ->
@@ -15,6 +61,8 @@ defmodule Agens.Agent do
     end)
   end
 
+  @spec start(t()) :: {:ok, pid()}
+  @type start_result :: {:ok, pid()}
   def start(%__MODULE__{} = agent) do
     spec = %{
       id: agent.name,
@@ -26,6 +74,11 @@ defmodule Agens.Agent do
     {:ok, pid}
   end
 
+  @doc """
+  Stops an agent
+  """
+  @spec stop(atom()) :: :ok | {:error, :agent_not_found}
+  @type stop_result :: :ok | {:error, :agent_not_found}
   def stop(name) do
     name
     |> Module.concat("Supervisor")
@@ -39,6 +92,11 @@ defmodule Agens.Agent do
     end
   end
 
+  @doc """
+  Sends a message to an agent
+  """
+  @spec message(atom(), String.t()) :: {:ok, String.t()} | {:error, :agent_not_running}
+  @type message_result :: {:ok, String.t()} | {:error, :agent_not_running}
   def message(agent_name, input) do
     case Registry.lookup(@registry, agent_name) do
       [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->

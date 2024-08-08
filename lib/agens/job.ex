@@ -1,25 +1,100 @@
 defmodule Agens.Job do
+  @moduledoc """
+  A `GenServer` implementation that manages a sequence of steps.
+
+  The job is defined by a `Config` struct that specifies the name, objective,
+  and sequence of steps. Each step is defined by an `Agent` struct and a
+  prompt string. The job can be started using the `start/1` function and
+  run using the `run/2` function. The progress of the job can be observed
+  using the `GenServer.call/2` and `GenServer.cast/2` functions to retrieve
+  the current state of the job and to control its progression.
+  """
   use GenServer
 
-  defmodule Config do
-    defstruct [:name, :objective, :steps]
-  end
-
   defmodule Step do
+    @moduledoc """
+    The `Step` struct defines a step in a job.
+
+    A step consists of an `Agent` struct and a prompt string. Optionally, a list of
+    conditions can be specified to control if the step should be executed.
+    """
+
+    @type t :: %__MODULE__{
+      agent: atom(),
+      prompt: String.t() | nil,
+      conditions: list(map()) | nil
+    }
+
+    @enforce_keys [:agent]
     defstruct [:agent, :prompt, :conditions]
   end
 
+  defmodule Config do
+    @moduledoc """
+    The `Config` struct defines the configuration for a job.
+
+    The `name` field is an atom that identifies the job. The `objective` field
+    is a string that describes the purpose of the job. The `steps` field is a list
+    of `Step` structs that define the sequence of actions to be performed.
+    """
+    defstruct [:name, :objective, :steps]
+
+    @typedoc """
+    The `Config` struct defines the configuration for a job.
+
+    The `name` field is a string that identifies the job. The `objective` field
+    is a string that describes the purpose of the job. The `steps` field is a list
+    of `Step` structs that define the sequence of actions to be performed.
+    """
+    @type t :: %__MODULE__{
+      name: String.t(),
+      objective: String.t(),
+      steps: list(Step.t())
+    }
+  end
+
   defmodule State do
+    @moduledoc """
+    The `State` struct is used to keep track of the current state of a job.
+
+    The `status` field is one of `:running`, `:error`, or `:completed`. The
+    `step_index` field is an integer that represents the index of the current
+    step being executed. The `config` field is a `Config` struct that defines the
+    configuration for the job. The `parent` field is a process identifier for the
+    parent process.
+    """
+
+    @type t :: %__MODULE__{
+      status: :init | :running | :error | :completed,
+      step_index: non_neg_integer(),
+      config: Config.t(),
+      parent: pid()
+    }
+
+    @enforce_keys [:status]
     defstruct [:status, :step_index, :config, :parent]
   end
 
   alias Agens.{Agent, Job}
 
+  @doc """
+  Starts a new job using the provided `config`.
+
+  Returns `{:ok, pid}` if the job was successfully started.
+  """
+  @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
     spec = Job.child_spec(config)
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
+  @doc """
+  Runs a job with the given `pid` and `input`.
+
+  Returns the result of the `GenServer.call/2` function.
+  """
+  @spec run(pid, term) :: term
+  @spec run(atom, term) :: {:ok, term} | {:error, :job_not_found}
   def run(pid, input) when is_pid(pid) do
     GenServer.call(pid, {:start, input})
   end
@@ -36,7 +111,16 @@ defmodule Agens.Job do
     end
   end
 
-  def get_config(pid) when is_pid(pid), do: GenServer.call(pid, :get_config)
+  @doc """
+  Retrieves the configuration for a job with the given `pid`.
+
+  Returns the result of the `GenServer.call/2` function.
+  """
+  @spec get_config(pid) :: term
+  @spec get_config(atom) :: {:ok, term} | {:error, :job_not_found}
+  def get_config(pid) when is_pid(pid) do
+    GenServer.call(pid, :get_config)
+  end
 
   def get_config(name) when is_atom(name) do
     name
