@@ -10,7 +10,12 @@ defmodule Agens.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Library for creating AI agents",
-      package: package()
+      package: package(),
+      docs: [
+        main: "Agens",
+        extras: ["README.md"],
+        source_url: "https://github.com/jessedrelick/agens"
+      ]
     ]
   end
 
