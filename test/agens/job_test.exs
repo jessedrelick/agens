@@ -66,9 +66,8 @@ defmodule Agens.JobTest do
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
       assert is_pid(pid)
-      result = Job.run(name, input)
+      assert Job.run(name, input) == :ok
 
-      assert result == :ok
       assert_receive {:job_started, ^name}
 
       # 0
@@ -100,6 +99,8 @@ defmodule Agens.JobTest do
   end
 
   describe "restart" do
+    setup :start_job
+
     @tag capture_log: true
     test "crash" do
       name = :crash_job
@@ -155,6 +156,8 @@ defmodule Agens.JobTest do
   end
 
   describe "tool use" do
+    setup :start_job
+
     @tag capture_log: true
     test "noop tool" do
       name = :noop_job

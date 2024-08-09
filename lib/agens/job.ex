@@ -75,6 +75,8 @@ defmodule Agens.Job do
     defstruct [:status, :step_index, :config, :parent]
   end
 
+  require Logger
+
   alias Agens.{Agent, Job}
 
   @doc """
@@ -85,7 +87,19 @@ defmodule Agens.Job do
   @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
     spec = Job.child_spec(config)
-    DynamicSupervisor.start_child(__MODULE__, spec)
+
+    pid =
+      Agens
+      |> DynamicSupervisor.start_child(spec)
+      |> case do
+        {:ok, pid} ->
+          pid
+        {:error, {:already_started, pid}} ->
+          Logger.warning "Agent #{config.name} already started"
+          pid
+      end
+
+    {:ok, pid}
   end
 
   @doc """

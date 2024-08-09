@@ -67,6 +67,8 @@ defmodule Agens.Agent do
     defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
   end
 
+  require Logger
+
   @registry Agens.Registry.Agents
 
   @doc """
@@ -88,7 +90,17 @@ defmodule Agens.Agent do
       start: start_function(agent)
     }
 
-    {:ok, pid} = DynamicSupervisor.start_child(Agens, spec)
+    pid =
+      Agens
+      |> DynamicSupervisor.start_child(spec)
+      |> case do
+        {:ok, pid} ->
+          pid
+        {:error, {:already_started, pid}} ->
+          Logger.warning "Agent #{agent.name} already started"
+          pid
+      end
+
     Registry.register(@registry, agent.name, {pid, agent})
     {:ok, pid}
   end
