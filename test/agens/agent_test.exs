@@ -35,8 +35,7 @@ defmodule Agens.AgentTest do
       [{:ok, pid}] = agents
       assert is_pid(pid)
 
-      result = Agent.stop(:test_stop_agent)
-      assert result
+      assert Agent.stop(:test_stop_agent) == :ok
 
       result = Agent.message(:test_stop_agent, "test")
       assert result == {:error, :agent_not_running}
@@ -91,11 +90,10 @@ defmodule Agens.AgentTest do
       assert verify3 == "TRUE"
     end
 
-    @tag :skip
     test "invalid message returns error", %{text_generation: text_generation} do
       [
         %Agent.Config{
-          name: :test_start_agent,
+          name: :second_agent,
           serving: text_generation
         }
       ]

@@ -43,4 +43,6 @@ defmodule Test.Support.Serving do
   end
 
   defp map_input(:tool_agent, "E"), do: "FALSE"
+
+  defp map_input(agent, input), do: "sent '#{input}' to: #{agent}"
 end
