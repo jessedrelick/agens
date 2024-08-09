@@ -15,10 +15,12 @@ defmodule Agens.Agent do
       iex> registry = Application.get_env(:agens, :registry)
       iex> Process.whereis(registry) |> is_pid()
       true
+      iex> serving = Test.Support.Serving.get(false)
+      Test.Support.Serving.Stub
       # Start an Agent with a name and serving module
       iex> {:ok, pid} = %Agens.Agent.Config{
       ...>   name: :test_agent,
-      ...>   serving: Test.Support.Serving
+      ...>   serving: serving
       ...> }
       ...> |> Agens.Agent.start()
       iex> is_pid(pid)

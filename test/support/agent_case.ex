@@ -9,12 +9,13 @@ defmodule Test.Support.AgentCase do
   end
 
   alias Agens.Agent
+  alias Test.Support.Serving
   alias Test.Support.Tools.NoopTool
 
   @real_llm false
 
   setup_all do
-    text_generation = serving(@real_llm)
+    text_generation = Serving.get(@real_llm)
 
     [
       text_generation: text_generation
@@ -64,24 +65,4 @@ defmodule Test.Support.AgentCase do
       }
     ]
   end
-
-  defp serving(true) do
-    IO.puts("Enabling EXLA Backend")
-    Application.put_env(:nx, :default_backend, EXLA.Backend)
-    auth_token = System.get_env("HF_AUTH_TOKEN")
-    repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
-
-    IO.puts("Loading Model")
-    {:ok, model} = Bumblebee.load_model(repo, type: :bf16)
-    {:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
-    {:ok, generation_config} = Bumblebee.load_generation_config(repo)
-
-    IO.puts("Starting LLM")
-    serving = Bumblebee.Text.generation(model, tokenizer, generation_config)
-    IO.puts("LLM Ready")
-
-    serving
-  end
-
-  defp serving(_), do: Test.Support.Serving
 end
