@@ -20,7 +20,6 @@ defmodule Agens.AgentTest do
       assert is_pid(pid)
     end
 
-    @tag :skip
     test "stop agent", %{text_generation: text_generation} do
       agents =
         [

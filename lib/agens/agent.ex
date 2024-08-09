@@ -119,7 +119,8 @@ defmodule Agens.Agent do
         {:error, :agent_not_found}
 
       pid ->
-        DynamicSupervisor.terminate_child(Agens, pid)
+        :ok = DynamicSupervisor.terminate_child(Agens, pid)
+        Registry.unregister(@registry, agent_name)
     end
   end
 
