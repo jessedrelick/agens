@@ -14,14 +14,6 @@ defmodule Test.Support.AgentCase do
   @real_llm false
 
   setup_all do
-    Supervisor.start_link(
-      [
-        {Agens, name: Agens},
-        {Registry, keys: :unique, name: Agens.Registry.Agents}
-      ],
-      strategy: :one_for_one
-    )
-
     text_generation = serving(@real_llm)
 
     [
@@ -85,8 +77,10 @@ defmodule Test.Support.AgentCase do
     {:ok, generation_config} = Bumblebee.load_generation_config(repo)
 
     IO.puts("Starting LLM")
-    Bumblebee.Text.generation(model, tokenizer, generation_config)
+    serving = Bumblebee.Text.generation(model, tokenizer, generation_config)
     IO.puts("LLM Ready")
+
+    serving
   end
 
   defp serving(_), do: Test.Support.Serving

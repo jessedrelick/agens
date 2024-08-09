@@ -75,19 +75,19 @@ defmodule Agens.Agent do
   Starts one or more agents
   """
   @spec start([Config.t()] | Config.t()) :: [pid()] | {:ok, pid()}
-  def start(agents) when is_list(agents) do
-    agents
-    |> Enum.map(fn agent ->
-      start(agent)
+  def start(configs) when is_list(configs) do
+    configs
+    |> Enum.map(fn config ->
+      start(config)
     end)
   end
 
   @spec start(Config.t()) :: {:ok, pid()}
   @type start_result :: {:ok, pid()}
-  def start(%Config{} = agent) do
+  def start(%Config{} = config) do
     spec = %{
-      id: agent.name,
-      start: start_function(agent)
+      id: config.name,
+      start: start_function(config)
     }
 
     pid =
@@ -97,11 +97,11 @@ defmodule Agens.Agent do
         {:ok, pid} ->
           pid
         {:error, {:already_started, pid}} ->
-          Logger.warning "Agent #{agent.name} already started"
+          Logger.warning "Agent #{config.name} already started"
           pid
       end
 
-    Registry.register(@registry, agent.name, {pid, agent})
+    Registry.register(@registry, config.name, {pid, config})
     {:ok, pid}
   end
 
@@ -110,8 +110,8 @@ defmodule Agens.Agent do
   """
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
   @type stop_result :: :ok | {:error, :agent_not_found}
-  def stop(name) do
-    name
+  def stop(agent_name) do
+    agent_name
     |> Module.concat("Supervisor")
     |> Process.whereis()
     |> case do
@@ -130,10 +130,10 @@ defmodule Agens.Agent do
   @type message_result :: {:ok, String.t()} | {:error, :agent_not_running}
   def message(agent_name, input) do
     case Registry.lookup(@registry, agent_name) do
-      [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
-        base = base_prompt(agent_config, input)
+      [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
+        base = base_prompt(config, input)
         prompt = "<s>[INST]#{base}[/INST]"
-        serving = agent_config.serving
+        serving = config.serving
 
         %{results: [%{text: text}]} =
           cond do
@@ -147,7 +147,7 @@ defmodule Agens.Agent do
               Nx.Serving.batched_run(agent_name, prompt)
           end
 
-        result = maybe_use_tool(agent_config.tool, text)
+        result = maybe_use_tool(config.tool, text)
 
         {:ok, result}
 
@@ -209,11 +209,13 @@ defmodule Agens.Agent do
     """
   end
 
-  defp start_function(%Config{serving: %Nx.Serving{} = serving} = agent) do
-    {Nx.Serving, :start_link, [[serving: serving, name: agent.name]]}
+  defp start_function(%Config{serving: %Nx.Serving{} = serving} = config) do
+    {Nx.Serving, :start_link, [[serving: serving, name: config.name]]}
   end
 
-  defp start_function(%Config{serving: serving} = agent) do
-    {serving, :start_link, [[name: agent.name, config: agent]]}
+  # Module.concat with "Supervisor" for Nx.Serving parity
+  defp start_function(%Config{serving: serving} = config) when is_atom(serving) do
+    name = Module.concat(config.name, "Supervisor")
+    {serving, :start_link, [[name: name, config: config]]}
   end
 end
