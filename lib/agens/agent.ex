@@ -3,9 +3,17 @@ defmodule Agens.Agent do
   The Agent module provides struct and function definitions for an Agent process.
 
   ## Example
+      # First, add the Agens supervisor to your application supervision tree
+      Supervisor.start_link(
+        [
+          {Agens.Supervisor, name: Agens.Supervisor}
+        ],
+        strategy: :one_for_one
+      )
 
       # Ensure the test registry is running (see `Test.Support.AgentCase`)
-      iex> Process.whereis(Agens.Registry.Agents) |> is_pid()
+      iex> registry = Application.get_env(:agens, :registry)
+      iex> Process.whereis(registry) |> is_pid()
       true
       # Start an Agent with a name and serving module
       iex> {:ok, pid} = %Agens.Agent.Config{
@@ -16,9 +24,8 @@ defmodule Agens.Agent do
       iex> is_pid(pid)
       true
       # Send a message to the Agent by agent name
-      iex> {:ok, text} = Agens.Agent.message(:test_agent, "hello")
-      iex> is_binary(text)
-      true
+      iex> Agens.Agent.message(:test_agent, "hello")
+      {:ok, "sent 'hello' to: test_agent"}
 
   """
 
@@ -69,7 +76,7 @@ defmodule Agens.Agent do
 
   require Logger
 
-  @registry Agens.Registry.Agents
+  @registry Application.compile_env(:agens, :registry)
 
   @doc """
   Starts one or more agents
