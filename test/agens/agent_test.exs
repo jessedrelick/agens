@@ -1,16 +1,16 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
-  doctest Agens.Agent
+  # doctest Agens.Agent
 
   alias Agens.Agent
 
   describe "agents" do
-    test "start agents", %{text_generation: text_generation} do
+    test "start agents" do
       agents =
         [
           %Agent.Config{
             name: :test_start_agent,
-            serving: text_generation
+            serving: :text_generation
           }
         ]
         |> Agent.start()
@@ -20,12 +20,19 @@ defmodule Agens.AgentTest do
       assert is_pid(pid)
     end
 
-    test "stop agent", %{text_generation: text_generation} do
+    test "stop agent" do
+      agent_name = :test_stop_agent
+      msg = "test stop"
+
+      :meck.expect(Agent, :message, fn
+        ^agent_name, ^msg -> :meck.passthrough([agent_name, msg])
+      end)
+
       agents =
         [
           %Agent.Config{
-            name: :test_stop_agent,
-            serving: text_generation
+            name: agent_name,
+            serving: :text_generation
           }
         ]
         |> Agent.start()
@@ -36,7 +43,7 @@ defmodule Agens.AgentTest do
 
       assert Agent.stop(:test_stop_agent) == :ok
 
-      result = Agent.message(:test_stop_agent, "test")
+      result = Agent.message(:test_stop_agent, msg)
       assert result == {:error, :agent_not_running}
     end
 
@@ -47,10 +54,11 @@ defmodule Agens.AgentTest do
   end
 
   describe "messages" do
+    setup :setup_mock
+
     @tag timeout: :infinity
-    test "message sequence without job", %{text_generation: text_generation} do
-      text_generation
-      |> get_agent_configs()
+    test "message sequence without job" do
+      get_agent_configs()
       |> Agent.start()
 
       input = "D"
@@ -89,11 +97,11 @@ defmodule Agens.AgentTest do
       assert verify3 == "TRUE"
     end
 
-    test "invalid message returns error", %{text_generation: text_generation} do
+    test "invalid message returns error" do
       [
         %Agent.Config{
           name: :second_agent,
-          serving: text_generation
+          serving: :text_generation
         }
       ]
       |> Agent.start()
@@ -106,7 +114,14 @@ defmodule Agens.AgentTest do
     end
 
     test "message non-existent agent" do
-      result = Agent.message(:missing_agent, "J")
+      agent_name = :missing_agent
+      msg = "J"
+
+      :meck.expect(Agent, :message, fn
+        ^agent_name, ^msg -> :meck.passthrough([agent_name, msg])
+      end)
+
+      result = Agent.message(agent_name, msg)
       assert result == {:error, :agent_not_running}
     end
   end

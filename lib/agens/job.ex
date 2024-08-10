@@ -20,10 +20,10 @@ defmodule Agens.Job do
     """
 
     @type t :: %__MODULE__{
-      agent: atom(),
-      prompt: String.t() | nil,
-      conditions: list(map()) | nil
-    }
+            agent: atom(),
+            prompt: String.t() | nil,
+            conditions: list(map()) | nil
+          }
 
     @enforce_keys [:agent]
     defstruct [:agent, :prompt, :conditions]
@@ -47,10 +47,10 @@ defmodule Agens.Job do
     of `Step` structs that define the sequence of actions to be performed.
     """
     @type t :: %__MODULE__{
-      name: String.t(),
-      objective: String.t(),
-      steps: list(Step.t())
-    }
+            name: String.t(),
+            objective: String.t(),
+            steps: list(Step.t())
+          }
   end
 
   defmodule State do
@@ -65,11 +65,11 @@ defmodule Agens.Job do
     """
 
     @type t :: %__MODULE__{
-      status: :init | :running | :error | :completed,
-      step_index: non_neg_integer(),
-      config: Config.t(),
-      parent: pid()
-    }
+            status: :init | :running | :error | :completed,
+            step_index: non_neg_integer(),
+            config: Config.t(),
+            parent: pid()
+          }
 
     @enforce_keys [:status]
     defstruct [:status, :step_index, :config, :parent]
@@ -94,8 +94,9 @@ defmodule Agens.Job do
       |> case do
         {:ok, pid} ->
           pid
+
         {:error, {:already_started, pid}} ->
-          Logger.warning "Agent #{config.name} already started"
+          Logger.warning("Agent #{config.name} already started")
           pid
       end
 

@@ -1,3 +1,3 @@
 import Config
 
-config :agens, registry: Agens.Registry.Agents
+config :agens, registry: Agens.Registry

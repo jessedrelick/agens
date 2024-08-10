@@ -15,12 +15,18 @@ defmodule Agens.Agent do
       iex> registry = Application.get_env(:agens, :registry)
       iex> Process.whereis(registry) |> is_pid()
       true
-      iex> serving = Test.Support.Serving.get(false)
-      Test.Support.Serving.Stub
+      iex> serving_config = %Agens.Serving.Config{
+      ...>   name: :test_serving,
+      ...>   serving: Test.Support.Serving.get(false)
+      ...> }
+      %Agens.Serving.Config{name: :test_serving, serving: serving_config.serving}
+      iex> {:ok, pid} = Agens.Serving.start(serving_config)
+      iex> is_pid(pid)
+      true
       # Start an Agent with a name and serving module
       iex> {:ok, pid} = %Agens.Agent.Config{
       ...>   name: :test_agent,
-      ...>   serving: serving
+      ...>   serving: :test_serving
       ...> }
       ...> |> Agens.Agent.start()
       iex> is_pid(pid)
@@ -66,17 +72,21 @@ defmodule Agens.Agent do
 
     @enforce_keys [:name, :serving]
     @type t :: %__MODULE__{
-      name: atom(),
-      serving: module() | Nx.Serving.t(),
-      context: String.t() | nil,
-      knowledge: module() | nil,
-      prompt: Agens.Agent.Prompt.t() | String.t() | nil,
-      tool: module() | nil
-    }
+            name: atom(),
+            serving: module() | Nx.Serving.t(),
+            context: String.t() | nil,
+            knowledge: module() | nil,
+            prompt: Agens.Agent.Prompt.t() | String.t() | nil,
+            tool: module() | nil
+          }
     defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
   end
 
+  use GenServer
+
   require Logger
+
+  alias Agens.Serving
 
   @registry Application.compile_env(:agens, :registry)
 
@@ -96,7 +106,9 @@ defmodule Agens.Agent do
   def start(%Config{} = config) do
     spec = %{
       id: config.name,
-      start: start_function(config)
+      start: {__MODULE__, :start_link, [config]}
+      # type: :worker,
+      # restart: :transient
     }
 
     pid =
@@ -105,8 +117,9 @@ defmodule Agens.Agent do
       |> case do
         {:ok, pid} ->
           pid
+
         {:error, {:already_started, pid}} ->
-          Logger.warning "Agent #{config.name} already started"
+          Logger.warning("Agent #{config.name} already started")
           pid
       end
 
@@ -121,7 +134,6 @@ defmodule Agens.Agent do
   @type stop_result :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
     agent_name
-    |> Module.concat("Supervisor")
     |> Process.whereis()
     |> case do
       nil ->
@@ -143,27 +155,21 @@ defmodule Agens.Agent do
       [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
         base = base_prompt(config, input)
         prompt = "<s>[INST]#{base}[/INST]"
-        serving = config.serving
-
-        %{results: [%{text: text}]} =
-          cond do
-            is_atom(serving) ->
-              GenServer.call(agent_pid, {:run, prompt, input})
-
-            # GenServer.call(agent_name, {:run, input})
-            # apply(serving, :run, [input])
-
-            %Nx.Serving{} = serving ->
-              Nx.Serving.batched_run(agent_name, prompt)
-          end
-
-        result = maybe_use_tool(config.tool, text)
-
-        {:ok, result}
+        text = Serving.run(config.serving, prompt, input)
+        maybe_use_tool(config.tool, text)
 
       [] ->
         {:error, :agent_not_running}
     end
+  end
+
+  def start_link(config) do
+    GenServer.start_link(__MODULE__, config, name: config.name)
+  end
+
+  @impl true
+  def init(_config) do
+    {:ok, %{}}
   end
 
   defp base_prompt(%Config{prompt: %Prompt{} = prompt, tool: tool}, input) do
@@ -217,15 +223,5 @@ defmodule Agens.Agent do
     ## Tool Instructions
     #{tool.instructions()}
     """
-  end
-
-  defp start_function(%Config{serving: %Nx.Serving{} = serving} = config) do
-    {Nx.Serving, :start_link, [[serving: serving, name: config.name]]}
-  end
-
-  # Module.concat with "Supervisor" for Nx.Serving parity
-  defp start_function(%Config{serving: serving} = config) when is_atom(serving) do
-    name = Module.concat(config.name, "Supervisor")
-    {serving, :start_link, [[name: name, config: config]]}
   end
 end

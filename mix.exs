@@ -30,7 +30,7 @@ defmodule Agens.MixProject do
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:bumblebee, "~> 0.5.3"},
       {:exla, "~> 0.7.0"},
-      {:hammox, "~> 0.7", only: :test}
+      {:meck, "~> 0.9.2", only: :test}
     ]
   end
 
@@ -48,18 +48,18 @@ defmodule Agens.MixProject do
       extras: ["README.md"],
       source_url: "https://github.com/jessedrelick/agens",
       groups_for_modules: [
-        "Agent": [
+        Agent: [
           Agens.Agent,
           Agens.Agent.Config,
           Agens.Agent.Prompt
         ],
-        "Job": [
+        Job: [
           Agens.Job,
           Agens.Job.State,
           Agens.Job.Config,
           Agens.Job.Step
         ],
-        "Tool": [
+        Tool: [
           Agens.Tool
         ]
       ]

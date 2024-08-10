@@ -1,5 +1,4 @@
 defmodule Test.Support.Serving do
-
   defmodule LLM do
     def get() do
       IO.puts("Enabling EXLA Backend")
@@ -23,6 +22,8 @@ defmodule Test.Support.Serving do
   defmodule Stub do
     use GenServer
 
+    require Logger
+
     def get() do
       __MODULE__
     end
@@ -39,38 +40,10 @@ defmodule Test.Support.Serving do
       {:ok, opts}
     end
 
-    def handle_call({:run, _prompt, input}, _, state) do
-      agent = Keyword.get(state, :config)
-      text = map_input(agent.name, input)
-      output = %{results: [%{text: text}]}
-      {:reply, output, state}
+    def handle_call({:run, _prompt, _input}, _, state) do
+      Logger.error("STUB RUN")
+      {:reply, nil, state}
     end
-
-    defp map_input(:first_agent, input) do
-      %{
-        "D" => "C",
-        "E" => "D",
-        "F" => "E"
-      }
-      |> Map.get(input, "ERROR")
-    end
-
-    defp map_input(:second_agent, input) do
-      %{
-        "C" => "E",
-        "D" => "F",
-        "E" => "G"
-      }
-      |> Map.get(input, "ERROR")
-    end
-
-    defp map_input(:verifier_agent, input) do
-      if input == "G", do: "TRUE", else: "FALSE"
-    end
-
-    defp map_input(:tool_agent, "E"), do: "FALSE"
-
-    defp map_input(agent, input), do: "sent '#{input}' to: #{agent}"
   end
 
   def get(true), do: LLM.get()

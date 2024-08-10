@@ -8,32 +8,33 @@ defmodule Test.Support.AgentCase do
     end
   end
 
-  alias Agens.Agent
-  alias Test.Support.Serving
-  alias Test.Support.Tools.NoopTool
+  import Test.Support.Helpers
 
-  @real_llm false
+  alias Agens.Agent
+  alias Test.Support
 
   setup_all do
-    text_generation = Serving.get(@real_llm)
-
-    [
-      text_generation: text_generation
-    ]
+    :meck.new(Agent, [:passthrough])
   end
 
-  def get_agent_configs(text_generation) do
+  def setup_mock(_ctx) do
+    :meck.expect(Agent, :message, fn agent, msg ->
+      {:ok, map_input(agent, msg)}
+    end)
+  end
+
+  def get_agent_configs() do
     [
       %Agent.Config{
         name: :first_agent,
-        serving: text_generation,
+        serving: :text_generation,
         prompt:
           "Return the capital letter one place before the letter in the English alphabet provided after 'Input: '. If you reach the start of the alphabet, cycle to the end of the alphabet i.e. 'Z'. For invalid input, which would be anything other than a single letter after 'Input: ' simply return 'ERROR'. The output response should only be the letter without any additional characters, tokens, or whitespace, or ERROR in case of invalid input.",
         knowledge: ""
       },
       %Agent.Config{
         name: :second_agent,
-        serving: text_generation,
+        serving: :text_generation,
         prompt: %Agent.Prompt{
           identity:
             "You are an AI agent that takes an input letter of the English alphabet and returns the capital letter two places ahead of the letter. If the input is anything but a single letter, your return 'ERROR'",
@@ -54,14 +55,14 @@ defmodule Test.Support.AgentCase do
       },
       %Agent.Config{
         name: :verifier_agent,
-        serving: text_generation,
+        serving: :text_generation,
         prompt: "Return 'TRUE' if input is 'G', otherwise return 'FALSE'",
         knowledge: ""
       },
       %Agent.Config{
         name: :tool_agent,
-        serving: text_generation,
-        tool: NoopTool
+        serving: :text_generation,
+        tool: Support.Tools.NoopTool
       }
     ]
   end

@@ -22,4 +22,30 @@ defmodule Test.Support.Helpers do
         text
     end
   end
+
+  def map_input(:first_agent, input) do
+    %{
+      "D" => "C",
+      "E" => "D",
+      "F" => "E"
+    }
+    |> Map.get(input, "ERROR")
+  end
+
+  def map_input(:second_agent, input) do
+    %{
+      "C" => "E",
+      "D" => "F",
+      "E" => "G"
+    }
+    |> Map.get(input, "ERROR")
+  end
+
+  def map_input(:verifier_agent, input) do
+    if input == "G", do: "TRUE", else: "FALSE"
+  end
+
+  def map_input(:tool_agent, "E"), do: "FALSE"
+
+  def map_input(agent, input), do: "sent '#{input}' to: #{agent}"
 end

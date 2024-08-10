@@ -2,11 +2,10 @@ defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: true
   doctest Agens
 
-  alias Agens.{Agent, Job}
+  alias Agens.{Agent, Job, Serving}
 
-  defp start_job %{text_generation: text_generation} do
-    text_generation
-    |> get_agent_configs()
+  defp start_job(_ctx) do
+    get_agent_configs()
     |> Agent.start()
 
     job = %Job.Config{
@@ -60,7 +59,7 @@ defmodule Agens.JobTest do
   end
 
   describe "job" do
-    setup :start_job
+    setup [:setup_mock, :start_job]
 
     @tag capture_log: true
     test "start", %{job: %{name: name}, pid: pid} do
@@ -104,6 +103,16 @@ defmodule Agens.JobTest do
     @tag capture_log: true
     test "crash" do
       name = :crash_job
+
+      :meck.expect(Agent, :message, fn agent, msg ->
+        result =
+          case {agent, msg} do
+            {:first_agent, "F"} -> "E"
+            {:verifier_agent, "E"} -> "FALSE"
+          end
+
+        {:ok, result}
+      end)
 
       job = %Job.Config{
         name: name,
@@ -161,6 +170,22 @@ defmodule Agens.JobTest do
     @tag capture_log: true
     test "noop tool" do
       name = :noop_job
+
+      :meck.new(Serving, [:passthrough])
+
+      :meck.expect(Serving, :run, fn :text_generation, _prompt, _input ->
+        "FALSE"
+      end)
+
+      :meck.expect(Agent, :message, fn agent, msg ->
+        result =
+          case {agent, msg} do
+            {:first_agent, "F"} -> "E"
+            {:tool_agent, "E"} -> :meck.passthrough([:tool_agent, "E"])
+          end
+
+        {:ok, result}
+      end)
 
       job = %Job.Config{
         name: name,
