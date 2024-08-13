@@ -86,7 +86,7 @@ defmodule Agens.Agent do
 
   require Logger
 
-  alias Agens.Serving
+  alias Agens.{Message, Serving}
 
   @registry Application.compile_env(:agens, :registry)
 
@@ -148,15 +148,20 @@ defmodule Agens.Agent do
   @doc """
   Sends a message to an agent
   """
-  @spec message(atom(), String.t()) :: {:ok, String.t()} | {:error, :agent_not_running}
-  @type message_result :: {:ok, String.t()} | {:error, :agent_not_running}
-  def message(agent_name, input) do
-    case Registry.lookup(@registry, agent_name) do
+  def message(%Message{} = message) do
+    case Registry.lookup(@registry, message.agent_name) do
       [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
-        base = base_prompt(config, input)
+        base = base_prompt(config, message.input)
         prompt = "<s>[INST]#{base}[/INST]"
-        text = Serving.run(config.serving, prompt, input)
-        maybe_use_tool(config.tool, text)
+
+        result =
+          message
+          |> Map.put(:serving_name, config.serving)
+          |> Map.put(:prompt, prompt)
+          |> Serving.run()
+
+        message = Map.put(message, :result, result)
+        maybe_use_tool(config.tool, message)
 
       [] ->
         {:error, :agent_not_running}
@@ -199,21 +204,26 @@ defmodule Agens.Agent do
   defp base_prompt(%Config{prompt: prompt, tool: tool}, input) when is_atom(tool),
     do: "Agent: #{prompt} Tool: #{tool.instructions()} Input: #{tool.pre(input)}"
 
-  defp maybe_use_tool(nil, text), do: text
+  defp maybe_use_tool(nil, message), do: message
 
-  defp maybe_use_tool(tool, text) do
-    # send(parent, {:tool_started, {job_name, step_index}, text})
+  defp maybe_use_tool(tool, %Message{} = message) do
+    send(
+      message.parent_pid,
+      {:tool_started, {message.job_name, message.step_index}, message.result}
+    )
 
     raw =
-      text
+      message.result
       |> tool.to_args()
       |> tool.execute()
 
-    # send(parent, {:tool_raw, {job_name, step_index}, raw})
+    send(message.parent_pid, {:tool_raw, {message.job_name, message.step_index}, raw})
 
-    tool.post(raw)
+    result = tool.post(raw)
 
-    # send(parent, {:tool_result, {job_name, step_index}, result})
+    send(message.parent_pid, {:tool_result, {message.job_name, message.step_index}, result})
+
+    Map.put(message, :result, result)
   end
 
   defp maybe_add_tool_instructions(nil), do: ""

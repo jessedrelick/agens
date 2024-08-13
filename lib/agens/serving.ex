@@ -5,6 +5,8 @@ defmodule Agens.Serving do
 
   require Logger
 
+  alias Agens.Message
+
   @registry Application.compile_env(:agens, :registry)
 
   def start(%Config{} = config) do
@@ -43,10 +45,10 @@ defmodule Agens.Serving do
     end
   end
 
-  def run(serving_name, prompt, input) do
-    case Registry.lookup(@registry, serving_name) do
+  def run(%Message{} = message) do
+    case Registry.lookup(@registry, message.serving_name) do
       [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
-        %{results: [%{text: text}]} = do_run({serving_pid, config}, prompt, input)
+        %{results: [%{text: text}]} = do_run({serving_pid, config}, message)
 
         text
 
@@ -55,13 +57,13 @@ defmodule Agens.Serving do
     end
   end
 
-  defp do_run({_, %Config{serving: %Nx.Serving{}} = config}, prompt, _input) do
-    Nx.Serving.batched_run(config.name, prompt)
+  defp do_run({_, %Config{serving: %Nx.Serving{}}}, %Message{} = message) do
+    Nx.Serving.batched_run(message.serving_name, message.prompt)
   end
 
-  defp do_run({serving_pid, _}, prompt, input) do
+  defp do_run({serving_pid, _}, %Message{} = message) do
     # GenServer.call(serving_name, {:run, input})
-    GenServer.call(serving_pid, {:run, prompt, input})
+    GenServer.call(serving_pid, {:run, message.prompt, message.input})
   end
 
   defp start_function(%Config{serving: %Nx.Serving{} = serving} = config) do

@@ -42,7 +42,7 @@ defmodule Test.Support.Helpers do
   end
 
   def map_input(:verifier_agent, input) do
-    if input == "G", do: "TRUE", else: "FALSE"
+    if input == "G", do: "TRUE", else: input
   end
 
   def map_input(:tool_agent, "E"), do: "FALSE"

@@ -77,7 +77,7 @@ defmodule Agens.Job do
 
   require Logger
 
-  alias Agens.{Agent, Job}
+  alias Agens.{Agent, Job, Message}
 
   @doc """
   Starts a new job using the provided `config`.
@@ -111,7 +111,7 @@ defmodule Agens.Job do
   @spec run(pid, term) :: term
   @spec run(atom, term) :: {:ok, term} | {:error, :job_not_found}
   def run(pid, input) when is_pid(pid) do
-    GenServer.call(pid, {:start, input})
+    GenServer.call(pid, {:run, input})
   end
 
   def run(name, input) when is_atom(name) do
@@ -173,33 +173,33 @@ defmodule Agens.Job do
   end
 
   @impl true
-  def handle_call({:start, input}, {parent, _}, state) do
+  def handle_call({:run, input}, {parent, _}, state) do
     new_state = %State{state | status: :running, step_index: 0, parent: parent}
-    {:reply, :ok, new_state, {:continue, {:start, input}}}
+    {:reply, :ok, new_state, {:continue, {:run, input}}}
   end
 
   @impl true
-  def handle_continue({:start, input}, %{config: %{name: name}} = state) do
+  def handle_continue({:run, input}, %{config: %{name: name}} = state) do
     send(state.parent, {:job_started, name})
     do_step(input, state)
     {:noreply, state}
   end
 
   @impl true
-  def handle_cast({:next, input}, %State{step_index: index} = state) do
+  def handle_cast({:next, %Message{} = message}, %State{step_index: index} = state) do
     new_state = %State{state | step_index: index + 1}
-    do_step(input, new_state)
+    do_step(message.result, new_state)
     {:noreply, new_state}
   end
 
   @impl true
-  def handle_cast({:step, index, input}, %State{} = state) do
+  def handle_cast({:step, index, %Message{} = message}, %State{} = state) do
     unless is_integer(index) do
       raise "Invalid step index: #{inspect(index)}"
     end
 
     new_state = %State{state | step_index: index}
-    do_step(input, new_state)
+    do_step(message.result, new_state)
     {:noreply, new_state}
   end
 
@@ -221,34 +221,42 @@ defmodule Agens.Job do
     :ok
   end
 
-  defp do_step(input, %State{config: config} = state) do
-    step = Enum.at(config.steps, state.step_index)
+  defp do_step(input, %State{config: job_config} = state) do
+    step = Enum.at(job_config.steps, state.step_index)
 
-    send(state.parent, {:step_started, config.name, state.step_index, input})
-    {:ok, text} = Agent.message(step.agent, input)
-    send(state.parent, {:step_result, config.name, state.step_index, text})
+    message = %Message{
+      parent_pid: state.parent,
+      input: input,
+      agent_name: step.agent,
+      job_name: job_config.name,
+      step_index: state.step_index
+    }
+
+    send(state.parent, {:step_started, message.job_name, message.step_index, message.input})
+    message = Agent.message(message)
+    send(state.parent, {:step_result, message.job_name, message.step_index, message.result})
 
     if step.conditions do
-      do_conditions(step.conditions, text, input)
+      do_conditions(step.conditions, message)
     else
-      GenServer.cast(self(), {:next, text})
+      GenServer.cast(self(), {:next, message})
     end
   end
 
-  defp do_conditions(conditions, text, input) when is_map(conditions) do
+  defp do_conditions(conditions, %Message{} = message) when is_map(conditions) do
     conditions
-    |> Map.get(text)
+    |> Map.get(message.result)
     |> case do
       :end ->
         GenServer.cast(self(), :end)
 
       nil ->
         step_index = Map.get(conditions, "__DEFAULT__")
-        GenServer.cast(self(), {:step, step_index, input})
+        GenServer.cast(self(), {:step, step_index, message})
     end
   end
 
-  defp do_conditions(_conditions, _text, _input) do
+  defp do_conditions(_conditions, %Message{} = _message) do
     {:error, :not_implemented}
   end
 end

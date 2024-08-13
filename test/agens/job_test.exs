@@ -2,7 +2,7 @@ defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: true
   doctest Agens
 
-  alias Agens.{Agent, Job, Serving}
+  alias Agens.{Agent, Job, Message, Serving}
 
   defp start_job(_ctx) do
     get_agent_configs()
@@ -75,7 +75,7 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, ^name, 1, "C"}
       assert_receive {:step_result, ^name, 1, "E"}
       assert_receive {:step_started, ^name, 2, "E"}
-      assert_receive {:step_result, ^name, 2, "FALSE"}
+      assert_receive {:step_result, ^name, 2, "E"}
 
       # 1
       assert_receive {:step_started, ^name, 0, "E"}
@@ -83,7 +83,7 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, ^name, 1, "D"}
       assert_receive {:step_result, ^name, 1, "F"}
       assert_receive {:step_started, ^name, 2, "F"}
-      assert_receive {:step_result, ^name, 2, "FALSE"}
+      assert_receive {:step_result, ^name, 2, "F"}
 
       # 2
       assert_receive {:step_started, ^name, 0, "F"}
@@ -104,14 +104,14 @@ defmodule Agens.JobTest do
     test "crash" do
       name = :crash_job
 
-      :meck.expect(Agent, :message, fn agent, msg ->
+      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
         result =
-          case {agent, msg} do
+          case {agent_name, input} do
             {:first_agent, "F"} -> "E"
             {:verifier_agent, "E"} -> "FALSE"
           end
 
-        {:ok, result}
+        Map.put(message, :result, result)
       end)
 
       job = %Job.Config{
@@ -173,18 +173,15 @@ defmodule Agens.JobTest do
 
       :meck.new(Serving, [:passthrough])
 
-      :meck.expect(Serving, :run, fn :text_generation, _prompt, _input ->
+      :meck.expect(Serving, :run, fn _message ->
         "FALSE"
       end)
 
-      :meck.expect(Agent, :message, fn agent, msg ->
-        result =
-          case {agent, msg} do
-            {:first_agent, "F"} -> "E"
-            {:tool_agent, "E"} -> :meck.passthrough([:tool_agent, "E"])
-          end
-
-        {:ok, result}
+      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
+        case {agent_name, input} do
+          {:first_agent, "F"} -> Map.put(message, :result, "E")
+          {:tool_agent, "E"} -> :meck.passthrough([message])
+        end
       end)
 
       job = %Job.Config{
@@ -218,9 +215,9 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, ^name, 0, "F"}
       assert_receive {:step_result, ^name, 0, "E"}
       assert_receive {:step_started, ^name, 1, "E"}
-      # assert_receive {:tool_started, ^name, 1, "FALSE"}
-      # assert_receive {:tool_raw, ^name, 1, %{}}
-      # assert_receive {:tool_result, ^name, 1, "TRUE"}
+      assert_receive {:tool_started, {^name, 1}, "FALSE"}
+      assert_receive {:tool_raw, {^name, 1}, %{}}
+      assert_receive {:tool_result, {^name, 1}, "TRUE"}
       assert_receive {:step_result, ^name, 1, "TRUE"}
 
       assert_receive {:job_ended, ^name, :complete}
