@@ -1,40 +1,6 @@
 defmodule Agens.Agent do
   @moduledoc """
   The Agent module provides struct and function definitions for an Agent process.
-
-  ## Example
-      # First, add the Agens supervisor to your application supervision tree
-      Supervisor.start_link(
-        [
-          {Agens.Supervisor, name: Agens.Supervisor}
-        ],
-        strategy: :one_for_one
-      )
-
-      # Ensure the test registry is running (see `Test.Support.AgentCase`)
-      iex> registry = Application.get_env(:agens, :registry)
-      iex> Process.whereis(registry) |> is_pid()
-      true
-      iex> serving_config = %Agens.Serving.Config{
-      ...>   name: :test_serving,
-      ...>   serving: Test.Support.Serving.get(false)
-      ...> }
-      %Agens.Serving.Config{name: :test_serving, serving: serving_config.serving}
-      iex> {:ok, pid} = Agens.Serving.start(serving_config)
-      iex> is_pid(pid)
-      true
-      # Start an Agent with a name and serving module
-      iex> {:ok, pid} = %Agens.Agent.Config{
-      ...>   name: :test_agent,
-      ...>   serving: :test_serving
-      ...> }
-      ...> |> Agens.Agent.start()
-      iex> is_pid(pid)
-      true
-      # Send a message to the Agent by agent name
-      iex> Agens.Agent.message(:test_agent, "hello")
-      {:ok, "sent 'hello' to: test_agent"}
-
   """
 
   defmodule Prompt do
@@ -70,7 +36,6 @@ defmodule Agens.Agent do
     - `:tool` - The tool module for the Agent. Default is nil.
     """
 
-    @enforce_keys [:name, :serving]
     @type t :: %__MODULE__{
             name: atom(),
             serving: module() | Nx.Serving.t(),
@@ -79,6 +44,8 @@ defmodule Agens.Agent do
             prompt: Agens.Agent.Prompt.t() | String.t() | nil,
             tool: module() | nil
           }
+
+    @enforce_keys [:name, :serving]
     defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
   end
 

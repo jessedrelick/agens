@@ -37,20 +37,15 @@ defmodule Agens.Job do
     is a string that describes the purpose of the job. The `steps` field is a list
     of `Step` structs that define the sequence of actions to be performed.
     """
-    defstruct [:name, :objective, :steps]
 
-    @typedoc """
-    The `Config` struct defines the configuration for a job.
-
-    The `name` field is a string that identifies the job. The `objective` field
-    is a string that describes the purpose of the job. The `steps` field is a list
-    of `Step` structs that define the sequence of actions to be performed.
-    """
     @type t :: %__MODULE__{
             name: String.t(),
             objective: String.t(),
             steps: list(Step.t())
           }
+
+    @enforce_keys [:name, :steps]
+    defstruct [:name, :objective, :steps]
   end
 
   defmodule State do

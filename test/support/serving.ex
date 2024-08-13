@@ -28,10 +28,6 @@ defmodule Test.Support.Serving do
       __MODULE__
     end
 
-    def run(prompt) do
-      GenServer.call(__MODULE__, {:run, prompt})
-    end
-
     def start_link(opts) do
       GenServer.start_link(__MODULE__, opts, opts)
     end
@@ -40,9 +36,9 @@ defmodule Test.Support.Serving do
       {:ok, opts}
     end
 
-    def handle_call({:run, _prompt, _input}, _, state) do
-      Logger.error("STUB RUN")
-      {:reply, nil, state}
+    def handle_call({:run, %Agens.Message{}}, _, state) do
+      Logger.warning("STUB RUN")
+      {:reply, "STUB RUN", state}
     end
   end
 
