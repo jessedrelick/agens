@@ -83,7 +83,7 @@ defmodule Agens.Serving do
   @doc """
   Executes an `Agens.Message` against an `Agens.Serving`
   """
-  @spec run(Message.t()) :: String.t() |{:error, :serving_not_running}
+  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
   def run(%Message{} = message) do
     case Registry.lookup(@registry, message.serving_name) do
       [{_, {serving_pid, config}}] when is_pid(serving_pid) ->

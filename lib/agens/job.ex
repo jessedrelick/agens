@@ -52,9 +52,9 @@ defmodule Agens.Job do
 
     @type t :: %__MODULE__{
             status: :init | :running | :error | :completed,
-            step_index: non_neg_integer(),
+            step_index: non_neg_integer() | nil,
             config: Config.t(),
-            parent: pid()
+            parent: pid() | nil
           }
 
     @enforce_keys [:status]
@@ -150,7 +150,11 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec init(Config.t()) :: {:ok, State.t()}
+  @spec init(Config.t()) ::
+          {:ok, State.t()}
+          | {:ok, State.t(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
+          | :ignore
+          | {:stop, reason :: any()}
   def init(config) do
     {:ok, %State{status: :init, config: config}}
   end

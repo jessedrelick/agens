@@ -33,7 +33,11 @@ defmodule Agens.Supervisor do
 
   @doc false
   @impl true
-  @spec init(any()) :: {:ok, Supervisor.supervisor()}
+  @spec init(any()) ::
+          {:ok,
+           {:supervisor.sup_flags(),
+            [:supervisor.child_spec() | (old_erlang_child_spec :: :supervisor.child_spec())]}}
+          | :ignore
   def init(_init_arg) do
     children = [
       {Agens, name: Agens},
