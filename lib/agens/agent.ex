@@ -30,12 +30,11 @@ defmodule Agens.Agent do
             context: String.t() | nil,
             constraints: String.t() | nil,
             examples: String.t() | nil,
-            reflection: String.t() | nil,
-            input: String.t() | nil
+            reflection: String.t() | nil
           }
 
     @enforce_keys []
-    defstruct [:identity, :context, :constraints, :examples, :reflection, :input]
+    defstruct [:identity, :context, :constraints, :examples, :reflection]
   end
 
   defmodule Config do
