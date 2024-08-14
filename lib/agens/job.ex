@@ -57,7 +57,7 @@ defmodule Agens.Job do
             parent: pid() | nil
           }
 
-    @enforce_keys [:status]
+    @enforce_keys [:status, :config]
     defstruct [:status, :step_index, :config, :parent]
   end
 
