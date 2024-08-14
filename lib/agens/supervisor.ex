@@ -1,6 +1,25 @@
 defmodule Agens.Supervisor do
   @moduledoc """
   The Supervisor module for the Agens application.
+
+  `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Agent`, `Agens.Serving`, and `Agens.Job` processes. It also starts a `Registry` for keeping track of these processes.
+
+  The Registry module can be overriden by your application config:
+
+  ```elixir
+  config :agens, registry: MyApp.Registry
+  ```
+
+  In order to use `Agens` simply add `Agens.Supervisor` to your application supervision tree:
+
+  ```elixir
+  Supervisor.start_link(
+    [
+      {Agens.Supervisor, name: Agens.Supervisor}
+    ],
+    strategy: :one_for_one
+  )
+  ```
   """
   use Supervisor
 
