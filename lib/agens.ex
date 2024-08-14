@@ -1,10 +1,14 @@
 defmodule Agens do
   @moduledoc """
-  The `Agens` module is the main entry point for Agens.
+  Agens is used to create multi-agent workflows with language models.
 
-  It provides a dynamic supervisor to manage the lifecycle of Agens agents and jobs.
+  It is made up of the following core entities:
 
-    ## Example
+  - `Agens.Serving` - used to interact with language models
+  - `Agens.Agent` - used to interact with servings in a specialized manner
+  - `Agens.Job` - used to define multi-agent workflows
+
+  ## Example
       # First, add the Agens supervisor to your application supervision tree
       Supervisor.start_link(
         [
@@ -42,29 +46,29 @@ defmodule Agens do
 
   defmodule Message do
     @moduledoc """
-    A message struct that defines the structure of a message passed between Agents, Jobs and Servings.
+    The Message struct defines the details of a message passed between Agents, Jobs and Servings.
 
     ## Fields
 
       * `:parent_pid` - The process identifier of the parent/caller process.
       * `:input` - The input string for the message.
-      * `:prompt` - The prompt string for the message.
+      * `:prompt` - The prompt string or `Agens.Agent.Prompt` struct for the message.
       * `:result` - The result string for the message.
-      * `:agent_name` - The name of the agent.
-      * `:serving_name` - The name of the serving.
-      * `:job_name` - The name of the job.
-      * `:step_index` - The index of the step.
+      * `:agent_name` - The name of the `Agens.Agent`.
+      * `:serving_name` - The name of the `Agens.Serving`.
+      * `:job_name` - The name of the `Agens.Job`.
+      * `:step_index` - The index of the `Agens.Job.Step`.
     """
 
     @type t :: %__MODULE__{
-            parent_pid: pid(),
-            input: String.t(),
-            prompt: String.t() | map(),
-            result: String.t(),
-            agent_name: atom(),
-            serving_name: atom(),
-            job_name: atom(),
-            step_index: non_neg_integer()
+            parent_pid: pid() | nil,
+            input: String.t() | nil,
+            prompt: String.t() | Agens.Agent.Prompt.t() | nil,
+            result: String.t() | nil,
+            agent_name: atom() | nil,
+            serving_name: atom() | nil,
+            job_name: atom() | nil,
+            step_index: non_neg_integer() | nil
           }
 
     @enforce_keys []
