@@ -1,22 +1,37 @@
 defmodule Agens.Agent do
   @moduledoc """
-  The Agent module provides struct and function definitions for an Agent process.
+  The Agent module provides functions for starting, stopping and running Agents.
+
+  `Agens.Agent` is the the primary entity powering the `Agens` library. It uses `Agens.Serving` to interact with language models through `Nx.Serving`, or with language model APIs through a `GenServer`.
+
+  Agents can have detailed identities to further refine LM outputs, and are used together in multi-agent workflows via the `Agens.Job` module.
+
+  Agent capabilities can be expanded even further with `Agens.Tool` modules, which are designed to handle LM functional calling. In future releases, Agents will also have access to RAG generations via knowledge base features.
   """
 
   defmodule Prompt do
     @moduledoc """
-    The Prompt struct represents a prompt for an Agent process.
+    The Prompt struct represents an advanced prompt for an Agent process.
+
+    All fields are optional and will only be included in the final prompt if they are not nil.
+
+    ## Fields
+    - `:identity` - a string representing the purpose and capabilities of the agent
+    - `:context` - a string representing the goal or purpose of the agent's actions
+    - `:constraints` - a string listing any constraints or limitations on the agent's actions
+    - `:examples` - a list of maps representing example inputs and outputs for the agent
+    - `:reflection` - a string representing any additional considerations or reflection the agent should make before returning results
     """
 
     @derive Jason.Encoder
 
     @type t :: %__MODULE__{
-            identity: String.t(),
-            context: String.t(),
-            constraints: String.t(),
-            examples: String.t(),
-            reflection: String.t(),
-            input: String.t()
+            identity: String.t() | nil,
+            context: String.t() | nil,
+            constraints: String.t() | nil,
+            examples: String.t() | nil,
+            reflection: String.t() | nil,
+            input: String.t() | nil
           }
 
     @enforce_keys []
@@ -25,15 +40,15 @@ defmodule Agens.Agent do
 
   defmodule Config do
     @moduledoc """
-    The `Config` struct represents an Agent process.
+    The Config struct represents the configuration for an Agent process.
 
     ## Fields
     - `:name` - The name of the Agent process.
-    - `:serving` - The serving module or Nx.Serving struct for the Agent. Default is nil.
+    - `:serving` - The serving module or `Nx.Serving` struct for the Agent.
     - `:context` - The context or goal of the Agent. Default is nil.
-    - `:knowledge` - The knowledge base or data source of the Agent. Default is nil.
-    - `:prompt` - The `Prompt` struct for the Agent. Default is nil.
-    - `:tool` - The tool module for the Agent. Default is nil.
+    - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
+    - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
+    - `:tool` - The `Agens.Tool` module for the Agent. Default is nil.
     """
 
     @type t :: %__MODULE__{
@@ -58,7 +73,7 @@ defmodule Agens.Agent do
   @registry Application.compile_env(:agens, :registry)
 
   @doc """
-  Starts one or more agents
+  Starts one or more `Agens.Agent` processes
   """
   @spec start([Config.t()] | Config.t()) :: [{:ok, pid()}] | {:ok, pid()}
   def start(configs) when is_list(configs) do
@@ -93,7 +108,7 @@ defmodule Agens.Agent do
   end
 
   @doc """
-  Stops an agent
+  Stops an `Agens.Agent` process
   """
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
@@ -110,7 +125,7 @@ defmodule Agens.Agent do
   end
 
   @doc """
-  Sends a message to an agent
+  Sends an `Agens.Message` to an `Agens.Agent`
   """
   @spec message(Message.t()) :: Message.t() | {:error, :agent_not_running}
   def message(%Message{} = message) do
