@@ -9,7 +9,6 @@ defmodule Agens.Job do
   using the `GenServer.call/2` and `GenServer.cast/2` functions to retrieve
   the current state of the job and to control its progression.
   """
-  use GenServer
 
   defmodule Step do
     @moduledoc """
@@ -70,6 +69,8 @@ defmodule Agens.Job do
     defstruct [:status, :step_index, :config, :parent]
   end
 
+  use GenServer
+
   require Logger
 
   alias Agens.{Agent, Job, Message}
@@ -103,8 +104,7 @@ defmodule Agens.Job do
 
   Returns the result of the `GenServer.call/2` function.
   """
-  @spec run(pid, term) :: term
-  @spec run(atom, term) :: {:ok, term} | {:error, :job_not_found}
+  @spec run(pid | atom, term) :: {:ok, term} | {:error, :job_not_found}
   def run(pid, input) when is_pid(pid) do
     GenServer.call(pid, {:run, input})
   end
@@ -126,8 +126,7 @@ defmodule Agens.Job do
 
   Returns the result of the `GenServer.call/2` function.
   """
-  @spec get_config(pid) :: term
-  @spec get_config(atom) :: {:ok, term} | {:error, :job_not_found}
+  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
   def get_config(pid) when is_pid(pid) do
     GenServer.call(pid, :get_config)
   end
@@ -144,10 +143,12 @@ defmodule Agens.Job do
     end
   end
 
+  @doc false
   def start_link(config) do
     GenServer.start_link(__MODULE__, config, name: config.name)
   end
 
+  @doc false
   def child_spec(config) do
     %{
       id: config.name,
@@ -157,37 +158,49 @@ defmodule Agens.Job do
     }
   end
 
+  @doc false
   @impl true
+  @spec init(Config.t()) :: {:ok, State.t()}
   def init(config) do
     {:ok, %State{status: :init, config: config}}
   end
 
+  @doc false
   @impl true
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
   def handle_call(:get_config, _from, state) do
     {:reply, state.config, state}
   end
 
+  @doc false
   @impl true
+  @spec handle_call({:run, String.t()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
   def handle_call({:run, input}, {parent, _}, state) do
     new_state = %State{state | status: :running, step_index: 0, parent: parent}
     {:reply, :ok, new_state, {:continue, {:run, input}}}
   end
 
+  @doc false
   @impl true
+  @spec handle_continue({:run, String.t()}, State.t()) :: {:noreply, State.t()}
   def handle_continue({:run, input}, %{config: %{name: name}} = state) do
     send(state.parent, {:job_started, name})
     do_step(input, state)
     {:noreply, state}
   end
 
+  @doc false
   @impl true
+  @spec handle_cast({:next, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast({:next, %Message{} = message}, %State{step_index: index} = state) do
     new_state = %State{state | step_index: index + 1}
     do_step(message.result, new_state)
     {:noreply, new_state}
   end
 
+  @doc false
   @impl true
+  @spec handle_cast({:step, integer, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast({:step, index, %Message{} = message}, %State{} = state) do
     unless is_integer(index) do
       raise "Invalid step index: #{inspect(index)}"
@@ -198,24 +211,29 @@ defmodule Agens.Job do
     {:noreply, new_state}
   end
 
+  @doc false
   @impl true
+  @spec handle_cast(:end, State.t()) :: {:stop, :complete, State.t()}
   def handle_cast(:end, %State{} = state) do
     new_state = %State{state | status: :complete}
     {:stop, :complete, new_state}
   end
 
+  @doc false
   @impl true
+  @spec terminate(:complete | {:error, term}, State.t()) :: :ok
   def terminate(:complete, %State{config: %{name: name}} = state) do
     send(state.parent, {:job_ended, name, :complete})
     :ok
   end
 
-  @impl true
   def terminate({error, _}, %State{config: %{name: name}} = state) do
     send(state.parent, {:job_ended, name, {:error, error}})
     :ok
   end
 
+  @doc false
+  @spec do_step(String.t(), State.t()) :: :ok
   defp do_step(input, %State{config: job_config} = state) do
     step = Enum.at(job_config.steps, state.step_index)
 
@@ -238,6 +256,8 @@ defmodule Agens.Job do
     end
   end
 
+  @doc false
+  @spec do_conditions(map(), Message.t()) :: :ok
   defp do_conditions(conditions, %Message{} = message) when is_map(conditions) do
     conditions
     |> Map.get(message.result)
@@ -249,9 +269,5 @@ defmodule Agens.Job do
         step_index = Map.get(conditions, "__DEFAULT__")
         GenServer.cast(self(), {:step, step_index, message})
     end
-  end
-
-  defp do_conditions(_conditions, %Message{} = _message) do
-    {:error, :not_implemented}
   end
 end

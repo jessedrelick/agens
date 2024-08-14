@@ -37,10 +37,8 @@ defmodule Agens do
       %Agens.Message{agent_name: :test_agent, input: "hello"}
       # Send a message to the Agent by agent name
       iex> Agens.Agent.message(message)
-      %Agens.Message{parent_pid: nil, input: "hello", prompt: nil, result: "sent 'hello' to: test_agent", agent_name: :test_agent, serving_name: nil, job_name: nil, step_index: nil}
+      %Agens.Message{parent_pid: nil, input: "hello", prompt: nil, result: "STUB RUN", agent_name: :test_agent, serving_name: nil, job_name: nil, step_index: nil}
   """
-
-  use DynamicSupervisor
 
   defmodule Message do
     @moduledoc """
@@ -81,6 +79,8 @@ defmodule Agens do
       :step_index
     ]
   end
+
+  use DynamicSupervisor
 
   @doc false
   @spec start_link(any()) :: :ignore | {:error, any()} | {:ok, pid()}

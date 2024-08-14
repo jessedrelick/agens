@@ -60,7 +60,7 @@ defmodule Agens.Agent do
   @doc """
   Starts one or more agents
   """
-  @spec start([Config.t()] | Config.t()) :: [pid()] | {:ok, pid()}
+  @spec start([Config.t()] | Config.t()) :: [{:ok, pid()}] | {:ok, pid()}
   def start(configs) when is_list(configs) do
     configs
     |> Enum.map(fn config ->
@@ -68,8 +68,6 @@ defmodule Agens.Agent do
     end)
   end
 
-  @spec start(Config.t()) :: {:ok, pid()}
-  @type start_result :: {:ok, pid()}
   def start(%Config{} = config) do
     spec = %{
       id: config.name,
@@ -98,7 +96,6 @@ defmodule Agens.Agent do
   Stops an agent
   """
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
-  @type stop_result :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
     agent_name
     |> Process.whereis()
@@ -115,6 +112,7 @@ defmodule Agens.Agent do
   @doc """
   Sends a message to an agent
   """
+  @spec message(Message.t()) :: Message.t() | {:error, :agent_not_running}
   def message(%Message{} = message) do
     case Registry.lookup(@registry, message.agent_name) do
       [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
@@ -135,15 +133,20 @@ defmodule Agens.Agent do
     end
   end
 
+  @doc false
+  @spec start_link(Config.t()) :: GenServer.on_start()
   def start_link(config) do
     GenServer.start_link(__MODULE__, config, name: config.name)
   end
 
+  @doc false
+  @spec init(Config.t()) :: {:ok, map()}
   @impl true
   def init(_config) do
     {:ok, %{}}
   end
 
+  @spec base_prompt(Config.t(), String.t()) :: String.t()
   defp base_prompt(%Config{prompt: %Prompt{} = prompt, tool: tool}, input) do
     """
     ## Identity
@@ -171,6 +174,7 @@ defmodule Agens.Agent do
   defp base_prompt(%Config{prompt: prompt, tool: tool}, input) when is_atom(tool),
     do: "Agent: #{prompt} Tool: #{tool.instructions()} Input: #{tool.pre(input)}"
 
+  @spec maybe_use_tool(module(), Message.t()) :: Message.t()
   defp maybe_use_tool(nil, message), do: message
 
   defp maybe_use_tool(tool, %Message{} = message) do
@@ -193,6 +197,7 @@ defmodule Agens.Agent do
     Map.put(message, :result, result)
   end
 
+  @spec maybe_add_tool_instructions(module() | nil) :: String.t()
   defp maybe_add_tool_instructions(nil), do: ""
 
   defp maybe_add_tool_instructions(tool) when is_atom(tool) do

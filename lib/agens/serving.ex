@@ -24,7 +24,10 @@ defmodule Agens.Serving do
 
   @registry Application.compile_env(:agens, :registry)
 
-  @spec start(Config.t()) :: {:ok, any()}
+  @doc """
+  Starts a Serving process
+  """
+  @spec start(Config.t()) :: {:ok, pid()}
   def start(%Config{} = config) do
     spec = %{
       id: config.name,
@@ -47,14 +50,17 @@ defmodule Agens.Serving do
     {:ok, pid}
   end
 
-  @spec stop(atom()) :: :ok | {:error, :agent_not_found}
+  @doc """
+  Stops a Serving process
+  """
+  @spec stop(atom()) :: :ok | {:error, :serving_not_found}
   def stop(serving_name) do
     serving_name
     |> Module.concat("Supervisor")
     |> Process.whereis()
     |> case do
       nil ->
-        {:error, :agent_not_found}
+        {:error, :serving_not_found}
 
       pid ->
         :ok = DynamicSupervisor.terminate_child(Agens, pid)
@@ -62,8 +68,10 @@ defmodule Agens.Serving do
     end
   end
 
-  @spec run(Message.t()) :: String.t()
-  @spec run(Agens.Message.t()) :: {:error, :serving_not_running}
+  @doc """
+  Runs a Message through a Serving
+  """
+  @spec run(Message.t()) :: String.t() |{:error, :serving_not_running}
   def run(%Message{} = message) do
     case Registry.lookup(@registry, message.serving_name) do
       [{_, {serving_pid, config}}] when is_pid(serving_pid) ->

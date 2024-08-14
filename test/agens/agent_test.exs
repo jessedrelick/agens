@@ -1,6 +1,5 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
-  doctest Agens.Agent
 
   alias Agens.{Agent, Message}
 

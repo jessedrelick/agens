@@ -59,6 +59,10 @@ defmodule Agens.MixProject do
           Agens.Job.Config,
           Agens.Job.Step
         ],
+        Serving: [
+          Agens.Serving,
+          Agens.Serving.Config
+        ],
         Tool: [
           Agens.Tool
         ]
