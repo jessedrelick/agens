@@ -13,7 +13,7 @@ defmodule Agens.JobTest do
       steps: [
         %Job.Step{
           agent: :first_agent,
-          objective: "",
+          objective: "test step objective",
           conditions: nil
         },
         %Job.Step{

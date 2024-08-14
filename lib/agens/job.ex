@@ -236,7 +236,9 @@ defmodule Agens.Job do
       input: input,
       agent_name: step.agent,
       job_name: job_config.name,
-      step_index: state.step_index
+      job_description: job_config.description,
+      step_index: state.step_index,
+      step_objective: step.objective
     }
 
     send(state.parent, {:step_started, message.job_name, message.step_index, message.input})

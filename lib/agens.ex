@@ -57,7 +57,9 @@ defmodule Agens do
       * `:agent_name` - The name of the `Agens.Agent`.
       * `:serving_name` - The name of the `Agens.Serving`.
       * `:job_name` - The name of the `Agens.Job`.
+      * `:job_description` - The description of the `Agens.Job` to be added to the LM prompt.
       * `:step_index` - The index of the `Agens.Job.Step`.
+      * `:step_objective` - The objective of the `Agens.Job.Step` to be added to the LM prompt.
     """
 
     @type t :: %__MODULE__{
@@ -68,7 +70,9 @@ defmodule Agens do
             agent_name: atom() | nil,
             serving_name: atom() | nil,
             job_name: atom() | nil,
-            step_index: non_neg_integer() | nil
+            job_description: String.t() | nil,
+            step_index: non_neg_integer() | nil,
+            step_objective: String.t() | nil
           }
 
     @enforce_keys []
@@ -80,7 +84,9 @@ defmodule Agens do
       :agent_name,
       :serving_name,
       :job_name,
-      :step_index
+      :job_description,
+      :step_index,
+      :step_objective
     ]
   end
 
