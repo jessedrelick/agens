@@ -1,11 +1,23 @@
 defmodule Agens.Serving do
   @moduledoc """
-  The Serving specifies a GenServer process or Nx.Serving for processing messages.
+  The Serving module provides functions for starting, stopping and running Servings.
+
+  `Agens.Serving` accepts a `GenServer` module or `Nx.Serving` struct for processing messages.
+
+  `Agens.Serving` is decoupled from `Agens.Agent` in order to reuse a single LM across multiple agents. In most cases, however, you will only need to start one text generation serving to be used by most, if not all, agents.
+
+  In some cases, you may have additional servings for more specific use cases such as image generation, speech recognition, etc.
+
+  Servings were built with the `Bumblebee` library in mind, as well as `Nx.Serving`. `GenServer` is supported for working with LM APIs instead, which may be more cost effective and easier to get started with.
   """
 
   defmodule Config do
     @moduledoc """
-    The `Config` struct represents the configuration for a Serving process.
+    The `Agens.Serving.Config` struct represents the configuration for a Serving process.
+
+    ## Fields
+    - `:name` - The name of the `Agens.Serving` process.
+    - `:serving` - The `Nx.Serving` struct or `GenServer` module for the `Agens.Serving`.
     """
 
     @type t :: %__MODULE__{
@@ -25,7 +37,7 @@ defmodule Agens.Serving do
   @registry Application.compile_env(:agens, :registry)
 
   @doc """
-  Starts a Serving process
+  Starts an `Agens.Serving` process
   """
   @spec start(Config.t()) :: {:ok, pid()}
   def start(%Config{} = config) do
@@ -51,7 +63,7 @@ defmodule Agens.Serving do
   end
 
   @doc """
-  Stops a Serving process
+  Stops an `Agens.Serving` process
   """
   @spec stop(atom()) :: :ok | {:error, :serving_not_found}
   def stop(serving_name) do
@@ -69,7 +81,7 @@ defmodule Agens.Serving do
   end
 
   @doc """
-  Runs a Message through a Serving
+  Executes an `Agens.Message` against an `Agens.Serving`
   """
   @spec run(Message.t()) :: String.t() |{:error, :serving_not_running}
   def run(%Message{} = message) do
