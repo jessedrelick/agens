@@ -1,27 +1,26 @@
 defmodule Agens.Job do
   @moduledoc """
-  A `GenServer` implementation that manages a sequence of steps.
+  A Job defines a multi-agent workflow through a sequence of steps.
 
-  The job is defined by a `Config` struct that specifies the name, objective,
-  and sequence of steps. Each step is defined by an `Agent` struct and a
-  prompt string. The job can be started using the `start/1` function and
-  run using the `run/2` function. The progress of the job can be observed
-  using the `GenServer.call/2` and `GenServer.cast/2` functions to retrieve
-  the current state of the job and to control its progression.
+  An `Agens.Job` is mainly a sequence of steps, defined with the `Agens.Job.Step` struct, used to create advanced multi-agent workflows.
+
+  Conditions can be used in order to route to different steps based on a result, or can be used to end the Job.
   """
 
   defmodule Step do
     @moduledoc """
-    The `Step` struct defines a step in a job.
+    The Step struct defines a single step within a Job.
 
-    A step consists of an `Agent` struct and a prompt string. Optionally, a list of
-    conditions can be specified to control if the step should be executed.
+    ## Fields
+    - `agent` - The name of the agent to be used in the Step.
+    - `prompt` - An optional string to be added to the LM prompt.
+    - `conditions` - An optional conditions map to control flow based on the result of the agent.
     """
 
     @type t :: %__MODULE__{
             agent: atom(),
             prompt: String.t() | nil,
-            conditions: list(map()) | nil
+            conditions: map() | nil
           }
 
     @enforce_keys [:agent]
@@ -30,16 +29,17 @@ defmodule Agens.Job do
 
   defmodule Config do
     @moduledoc """
-    The `Config` struct defines the configuration for a job.
+    The Config struct defines the details of a Job.
 
-    The `name` field is an atom that identifies the job. The `objective` field
-    is a string that describes the purpose of the job. The `steps` field is a list
-    of `Step` structs that define the sequence of actions to be performed.
+    ## Fields
+    - `name` - An atom that identifies the Job.
+    - `objective` - A optional string to be added to the LM prompt that describes the purpose of the Job.
+    - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
     """
 
     @type t :: %__MODULE__{
-            name: String.t(),
-            objective: String.t(),
+            name: atom(),
+            objective: String.t() | nil,
             steps: list(Step.t())
           }
 
@@ -48,15 +48,7 @@ defmodule Agens.Job do
   end
 
   defmodule State do
-    @moduledoc """
-    The `State` struct is used to keep track of the current state of a job.
-
-    The `status` field is one of `:running`, `:error`, or `:completed`. The
-    `step_index` field is an integer that represents the index of the current
-    step being executed. The `config` field is a `Config` struct that defines the
-    configuration for the job. The `parent` field is a process identifier for the
-    parent process.
-    """
+    @moduledoc false
 
     @type t :: %__MODULE__{
             status: :init | :running | :error | :completed,
@@ -76,9 +68,9 @@ defmodule Agens.Job do
   alias Agens.{Agent, Job, Message}
 
   @doc """
-  Starts a new job using the provided `config`.
+  Starts a new Job process using the provided `Agens.Job.Config`.
 
-  Returns `{:ok, pid}` if the job was successfully started.
+  `start/1` does not run the Job, only starts the supervised process. See `run/2` for running the Job.
   """
   @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
@@ -100,15 +92,11 @@ defmodule Agens.Job do
   end
 
   @doc """
-  Runs a job with the given `pid` and `input`.
+  Runs a Job with the given input by Job name or `pid`.
 
-  Returns the result of the `GenServer.call/2` function.
+  A supervised process for the Job must be started first using `start/1`.
   """
   @spec run(pid | atom, term) :: {:ok, term} | {:error, :job_not_found}
-  def run(pid, input) when is_pid(pid) do
-    GenServer.call(pid, {:run, input})
-  end
-
   def run(name, input) when is_atom(name) do
     name
     |> Process.whereis()
@@ -121,16 +109,14 @@ defmodule Agens.Job do
     end
   end
 
-  @doc """
-  Retrieves the configuration for a job with the given `pid`.
-
-  Returns the result of the `GenServer.call/2` function.
-  """
-  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
-  def get_config(pid) when is_pid(pid) do
-    GenServer.call(pid, :get_config)
+  def run(pid, input) when is_pid(pid) do
+    GenServer.call(pid, {:run, input})
   end
 
+  @doc """
+  Retrieves the Job configuration by Job name or `pid`.
+  """
+  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
   def get_config(name) when is_atom(name) do
     name
     |> Process.whereis()
@@ -141,6 +127,10 @@ defmodule Agens.Job do
       pid when is_pid(pid) ->
         get_config(pid)
     end
+  end
+
+  def get_config(pid) when is_pid(pid) do
+    GenServer.call(pid, :get_config)
   end
 
   @doc false

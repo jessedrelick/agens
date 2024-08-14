@@ -13,7 +13,7 @@ defmodule Agens.Serving do
 
   defmodule Config do
     @moduledoc """
-    The `Agens.Serving.Config` struct represents the configuration for a Serving process.
+    The Config struct represents the configuration for a Serving process.
 
     ## Fields
     - `:name` - The name of the `Agens.Serving` process.
