@@ -9,21 +9,19 @@ defmodule Agens.JobTest do
 
     job = %Job.Config{
       name: :first_job,
-      objective: "to create a sequence of steps",
+      description: "to create a sequence of steps",
       steps: [
         %Job.Step{
           agent: :first_agent,
-          prompt: "",
+          objective: "",
           conditions: nil
         },
         %Job.Step{
           agent: :second_agent,
-          prompt: "",
           conditions: nil
         },
         %Job.Step{
           agent: :verifier_agent,
-          prompt: "",
           conditions: %{
             "TRUE" => :end,
             "__DEFAULT__" => 0
@@ -44,7 +42,6 @@ defmodule Agens.JobTest do
     test "config" do
       job = %Job.Config{
         name: :job_config,
-        objective: "",
         steps: []
       }
 
@@ -115,16 +112,16 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         name: name,
-        objective: "to simulate a crash",
+        description: "to simulate a crash",
         steps: [
           %Job.Step{
             agent: :first_agent,
-            prompt: "",
+            objective: "",
             conditions: nil
           },
           %Job.Step{
             agent: :verifier_agent,
-            prompt: "",
+            objective: "",
             conditions: %{
               "TRUE" => :end,
               "__DEFAULT__" => :invalid
@@ -185,16 +182,15 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         name: name,
-        objective: "to test tool usage",
+        description: "to test tool usage",
         steps: [
           %Job.Step{
             agent: :first_agent,
-            prompt: "",
+            objective: "",
             conditions: nil
           },
           %Job.Step{
             agent: :tool_agent,
-            prompt: "",
             conditions: %{
               "TRUE" => :end,
               "__DEFAULT__" => 0

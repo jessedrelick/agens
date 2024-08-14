@@ -13,18 +13,18 @@ defmodule Agens.Job do
 
     ## Fields
     - `agent` - The name of the agent to be used in the Step.
-    - `prompt` - An optional string to be added to the LM prompt.
+    - `objective` - An optional string to be added to the LM prompt explaining the purpose of the Step.
     - `conditions` - An optional conditions map to control flow based on the result of the agent.
     """
 
     @type t :: %__MODULE__{
             agent: atom(),
-            prompt: String.t() | nil,
+            objective: String.t() | nil,
             conditions: map() | nil
           }
 
     @enforce_keys [:agent]
-    defstruct [:agent, :prompt, :conditions]
+    defstruct [:agent, :objective, :conditions]
   end
 
   defmodule Config do
@@ -33,18 +33,18 @@ defmodule Agens.Job do
 
     ## Fields
     - `name` - An atom that identifies the Job.
-    - `objective` - A optional string to be added to the LM prompt that describes the purpose of the Job.
+    - `description` - A optional string to be added to the LM prompt that describes the basic goal of the Job.
     - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
     """
 
     @type t :: %__MODULE__{
             name: atom(),
-            objective: String.t() | nil,
+            description: String.t() | nil,
             steps: list(Step.t())
           }
 
     @enforce_keys [:name, :steps]
-    defstruct [:name, :objective, :steps]
+    defstruct [:name, :description, :steps]
   end
 
   defmodule State do
