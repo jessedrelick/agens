@@ -45,7 +45,6 @@ defmodule Agens.Agent do
     ## Fields
     - `:name` - The name of the Agent process.
     - `:serving` - The serving module or `Nx.Serving` struct for the Agent.
-    - `:context` - The context or goal of the Agent. Default is nil.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
     - `:tool` - The `Agens.Tool` module for the Agent. Default is nil.
@@ -54,14 +53,13 @@ defmodule Agens.Agent do
     @type t :: %__MODULE__{
             name: atom(),
             serving: module() | Nx.Serving.t(),
-            context: String.t() | nil,
             knowledge: module() | nil,
             prompt: Agens.Agent.Prompt.t() | String.t() | nil,
             tool: module() | nil
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving, :context, :knowledge, :prompt, :tool]
+    defstruct [:name, :serving, :knowledge, :prompt, :tool]
   end
 
   use GenServer

@@ -39,7 +39,6 @@ defmodule Test.Support.AgentCase do
         prompt: %Agent.Prompt{
           identity:
             "You are an AI agent that takes an input letter of the English alphabet and returns the capital letter two places ahead of the letter. If the input is anything but a single letter, your return 'ERROR'",
-          context: "You are used as part of a unit test suite for a multi-agent workflow",
           constraints:
             "Your output should only be a single capital letter from the English alphabet, or 'ERROR'",
           examples: [
