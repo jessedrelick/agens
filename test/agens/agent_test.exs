@@ -58,7 +58,6 @@ defmodule Agens.AgentTest do
   end
 
   describe "messages" do
-    setup :setup_mock
 
     @tag timeout: :infinity
     test "message sequence without job" do
@@ -66,6 +65,11 @@ defmodule Agens.AgentTest do
       |> Agent.start()
 
       input = "D"
+
+      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
+        result = map_input(agent_name, input)
+        Map.put(message, :result, result)
+      end)
 
       # 0
       message = %Message{agent_name: :first_agent, input: input}
@@ -111,17 +115,25 @@ defmodule Agens.AgentTest do
     end
 
     test "invalid message returns error" do
+      agent_name = :second_agent
+      input = "Here is some invalid input"
+
+      :meck.expect(Agent, :message, fn %Message{agent_name: ^agent_name, input: ^input} = message ->
+        result = map_input(agent_name, input)
+        Map.put(message, :result, result)
+      end)
+
       [
         %Agent.Config{
-          name: :second_agent,
+          name: agent_name,
           serving: :text_generation
         }
       ]
       |> Agent.start()
 
       message = %Message{
-        agent_name: :second_agent,
-        input: "Here is some invalid input"
+        agent_name: agent_name,
+        input: input
       }
 
       message = Agent.message(message)

@@ -8,21 +8,8 @@ defmodule Test.Support.AgentCase do
     end
   end
 
-  import Test.Support.Helpers
-
-  alias Agens.{Agent, Message}
+  alias Agens.Agent
   alias Test.Support
-
-  setup_all do
-    :meck.new(Agent, [:passthrough])
-  end
-
-  def setup_mock(_ctx) do
-    :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
-      result = map_input(agent_name, input)
-      Map.put(message, :result, result)
-    end)
-  end
 
   def get_agent_configs() do
     [

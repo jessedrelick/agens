@@ -55,11 +55,17 @@ defmodule Agens.JobTest do
   end
 
   describe "job" do
-    setup [:setup_mock, :start_job]
+    setup :start_job
 
     @tag capture_log: true
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
+
+      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
+        result = map_input(agent_name, input)
+        Map.put(message, :result, result)
+      end)
+
       assert is_pid(pid)
       assert Job.run(name, input) == :ok
 
