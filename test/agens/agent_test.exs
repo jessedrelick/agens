@@ -58,7 +58,6 @@ defmodule Agens.AgentTest do
   end
 
   describe "messages" do
-
     @tag timeout: :infinity
     test "message sequence without job" do
       get_agent_configs()
