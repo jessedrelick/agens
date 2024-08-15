@@ -1,4 +1,4 @@
-!(https://github.com/jessedrelick/agens/actions/workflows/main.yml/badge.svg)
+![Build](https://github.com/jessedrelick/agens/actions/workflows/main.yml/badge.svg)
 [![Hexdocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/agens)
 [![Hex.pm](https://img.shields.io/hexpm/v/yourrepo.svg)](https://hex.pm/packages/agens)
 
