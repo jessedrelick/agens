@@ -72,28 +72,28 @@ defmodule Agens.JobTest do
       assert_receive {:job_started, ^name}
 
       # 0
-      assert_receive {:step_started, ^name, 0, "D"}
-      assert_receive {:step_result, ^name, 0, "C"}
-      assert_receive {:step_started, ^name, 1, "C"}
-      assert_receive {:step_result, ^name, 1, "E"}
-      assert_receive {:step_started, ^name, 2, "E"}
-      assert_receive {:step_result, ^name, 2, "E"}
+      assert_receive {:step_started, {^name, 0}, "D"}
+      assert_receive {:step_result, {^name, 0}, "C"}
+      assert_receive {:step_started, {^name, 1}, "C"}
+      assert_receive {:step_result, {^name, 1}, "E"}
+      assert_receive {:step_started, {^name, 2}, "E"}
+      assert_receive {:step_result, {^name, 2}, "E"}
 
       # 1
-      assert_receive {:step_started, ^name, 0, "E"}
-      assert_receive {:step_result, ^name, 0, "D"}
-      assert_receive {:step_started, ^name, 1, "D"}
-      assert_receive {:step_result, ^name, 1, "F"}
-      assert_receive {:step_started, ^name, 2, "F"}
-      assert_receive {:step_result, ^name, 2, "F"}
+      assert_receive {:step_started, {^name, 0}, "E"}
+      assert_receive {:step_result, {^name, 0}, "D"}
+      assert_receive {:step_started, {^name, 1}, "D"}
+      assert_receive {:step_result, {^name, 1}, "F"}
+      assert_receive {:step_started, {^name, 2}, "F"}
+      assert_receive {:step_result, {^name, 2}, "F"}
 
       # 2
-      assert_receive {:step_started, ^name, 0, "F"}
-      assert_receive {:step_result, ^name, 0, "E"}
-      assert_receive {:step_started, ^name, 1, "E"}
-      assert_receive {:step_result, ^name, 1, "G"}
-      assert_receive {:step_started, ^name, 2, "G"}
-      assert_receive {:step_result, ^name, 2, "TRUE"}
+      assert_receive {:step_started, {^name, 0}, "F"}
+      assert_receive {:step_result, {^name, 0}, "E"}
+      assert_receive {:step_started, {^name, 1}, "E"}
+      assert_receive {:step_result, {^name, 1}, "G"}
+      assert_receive {:step_started, {^name, 2}, "G"}
+      assert_receive {:step_result, {^name, 2}, "TRUE"}
 
       assert_receive {:job_ended, ^name, :complete}
     end
@@ -144,10 +144,10 @@ defmodule Agens.JobTest do
       assert result == :ok
       assert_receive {:job_started, ^name}
 
-      assert_receive {:step_started, ^name, 0, "F"}
-      assert_receive {:step_result, ^name, 0, "E"}
-      assert_receive {:step_started, ^name, 1, "E"}
-      assert_receive {:step_result, ^name, 1, "FALSE"}
+      assert_receive {:step_started, {^name, 0}, "F"}
+      assert_receive {:step_result, {^name, 0}, "E"}
+      assert_receive {:step_started, {^name, 1}, "E"}
+      assert_receive {:step_result, {^name, 1}, "FALSE"}
 
       assert_receive {:job_ended, ^name,
                       {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
@@ -213,13 +213,13 @@ defmodule Agens.JobTest do
       assert result == :ok
       assert_receive {:job_started, ^name}
 
-      assert_receive {:step_started, ^name, 0, "F"}
-      assert_receive {:step_result, ^name, 0, "E"}
-      assert_receive {:step_started, ^name, 1, "E"}
+      assert_receive {:step_started, {^name, 0}, "F"}
+      assert_receive {:step_result, {^name, 0}, "E"}
+      assert_receive {:step_started, {^name, 1}, "E"}
       assert_receive {:tool_started, {^name, 1}, "FALSE"}
       assert_receive {:tool_raw, {^name, 1}, %{}}
       assert_receive {:tool_result, {^name, 1}, "TRUE"}
-      assert_receive {:step_result, ^name, 1, "TRUE"}
+      assert_receive {:step_result, {^name, 1}, "TRUE"}
 
       assert_receive {:job_ended, ^name, :complete}
     end

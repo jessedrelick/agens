@@ -128,6 +128,7 @@ defmodule Agens.Agent do
   def message(%Message{} = message) do
     case Registry.lookup(@registry, message.agent_name) do
       [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
+        # tool.pre(message.input)
         base = base_prompt(config, message.input)
         prompt = "<s>[INST]#{base}[/INST]"
 

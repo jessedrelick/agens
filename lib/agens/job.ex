@@ -241,9 +241,9 @@ defmodule Agens.Job do
       step_objective: step.objective
     }
 
-    send(state.parent, {:step_started, message.job_name, message.step_index, message.input})
+    send(state.parent, {:step_started, {message.job_name, message.step_index}, message.input})
     message = Agent.message(message)
-    send(state.parent, {:step_result, message.job_name, message.step_index, message.result})
+    send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
 
     if step.conditions do
       do_conditions(step.conditions, message)
