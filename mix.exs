@@ -11,7 +11,7 @@ defmodule Agens.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Library for creating AI agents",
+      description: "Create multi-agent workflows with AI and Language Models using OTP components for reliable and scalable automation.",
       package: package(),
       docs: docs()
     ]
@@ -39,7 +39,25 @@ defmodule Agens.MixProject do
     [
       maintainers: ["Jesse Drelick"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/jessedrelick/agens"}
+      links: %{"GitHub" => "https://github.com/jessedrelick/agens"},
+      keywords: [
+        "AI",
+        "Agents",
+        "AI Agents",
+        "Multi-Agent Systems",
+        "LLM",
+        "Language Models",
+        "NLP",
+        "Task Orchestration",
+        "Workflow Automation",
+        "Bumblebee"
+      ],
+      categories: [
+        "Machine Learning",
+        "Artificial Intelligence",
+        "Natural Language Processing",
+        "Automation"
+      ]
     ]
   end
 
