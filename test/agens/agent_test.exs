@@ -1,7 +1,7 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
 
-  alias Agens.{Agent, Message}
+  alias Agens.{Agent, Job, Message}
 
   describe "agents" do
     test "start agents" do
@@ -152,6 +152,56 @@ defmodule Agens.AgentTest do
 
       result = Agent.message(message)
       assert result == {:error, :agent_not_running}
+    end
+  end
+
+  describe "prompt" do
+    test "full prompt" do
+      job_name = :test_prompt_job
+      agent_name = :test_prompt_agent
+      input = "test input"
+
+      prompt = %Agent.Prompt{
+        identity: "test agent identity",
+        constraints: "test agent constraints",
+        context: "test agent context",
+        reflection: "test agent reflection"
+        # examples: [
+        #   %{input: "A", output: "C"},
+        #   %{input: "F", output: "H"},
+        #   %{input: "9vasg2rwe", output: "ERROR"}
+        # ],
+      }
+
+      %Agent.Config{
+        name: agent_name,
+        serving: :text_generation,
+        prompt: prompt
+      }
+      |> Agent.start()
+
+      %Job.Config{
+        name: job_name,
+        description: "test job description",
+        steps: [
+          %Job.Step{
+            agent: agent_name,
+            objective: "test step objective",
+            conditions: %{
+              "__DEFAULT__" => :end
+            }
+          }
+        ]
+      }
+      |> Job.start()
+
+      Job.run(job_name, input)
+
+      assert_receive {:job_started, ^job_name}
+
+      assert_receive {:step_started, {^job_name, 0}, "test input"}
+      assert_receive {:step_result, {^job_name, 0}, "STUB RUN"}
+      assert_receive {:job_ended, :test_prompt_job, :complete}
     end
   end
 end

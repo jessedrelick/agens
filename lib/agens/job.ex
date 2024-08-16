@@ -312,8 +312,13 @@ defmodule Agens.Job do
         GenServer.cast(self(), :end)
 
       nil ->
-        step_index = Map.get(conditions, "__DEFAULT__")
-        GenServer.cast(self(), {:step, step_index, message})
+        case Map.get(conditions, "__DEFAULT__") do
+          :end ->
+            GenServer.cast(self(), :end)
+
+          step_index when is_integer(step_index) ->
+            GenServer.cast(self(), {:step, step_index, message})
+        end
     end
   end
 end

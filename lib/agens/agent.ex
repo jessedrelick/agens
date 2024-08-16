@@ -70,17 +70,32 @@ defmodule Agens.Agent do
   @registry Application.compile_env(:agens, :registry)
 
   @fields Application.compile_env(:agens, :prompts, %{
-    prompt: {"Agent", "You are a specialized agent with the following capabilities and expertise"},
-    identity: {"Identity", "You are a specialized agent with the following capabilities and expertise"},
-    context: {"Context", "The purpose or goal behind your tasks are to"},
-    constraints: {"Constraints", "You must operate with the following constraints or limitations"},
-    examples: {"Examples", "You should consider the following examples before returning results"},
-    reflection: {"Reflection", "You should consider the following factors before returning results"},
-    instructions: {"Tool Instructions", "You should consider the following tool before returning results"},
-    objective: {"Step Objective", "You should consider the following objective before returning results"},
-    description: {"Job Description", "You should consider the following description before returning results"},
-    input: {"Input", "The following is the actual input from the user, system or another agent"},
-  })
+            prompt:
+              {"Agent",
+               "You are a specialized agent with the following capabilities and expertise"},
+            identity:
+              {"Identity",
+               "You are a specialized agent with the following capabilities and expertise"},
+            context: {"Context", "The purpose or goal behind your tasks are to"},
+            constraints:
+              {"Constraints", "You must operate with the following constraints or limitations"},
+            examples:
+              {"Examples", "You should consider the following examples before returning results"},
+            reflection:
+              {"Reflection", "You should consider the following factors before returning results"},
+            instructions:
+              {"Tool Instructions",
+               "You should consider the following tool before returning results"},
+            objective:
+              {"Step Objective",
+               "You should consider the following objective before returning results"},
+            description:
+              {"Job Description",
+               "You should consider the following description before returning results"},
+            input:
+              {"Input",
+               "The following is the actual input from the user, system or another agent"}
+          })
 
   @doc """
   Starts one or more `Agens.Agent` processes
@@ -172,7 +187,7 @@ defmodule Agens.Agent do
   end
 
   @spec build_prompt(Config.t(), Message.t()) :: String.t()
-  def build_prompt(%Config{prompt: prompt, tool: tool}, %Message{} = message) do
+  defp build_prompt(%Config{prompt: prompt, tool: tool}, %Message{} = message) do
     %{
       objective: message.step_objective,
       description: message.job_description
@@ -199,7 +214,9 @@ defmodule Agens.Agent do
     """
   end
 
-  defp maybe_add_prompt(map, %Prompt{} = prompt), do: Map.merge(map, prompt)
+  defp maybe_add_prompt(map, %Prompt{} = prompt),
+    do: prompt |> Map.from_struct() |> Map.merge(map)
+
   defp maybe_add_prompt(map, prompt) when is_binary(prompt), do: Map.put(map, :prompt, prompt)
   defp maybe_add_prompt(map, _prompt), do: map
 
