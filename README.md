@@ -44,51 +44,6 @@ See the [Documentation]() for more information.
 ### Example
 See `/examples/simple-job.exs` to see how Servings, Agents and Jobs come together to create a cohesive multi-agent workflow.
 
-### Events
-Agens emits a handful events that can be used by the caller via `handle_info/3` for ui, pubsub, logging, persistence and other side-effects.
-
-#### Job
-```elixir
-{:job_started, job.name}
-```
-
-Emitted when a Job has been started
-
-```elixir
-{:job_ended, job.name, :completed | {:error, error}}
-```
-
-Emitted when a Job has ended, whether it has ended due to completion or error
-
-#### Step
-```elixir
-{:step_started, {job.name, step_index}, message.input}
-```
-Emitted when a Step has started. Includes the input data provided to the Step, whether from the user or the previous Step.
-
-```elixir
-{:step_result, {job.name, step_index}, message.result}
-```
-Emitted when a result has been returned from the Serving. Includes the Serving result, which will either be provided to the Tool (if applicable), conditions (if applicable) or the next Step of the Job.
-
-#### Tool
-The following events are only emitted if the Agent has a Tool specified in `Agens.Agent.Config`:
-
-```elixir
-{:tool_started, {job.name, step_index}, message.result}
-```
-Emitted when a Tool is about to be called. `message.result` here is the Serving result, and will be overriden by the value returned from the Tool prior to final output.
-
-```elixir
-{:tool_raw, {job.name, step_index}, message.raw}
-```
-Emitted after completing the Tool function call. It provides the raw result of the tool, prior to any post-processing.
-
-```elixir
-{:tool_result, {job.name, step_index}, message.result}
-```
-Emitted after completing post-processing of the raw Tool result. This is the final result of the Tool and this value will be provided to either conditions or the next step of the Job.
-
 ### Prompting
 Agens provides a variety of different ways to customize the final prompt sent to the LM/Serving. Each entity has a configurable field for customizing the final prompt, whereas `nil` values will omit it from the final prompt entirely. This approach provides significant flexibility for crafting detailed prompts.
 

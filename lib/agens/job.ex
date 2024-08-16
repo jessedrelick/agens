@@ -5,6 +5,56 @@ defmodule Agens.Job do
   An `Agens.Job` is mainly a sequence of steps, defined with the `Agens.Job.Step` struct, used to create advanced multi-agent workflows.
 
   Conditions can be used in order to route to different steps based on a result, or can be used to end the Job.
+
+  ### Events
+  Agens emits several events that can be handled by the caller using `handle_info/3` for purposes such as UI updates, pubsub, logging, persistence and other side effects.
+
+  #### Job
+  ```elixir
+  {:job_started, job.name}
+  ```
+
+  Emitted when a job has started.
+
+  ```elixir
+  {:job_ended, job.name, :completed | {:error, error}}
+  ```
+
+  Emitted when a job has ended, either due to completion or an error.
+
+  #### Step
+  ```elixir
+  {:step_started, {job.name, step_index}, message.input}
+  ```
+
+  Emitted when a step has started. Includes the input data provided to the step, whether from the user or a previous step.
+
+  ```elixir
+  {:step_result, {job.name, step_index}, message.result}
+  ```
+
+  Emitted when a result has been returned from the Serving. Includes the Serving result, which will be passed to the Tool (if applicable), conditions (if applicable), or the next step of the job.
+
+  #### Tool
+  The following events are emitted only if the Agent has a Tool specified in `Agens.Agent.Config`:
+
+  ```elixir
+  {:tool_started, {job.name, step_index}, message.result}
+  ```
+
+  Emitted when a Tool is about to be called. `message.result` here is the Serving result, which will be overriden by the value returned from the Tool prior to final output.
+
+  ```elixir
+  {:tool_raw, {job.name, step_index}, message.raw}
+  ```
+
+  Emitted after completing the Tool function call. It provides the raw result of the Tool before any post-processing.
+
+  ```elixir
+  {:tool_result, {job.name, step_index}, message.result}
+  ```
+
+  Emitted after post-processing of the raw Tool result. This is the final result of the Tool, which will be passed to conditions or the next step of the job.
   """
 
   defmodule Step do
