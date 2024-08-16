@@ -206,7 +206,7 @@ defmodule Agens.AgentTest do
       assert_receive {:tool_raw, {^job_name, 0}, %{}}
       assert_receive {:tool_result, {^job_name, 0}, "TRUE"}
       assert_receive {:step_result, {^job_name, 0}, "TRUE"}
-      assert_receive {:job_ended, :test_prompt_job, :complete}
+      assert_receive {:job_ended, ^job_name, :complete}
     end
   end
 end

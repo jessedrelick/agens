@@ -316,7 +316,7 @@ defmodule Agens.Job do
           :end ->
             GenServer.cast(self(), :end)
 
-          step_index when is_integer(step_index) ->
+          step_index ->
             GenServer.cast(self(), {:step, step_index, message})
         end
     end
