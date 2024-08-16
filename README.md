@@ -53,7 +53,10 @@ All fields with values, in addition to user input, will be included in the final
 The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored on `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
 
 ### Job
-`Agens.Job.Config` uses the `description` field to configure the prompt for all messages within the Job. This field should be used carefully as it will be sent to the Serving with every prompt 
+`Agens.Job.Config` uses the `description` field to configure the prompt for all messages within the Job. This field should be used carefully as it will be sent to the Serving with every prompt.
+
+### Step
+`Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the serving. This can provide more specific information in the current prompt than the Job description or Agent prompt.
 
 ### Agent
 `Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following optional fields can be used with the struct approach:
@@ -66,9 +69,6 @@ The `input` value is the only required field for building prompts. This value ca
 
 Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `Agens.Job.Step.objective` or `Agens.Job.Config.description` for Job or Step-specific prompting.
 
-### Step
-`Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the serving. This can provide more specific information in the current prompt than the Job description or Agent prompt.
-
 ### Tool
 When using creating Tools with the `Agens.Tool` behaviour, the `instructions/0` callback can be used to add specific instructions in the final prompt for using the Tool. This could also include examples, especially for structured output, which can be crucial for designing a Tool that will provide predictable results.
 
@@ -77,15 +77,11 @@ It is important to note that these instructions will be provided to the serving 
 See `Agens.Tool` for more information on using Tools.
 
 ### Summary
-- User/Agent: input/result
-- Job: description
-- Agent: prompt
-  - identity
-  - constraints
-  - examples
-  - reflection
-- Step: objective
-- Tool: instructions
+- **User/Agent**: `input`/`result`
+- **Job**: `description`
+- **Agent**: `prompt` (`string` or `Agens.Agent.Prompt`)
+- **Step**: `objective`
+- **Tool**: `instructions`
 
 > **Note:** 
 >
