@@ -2,6 +2,7 @@ defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
 
   alias Agens.{Agent, Job, Message}
+  alias Test.Support.Tools.NoopTool
 
   describe "agents" do
     test "start agents" do
@@ -176,7 +177,8 @@ defmodule Agens.AgentTest do
       %Agent.Config{
         name: agent_name,
         serving: :text_generation,
-        prompt: prompt
+        prompt: prompt,
+        tool: NoopTool
       }
       |> Agent.start()
 
@@ -200,7 +202,10 @@ defmodule Agens.AgentTest do
       assert_receive {:job_started, ^job_name}
 
       assert_receive {:step_started, {^job_name, 0}, "test input"}
-      assert_receive {:step_result, {^job_name, 0}, "STUB RUN"}
+      assert_receive {:tool_started, {^job_name, 0}, "STUB RUN"}
+      assert_receive {:tool_raw, {^job_name, 0}, %{}}
+      assert_receive {:tool_result, {^job_name, 0}, "TRUE"}
+      assert_receive {:step_result, {^job_name, 0}, "TRUE"}
       assert_receive {:job_ended, :test_prompt_job, :complete}
     end
   end

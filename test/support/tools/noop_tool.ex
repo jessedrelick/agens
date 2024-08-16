@@ -5,7 +5,7 @@ defmodule Test.Support.Tools.NoopTool do
   def pre(input), do: input
 
   @impl true
-  def instructions(), do: ""
+  def instructions(), do: "noop tool instructions"
 
   @impl true
   def to_args(_input), do: []
