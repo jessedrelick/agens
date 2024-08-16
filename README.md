@@ -3,16 +3,14 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/yourrepo.svg)](https://hex.pm/packages/agens)
 
 # Agens
-Agens is used to build multi-agent workflows with language models in Elixir.
+__Agens__ is a library designed to build multi-agent workflows with language models in Elixir.
 
-It is inspired by many of the popular tools in the Python ecosystem, including [LangChain](https://www.langchain.com/)/[LangGraph](https://www.langchain.com/langgraph), [CrewAI](https://www.crewai.com/) and others. Despite the significant ML/AI Python ecosystem, Elixir is well-suited for multi-agent workflows due to the inherent design of OTP, particularly GenServers and Supervisors, and one of the goals of this library is to demonstrate that. 
+Drawing inspiration from popular tools in the Python ecosystem, such as [LangChain](https://www.langchain.com/)/[LangGraph](https://www.langchain.com/langgraph) and [CrewAI](https://www.crewai.com/), __Agens__ showcases Elixir’s unique strengths in multi-agent workflows. While the ML/AI landscape is dominated by Python, Elixir’s use of the BEAM virtual machine and OTP (Open Telecom Platform), specifically GenServers and Supervisors, makes it particularly well-suited for these tasks. Agens aims to demonstrate how these inherent design features can be leveraged effectively.
 
-Combined with the excellent [`Bumblebee`](https://github.com/elixir-nx/bumblebee) Elixir library, [`Nx.Serving`](https://hexdocs.pm/nx/Nx.Serving.html), [structured outputs in the OpenAI API](https://openai.com/index/introducing-structured-outputs-in-the-api/), and continuous improvement of open-source language models, the need to use Python for multi-agent workflows is reduced, enabling the benefits of Elixir, particularly its concurrency model, to shine through.
+By combining Agens with powerful Elixir libraries like [Bumblebee](https://github.com/elixir-nx/bumblebee) and [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html), along with [structured outputs in the OpenAI API](https://openai.com/index/introducing-structured-outputs-in-the-api/) and the continuous improvement of open-source language models, the reliance on Python for multi-agent workflows is significantly reduced. This shift allows Elixir’s concurrency model to truly shine.
 
 ## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `agens` to your list of dependencies in `mix.exs`:
+Add `agens` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -21,10 +19,6 @@ def deps do
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/agens>.
 
 ## Usage
 Building a multi-agent workflow with Agens involves a few different steps and core entities:
@@ -148,7 +142,7 @@ See `Agens.Tool` for more information on using Tools.
 ## Roadmap
 
 ## Name
-The name 'Agens' is Latin for 'Agents' or 'Actors'. The term 'intellectus agens' is also popular in medieval philosophy, used to describe the 'active intellect' which is a 
+The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind’s ability to actively process and abstract information. This reflects the library’s goal: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.
 
 ## License
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for more details.
