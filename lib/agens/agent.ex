@@ -82,16 +82,14 @@ defmodule Agens.Agent do
             examples:
               {"Examples", "You should consider the following examples before returning results"},
             reflection:
-              {"Reflection", "You should consider the following factors before returning results"},
+              {"Reflection",
+               "You should reflect on the following factors before returning results"},
             instructions:
               {"Tool Instructions",
-               "You should consider the following tool before returning results"},
-            objective:
-              {"Step Objective",
-               "You should consider the following objective before returning results"},
+               "You should provide structured output for function calling based on the following instructions"},
+            objective: {"Step Objective", "The objective of this step is to"},
             description:
-              {"Job Description",
-               "You should consider the following description before returning results"},
+              {"Job Description", "This is part of multi-step job to achieve the following"},
             input:
               {"Input",
                "The following is the actual input from the user, system or another agent"}
