@@ -41,10 +41,10 @@ While Agens is designed to be flexible enough where you can communicate directly
 
 See the [Documentation]() for more information.
 
-### Example
+## Example
 See `/examples/simple-job.exs` to see how Servings, Agents and Jobs come together to create a cohesive multi-agent workflow.
 
-### Prompting
+## Prompting
 Agens provides a variety of different ways to customize the final prompt sent to the LM/Serving. Each entity has a configurable field for customizing the final prompt, whereas `nil` values will omit it from the final prompt entirely. This approach provides significant flexibility for crafting detailed prompts.
 
 Aside from the user input, all configurable fields that have values will be sent as part of the final prompt, using the [in-context learning]() method, so be mindful of token usage when using these fields. The more fields used, and the longer the values, the more expensive the query will be. The goal is to strike a balance between detailed prompts and token usage.
@@ -93,8 +93,6 @@ See `Agens.Tool` for more information on using Tools.
   - reflection
 - Step: objective
 - Tool: instructions
-
-## Roadmap
 
 ## Name
 The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind’s ability to actively process and abstract information. This reflects the library’s goal: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.
