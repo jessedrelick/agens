@@ -69,6 +69,19 @@ defmodule Agens.Agent do
 
   @registry Application.compile_env(:agens, :registry)
 
+  @fields Application.compile_env(:agens, :prompts, %{
+    prompt: {"Agent", "You are a specialized agent with the following capabilities and expertise"},
+    identity: {"Identity", "You are a specialized agent with the following capabilities and expertise"},
+    context: {"Context", "The purpose or goal behind your tasks are to"},
+    constraints: {"Constraints", "You must operate with the following constraints or limitations"},
+    examples: {"Examples", "You should consider the following examples before returning results"},
+    reflection: {"Reflection", "You should consider the following factors before returning results"},
+    instructions: {"Tool Instructions", "You should consider the following tool before returning results"},
+    objective: {"Step Objective", "You should consider the following objective before returning results"},
+    description: {"Job Description", "You should consider the following description before returning results"},
+    input: {"Input", "The following is the actual input from the user, system or another agent"},
+  })
+
   @doc """
   Starts one or more `Agens.Agent` processes
   """
@@ -128,8 +141,7 @@ defmodule Agens.Agent do
   def message(%Message{} = message) do
     case Registry.lookup(@registry, message.agent_name) do
       [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
-        # tool.pre(message.input)
-        base = base_prompt(config, message.input)
+        base = build_prompt(config, message)
         prompt = "<s>[INST]#{base}[/INST]"
 
         result =
@@ -159,33 +171,43 @@ defmodule Agens.Agent do
     {:ok, %{}}
   end
 
-  @spec base_prompt(Config.t(), String.t()) :: String.t()
-  defp base_prompt(%Config{prompt: %Prompt{} = prompt, tool: tool}, input) do
+  @spec build_prompt(Config.t(), Message.t()) :: String.t()
+  def build_prompt(%Config{prompt: prompt, tool: tool}, %Message{} = message) do
+    %{
+      objective: message.step_objective,
+      description: message.job_description
+    }
+    |> maybe_add_prompt(prompt)
+    |> maybe_add_tool(tool)
+    |> maybe_prep_input(message.input, tool)
+    |> Enum.reject(&filter_empty/1)
+    |> Enum.map(&field/1)
+    |> Enum.map(&to_prompt/1)
+    |> Enum.join("\n\n")
+  end
+
+  defp filter_empty({_, value}), do: value == "" or is_nil(value)
+
+  defp field({key, value}) do
+    {Map.get(@fields, key), value}
+  end
+
+  defp to_prompt({{heading, detail}, value}) do
     """
-    ## Identity
-    You are a specialized agent with the following capabilities and expertise: #{prompt.identity}
-
-    ## Context
-    The purpose or goal behind your tasks are to: #{prompt.context}
-
-    ## Constraints
-    You must operate with the following constraints or limitations: #{prompt.constraints}
-
-    ## Reflection
-    You should consider the following factors before returning results: #{prompt.reflection}
-
-    #{maybe_add_tool_instructions(tool)}
-
-    ## Input
-    The following is the actual input from the user, system or another agent: `#{input}`
+    ## #{heading}
+    #{detail}: #{value}
     """
   end
 
-  defp base_prompt(%Config{prompt: prompt, tool: nil}, input),
-    do: "Agent: #{prompt} Input: #{input}"
+  defp maybe_add_prompt(map, %Prompt{} = prompt), do: Map.merge(map, prompt)
+  defp maybe_add_prompt(map, prompt) when is_binary(prompt), do: Map.put(map, :prompt, prompt)
+  defp maybe_add_prompt(map, _prompt), do: map
 
-  defp base_prompt(%Config{prompt: prompt, tool: tool}, input) when is_atom(tool),
-    do: "Agent: #{prompt} Tool: #{tool.instructions()} Input: #{tool.pre(input)}"
+  defp maybe_add_tool(map, nil), do: map
+  defp maybe_add_tool(map, tool), do: Map.put(map, :instructions, tool.instructions())
+
+  defp maybe_prep_input(map, input, nil), do: Map.put(map, :input, input)
+  defp maybe_prep_input(map, input, tool), do: Map.put(map, :input, tool.pre(input))
 
   @spec maybe_use_tool(module(), Message.t()) :: Message.t()
   defp maybe_use_tool(nil, message), do: message
@@ -208,15 +230,5 @@ defmodule Agens.Agent do
     send(message.parent_pid, {:tool_result, {message.job_name, message.step_index}, result})
 
     Map.put(message, :result, result)
-  end
-
-  @spec maybe_add_tool_instructions(module() | nil) :: String.t()
-  defp maybe_add_tool_instructions(nil), do: ""
-
-  defp maybe_add_tool_instructions(tool) when is_atom(tool) do
-    """
-    ## Tool Instructions
-    #{tool.instructions()}
-    """
   end
 end
