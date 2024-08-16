@@ -50,13 +50,13 @@ Agens provides a variety of different ways to customize the final prompt sent to
 All fields with values, in addition to user input, will be included in the final prompt !!!!using the [in-context learning]() method!!!!. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
 
 ### User/Agent
-The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored on `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
+The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored in `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
 
 ### Job
 `Agens.Job.Config` uses the `description` field to configure the prompt for all messages within the Job. This field should be used carefully as it will be sent to the Serving with every prompt.
 
 ### Step
-`Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the serving. This can provide more specific information in the current prompt than the Job description or Agent prompt.
+`Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the Serving. This can provide more specific information in the final prompt than the Job `description` or Agent `prompt`.
 
 ### Agent
 `Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following optional fields can be used with the struct approach:
