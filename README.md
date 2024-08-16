@@ -70,9 +70,9 @@ The `input` value is the only required field for building prompts. This value ca
 Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `objective` on `Agens.Job.Step` or `description` on `Agens.Job.Config` for Job or Step-specific prompting.
 
 ### Tool
-When using creating Tools with the `Agens.Tool` behaviour, the `instructions/0` callback can be used to add specific instructions in the final prompt for using the Tool. This could also include examples, especially for structured output, which can be crucial for designing a Tool that will provide predictable results.
+When creating Tools with the `Agens.Tool` behaviour, the `c:Agens.Tool.instructions/0` callback can be used to include specific instructions in the final prompt. These instructions may also include examples, especially for structured output, which can be crucial for designing a Tool that delivers predictable results.
 
-It is important to note that these instructions will be provided to the serving **before** using the Tool in order to ensure the LM provides the proper inputs to the Tool. These inputs will then be provided to the Tool itself, which should be able to handle the LM response and provide the expected output for the next Step of the Job.
+It is important to note that these instructions are provided to the Serving **before** the Tool is used, ensuring that the language model (LM) supplies the correct inputs to the Tool. After receiving these inputs, the Tool should be able to generate the relevant arguments to make the function call, and finally provide the expected output for the next step of the job.
 
 See `Agens.Tool` for more information on using Tools.
 
