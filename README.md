@@ -45,19 +45,17 @@ See the [Documentation]() for more information.
 See `/examples/simple-job.exs` to see how Servings, Agents and Jobs come together to create a cohesive multi-agent workflow.
 
 ## Prompting
-Agens provides a variety of different ways to customize the final prompt sent to the LM/Serving. Each entity has a configurable field for customizing the final prompt, whereas `nil` values will omit it from the final prompt entirely. This approach provides significant flexibility for crafting detailed prompts.
+Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt’s content.
 
-Aside from the user input, all configurable fields that have values will be sent as part of the final prompt, using the [in-context learning]() method, so be mindful of token usage when using these fields. The more fields used, and the longer the values, the more expensive the query will be. The goal is to strike a balance between detailed prompts and token usage.
+All fields with values, in addition to user input, will be included in the final prompt !!!!using the [in-context learning]() method!!!!. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
 
-Depending on your use case, some fields may be more useful than others, and it is best to be more descriptive at the granular levels i.e. `Agens.Job.Step.objective` or `Agens.Tool.instructions` and use a more minimal approach with higher-level fields i.e. `Agens.Job.Config.description` or `Agens.Agent.Config.prompt`.
-
-#### User/Agent
+### User/Agent
 The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored on `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
 
-#### Job
+### Job
 `Agens.Job.Config` uses the `description` field to configure the prompt for all messages within the Job. This field should be used carefully as it will be sent to the Serving with every prompt 
 
-#### Agent
+### Agent
 `Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following optional fields can be used with the struct approach:
 
 - `:identity` - a string representing the purpose and capabilities of the agent
@@ -68,22 +66,17 @@ The `input` value is the only required field for building prompts. This value ca
 
 Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `Agens.Job.Step.objective` or `Agens.Job.Config.description` for Job or Step-specific prompting.
 
-#### Step
+### Step
 `Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the serving. This can provide more specific information in the current prompt than the Job description or Agent prompt.
 
-#### Tool
+### Tool
 When using creating Tools with the `Agens.Tool` behaviour, the `instructions/0` callback can be used to add specific instructions in the final prompt for using the Tool. This could also include examples, especially for structured output, which can be crucial for designing a Tool that will provide predictable results.
 
 It is important to note that these instructions will be provided to the serving **before** using the Tool in order to ensure the LM provides the proper inputs to the Tool. These inputs will then be provided to the Tool itself, which should be able to handle the LM response and provide the expected output for the next Step of the Job.
 
 See `Agens.Tool` for more information on using Tools.
 
-#### Future
-- future
-    - knowledge
-    - memory
-
-#### Summary
+### Summary
 - User/Agent: input/result
 - Job: description
 - Agent: prompt
@@ -93,6 +86,12 @@ See `Agens.Tool` for more information on using Tools.
   - reflection
 - Step: objective
 - Tool: instructions
+
+> **Note:** 
+>
+> Depending on your use case, some fields may be more relevant than others.
+>
+> It’s often beneficial to be more descriptive at granular levels, such as the `objective` of `Agens.Job.Step` or the `instructions` for `Agens.Tool`, while taking a more minimal approach with higher-level fields, such as the `description` of `Agens.Job.Config` or the `prompt` of `Agens.Agent.Config`.
 
 ## Name
 The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind’s ability to actively process and abstract information. This reflects the library’s goal: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.
