@@ -1,4 +1,4 @@
-real_llm? = false
+real_llm? = Application.get_env(:agens, :real_llm, false)
 
 Supervisor.start_link(
   [
