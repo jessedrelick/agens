@@ -59,7 +59,7 @@ The `input` value is the only required field for building prompts. This value ca
 `Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the Serving. This can provide more specific information in the final prompt than the Job `description` or Agent `prompt`.
 
 ### Agent
-`Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following optional fields can be used with the struct approach:
+`Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following fields, which are all optional, can be used with the struct approach:
 
 - `:identity` - a string representing the purpose and capabilities of the agent
 - `:context` - a string representing the goal or purpose of the agent's actions
@@ -67,7 +67,7 @@ The `input` value is the only required field for building prompts. This value ca
 - `:examples` - a list of maps representing example inputs and outputs for the agent
 - `:reflection` - a string representing any additional considerations or reflection the agent should make before returning results
 
-Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `Agens.Job.Step.objective` or `Agens.Job.Config.description` for Job or Step-specific prompting.
+Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `objective` on `Agens.Job.Step` or `description` on `Agens.Job.Config` for Job or Step-specific prompting.
 
 ### Tool
 When using creating Tools with the `Agens.Tool` behaviour, the `instructions/0` callback can be used to add specific instructions in the final prompt for using the Tool. This could also include examples, especially for structured output, which can be crucial for designing a Tool that will provide predictable results.
