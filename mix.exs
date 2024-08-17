@@ -14,7 +14,12 @@ defmodule Agens.MixProject do
       description:
         "Create multi-agent workflows with AI and Language Models using OTP components for reliable and scalable automation.",
       package: package(),
-      docs: docs()
+      docs: docs(),
+      aliases: aliases(),
+      preferred_cli_env: [
+        "test.all": :test,
+        "test.lm": :test
+      ]
     ]
   end
 
@@ -92,4 +97,11 @@ defmodule Agens.MixProject do
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp aliases do
+    [
+      "test.all": ["test --include lm"],
+      "test.lm": ["test --only lm"]
+    ]
+  end
 end

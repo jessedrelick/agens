@@ -1,5 +1,3 @@
-real_llm? = Application.get_env(:agens, :real_llm, false)
-
 Supervisor.start_link(
   [
     {Agens.Supervisor, name: Agens.Supervisor}
@@ -9,10 +7,10 @@ Supervisor.start_link(
 
 %Agens.Serving.Config{
   name: :text_generation,
-  serving: Test.Support.Serving.get(real_llm?)
+  serving: Test.Support.Serving.Stub
 }
 |> Agens.Serving.start()
 
 :meck.new(Agent, [:passthrough])
 
-ExUnit.start()
+ExUnit.start(exclude: [:lm])

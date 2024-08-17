@@ -224,4 +224,12 @@ defmodule Agens.JobTest do
       assert_receive {:job_ended, ^name, :complete}
     end
   end
+
+  describe "lm" do
+
+    @tag :lm
+    test "run job" do
+      assert true
+    end
+  end
 end

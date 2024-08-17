@@ -41,7 +41,4 @@ defmodule Test.Support.Serving do
       {:reply, "STUB RUN", state}
     end
   end
-
-  def get(true), do: LLM.get()
-  def get(false), do: Stub.get()
 end
