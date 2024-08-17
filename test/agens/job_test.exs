@@ -226,10 +226,16 @@ defmodule Agens.JobTest do
   end
 
   describe "lm" do
-
     @tag :lm
     test "run job" do
-      assert true
+      {:ok, pid} =
+        %Agens.Serving.Config{
+          name: :text_generation_lm,
+          serving: Test.Support.Serving.LLM.get()
+        }
+        |> Agens.Serving.start()
+
+      assert is_pid(pid)
     end
   end
 end
