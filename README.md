@@ -1,6 +1,8 @@
 ![Build](https://github.com/jessedrelick/agens/actions/workflows/main.yml/badge.svg)
 [![Hexdocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/agens)
 [![Hex.pm](https://img.shields.io/hexpm/v/yourrepo.svg)](https://hex.pm/packages/agens)
+[![codecov](https://codecov.io/gh/jessedrelick/agens/branch/experimental/graph/badge.svg?token=KTJXB4SGCJ)](https://codecov.io/gh/jessedrelick/agens)
+[![codecov](https://codecov.io/gh/jessedrelick/agens/graph/badge.svg?token=KTJXB4SGCJ)](https://codecov.io/gh/jessedrelick/agens)
 
 # Agens
 __Agens__ is a library designed to build multi-agent workflows with language models in Elixir.
