@@ -36,9 +36,9 @@ defmodule Test.Support.Serving do
       {:ok, opts}
     end
 
-    def handle_call({:run, %Agens.Message{}}, _, state) do
-      Logger.warning("STUB RUN")
-      {:reply, "STUB RUN", state}
+    def handle_call({:run, %Agens.Message{} = message}, _, state) do
+      result = Test.Support.Helpers.map_input(message.agent_name, message.input)
+      {:reply, result, state}
     end
   end
 end
