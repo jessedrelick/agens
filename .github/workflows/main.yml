@@ -20,10 +20,9 @@ jobs:
       - run: mix deps.get
       - run: mix compile --warnings-as-errors --force
       - run: mix format --check-formatted
-      - run: mix test
       - run: mix dialyzer
-      # - run: mix coveralls.json
-      # - name: Upload coverage reports to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   env:
-      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - run: mix coveralls.json
+      - name: Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
