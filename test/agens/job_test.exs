@@ -1,7 +1,7 @@
 defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: true
 
-  alias Agens.{Agent, Job, Message, Serving}
+  alias Agens.{Agent, Job}
 
   defp start_agens(_ctx) do
     {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
@@ -72,10 +72,9 @@ defmodule Agens.JobTest do
   end
 
   describe "sequence" do
-    setup :start_job
+    setup [:start_agens, :start_serving, :start_job]
 
     @tag capture_log: true
-    @tag :skip
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
 

@@ -1,8 +1,7 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
 
-  alias Agens.{Agent, Job, Message}
-  alias Test.Support.Tools.NoopTool
+  alias Agens.{Agent, Message}
 
   defp start_agens(_ctx) do
     {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
