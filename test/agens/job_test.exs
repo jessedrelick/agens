@@ -71,45 +71,46 @@ defmodule Agens.JobTest do
     end
   end
 
-  # describe "job" do
-  #   setup :start_job
+  describe "sequence" do
+    setup :start_job
 
-  #   @tag capture_log: true
-  #   test "start", %{job: %{name: name}, pid: pid} do
-  #     input = "D"
+    @tag capture_log: true
+    @tag :skip
+    test "start", %{job: %{name: name}, pid: pid} do
+      input = "D"
 
-  #     assert is_pid(pid)
-  #     assert Job.run(name, input) == :ok
+      assert is_pid(pid)
+      assert Job.run(name, input) == :ok
 
-  #     assert_receive {:job_started, ^name}
+      assert_receive {:job_started, ^name}
 
-  #     # 0
-  #     assert_receive {:step_started, {^name, 0}, "D"}
-  #     assert_receive {:step_result, {^name, 0}, "C"}
-  #     assert_receive {:step_started, {^name, 1}, "C"}
-  #     assert_receive {:step_result, {^name, 1}, "E"}
-  #     assert_receive {:step_started, {^name, 2}, "E"}
-  #     assert_receive {:step_result, {^name, 2}, "E"}
+      # 0
+      assert_receive {:step_started, {^name, 0}, "D"}
+      assert_receive {:step_result, {^name, 0}, "C"}
+      assert_receive {:step_started, {^name, 1}, "C"}
+      assert_receive {:step_result, {^name, 1}, "E"}
+      assert_receive {:step_started, {^name, 2}, "E"}
+      assert_receive {:step_result, {^name, 2}, "E"}
 
-  #     # 1
-  #     assert_receive {:step_started, {^name, 0}, "E"}
-  #     assert_receive {:step_result, {^name, 0}, "D"}
-  #     assert_receive {:step_started, {^name, 1}, "D"}
-  #     assert_receive {:step_result, {^name, 1}, "F"}
-  #     assert_receive {:step_started, {^name, 2}, "F"}
-  #     assert_receive {:step_result, {^name, 2}, "F"}
+      # 1
+      assert_receive {:step_started, {^name, 0}, "E"}
+      assert_receive {:step_result, {^name, 0}, "D"}
+      assert_receive {:step_started, {^name, 1}, "D"}
+      assert_receive {:step_result, {^name, 1}, "F"}
+      assert_receive {:step_started, {^name, 2}, "F"}
+      assert_receive {:step_result, {^name, 2}, "F"}
 
-  #     # 2
-  #     assert_receive {:step_started, {^name, 0}, "F"}
-  #     assert_receive {:step_result, {^name, 0}, "E"}
-  #     assert_receive {:step_started, {^name, 1}, "E"}
-  #     assert_receive {:step_result, {^name, 1}, "G"}
-  #     assert_receive {:step_started, {^name, 2}, "G"}
-  #     assert_receive {:step_result, {^name, 2}, "TRUE"}
+      # 2
+      assert_receive {:step_started, {^name, 0}, "F"}
+      assert_receive {:step_result, {^name, 0}, "E"}
+      assert_receive {:step_started, {^name, 1}, "E"}
+      assert_receive {:step_result, {^name, 1}, "G"}
+      assert_receive {:step_started, {^name, 2}, "G"}
+      assert_receive {:step_result, {^name, 2}, "TRUE"}
 
-  #     assert_receive {:job_ended, ^name, :complete}
-  #   end
-  # end
+      assert_receive {:job_ended, ^name, :complete}
+    end
+  end
 
   describe "restart" do
     setup [:start_agens, :start_serving]
