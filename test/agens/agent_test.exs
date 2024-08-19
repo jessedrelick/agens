@@ -29,10 +29,6 @@ defmodule Agens.AgentTest do
         input: input
       }
 
-      :meck.expect(Agent, :message, fn
-        ^message -> :meck.passthrough([message])
-      end)
-
       agents =
         [
           %Agent.Config{
@@ -65,11 +61,6 @@ defmodule Agens.AgentTest do
       |> Agent.start()
 
       input = "D"
-
-      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
-        result = map_input(agent_name, input)
-        Map.put(message, :result, result)
-      end)
 
       # 0
       message = %Message{agent_name: :first_agent, input: input}
@@ -118,11 +109,6 @@ defmodule Agens.AgentTest do
       agent_name = :second_agent
       input = "Here is some invalid input"
 
-      :meck.expect(Agent, :message, fn %Message{agent_name: ^agent_name, input: ^input} = message ->
-        result = map_input(agent_name, input)
-        Map.put(message, :result, result)
-      end)
-
       [
         %Agent.Config{
           name: agent_name,
@@ -146,10 +132,6 @@ defmodule Agens.AgentTest do
         agent_name: :missing_agent,
         input: "J"
       }
-
-      :meck.expect(Agent, :message, fn
-        ^message -> :meck.passthrough([message])
-      end)
 
       result = Agent.message(message)
       assert result == {:error, :agent_not_running}

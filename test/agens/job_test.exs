@@ -61,11 +61,6 @@ defmodule Agens.JobTest do
     test "start", %{job: %{name: name}, pid: pid} do
       input = "D"
 
-      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
-        result = map_input(agent_name, input)
-        Map.put(message, :result, result)
-      end)
-
       assert is_pid(pid)
       assert Job.run(name, input) == :ok
 
@@ -105,16 +100,6 @@ defmodule Agens.JobTest do
     @tag capture_log: true
     test "crash" do
       name = :crash_job
-
-      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
-        result =
-          case {agent_name, input} do
-            {:first_agent, "F"} -> "E"
-            {:verifier_agent, "E"} -> "FALSE"
-          end
-
-        Map.put(message, :result, result)
-      end)
 
       job = %Job.Config{
         name: name,
@@ -172,19 +157,6 @@ defmodule Agens.JobTest do
     @tag capture_log: true
     test "noop tool" do
       name = :noop_job
-
-      :meck.new(Serving, [:passthrough])
-
-      :meck.expect(Serving, :run, fn _message ->
-        "FALSE"
-      end)
-
-      :meck.expect(Agent, :message, fn %Message{agent_name: agent_name, input: input} = message ->
-        case {agent_name, input} do
-          {:first_agent, "F"} -> Map.put(message, :result, "E")
-          {:tool_agent, "E"} -> :meck.passthrough([message])
-        end
-      end)
 
       job = %Job.Config{
         name: name,

@@ -11,6 +11,4 @@ Supervisor.start_link(
 }
 |> Agens.Serving.start()
 
-:meck.new(Agent, [:passthrough])
-
 ExUnit.start(exclude: [:lm])
