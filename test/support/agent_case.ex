@@ -28,11 +28,11 @@ defmodule Test.Support.AgentCase do
             "You are an AI agent that takes an input letter of the English alphabet and returns the capital letter two places ahead of the letter. If the input is anything but a single letter, your return 'ERROR'",
           constraints:
             "Your output should only be a single capital letter from the English alphabet, or 'ERROR'",
-          examples: [
-            %{input: "A", output: "C"},
-            %{input: "F", output: "H"},
-            %{input: "9vasg2rwe", output: "ERROR"}
-          ],
+          # examples: [
+          #   %{input: "A", output: "C"},
+          #   %{input: "F", output: "H"},
+          #   %{input: "9vasg2rwe", output: "ERROR"}
+          # ],
           reflection:
             "Before returning a result please ensure it is either a capital letter of the English alphabet or 'ERROR'"
         },
