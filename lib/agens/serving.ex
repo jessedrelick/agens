@@ -32,7 +32,6 @@ defmodule Agens.Serving do
   require Logger
 
   alias Agens.Message
-  alias Agens.Serving.Config
 
   @registry Application.compile_env(:agens, :registry)
 

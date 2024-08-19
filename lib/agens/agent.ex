@@ -65,35 +65,7 @@ defmodule Agens.Agent do
 
   require Logger
 
-  alias Agens.{Message, Serving}
-
   @registry Application.compile_env(:agens, :registry)
-
-  @fields Application.compile_env(:agens, :prompts, %{
-            prompt:
-              {"Agent",
-               "You are a specialized agent with the following capabilities and expertise"},
-            identity:
-              {"Identity",
-               "You are a specialized agent with the following capabilities and expertise"},
-            context: {"Context", "The purpose or goal behind your tasks are to"},
-            constraints:
-              {"Constraints", "You must operate with the following constraints or limitations"},
-            examples:
-              {"Examples", "You should consider the following examples before returning results"},
-            reflection:
-              {"Reflection",
-               "You should reflect on the following factors before returning results"},
-            instructions:
-              {"Tool Instructions",
-               "You should provide structured output for function calling based on the following instructions"},
-            objective: {"Step Objective", "The objective of this step is to"},
-            description:
-              {"Job Description", "This is part of multi-step job to achieve the following"},
-            input:
-              {"Input",
-               "The following is the actual input from the user, system or another agent"}
-          })
 
   @doc """
   Starts one or more `Agens.Agent` processes
@@ -147,30 +119,6 @@ defmodule Agens.Agent do
     end
   end
 
-  @doc """
-  Sends an `Agens.Message` to an `Agens.Agent`
-  """
-  @spec message(Message.t()) :: Message.t() | {:error, :agent_not_running}
-  def message(%Message{} = message) do
-    case Registry.lookup(@registry, message.agent_name) do
-      [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
-        base = build_prompt(config, message)
-        prompt = "<s>[INST]#{base}[/INST]"
-
-        result =
-          message
-          |> Map.put(:serving_name, config.serving)
-          |> Map.put(:prompt, prompt)
-          |> Serving.run()
-
-        message = Map.put(message, :result, result)
-        maybe_use_tool(config.tool, message)
-
-      [] ->
-        {:error, :agent_not_running}
-    end
-  end
-
   @doc false
   @spec start_link(Config.t()) :: GenServer.on_start()
   def start_link(config) do
@@ -182,68 +130,5 @@ defmodule Agens.Agent do
   @impl true
   def init(_config) do
     {:ok, %{}}
-  end
-
-  @spec build_prompt(Config.t(), Message.t()) :: String.t()
-  defp build_prompt(%Config{prompt: prompt, tool: tool}, %Message{} = message) do
-    %{
-      objective: message.step_objective,
-      description: message.job_description
-    }
-    |> maybe_add_prompt(prompt)
-    |> maybe_add_tool(tool)
-    |> maybe_prep_input(message.input, tool)
-    |> Enum.reject(&filter_empty/1)
-    |> Enum.map(&field/1)
-    |> Enum.map(&to_prompt/1)
-    |> Enum.join("\n\n")
-  end
-
-  defp filter_empty({_, value}), do: value == "" or is_nil(value)
-
-  defp field({key, value}) do
-    {Map.get(@fields, key), value}
-  end
-
-  defp to_prompt({{heading, detail}, value}) do
-    """
-    ## #{heading}
-    #{detail}: #{value}
-    """
-  end
-
-  defp maybe_add_prompt(map, %Prompt{} = prompt),
-    do: prompt |> Map.from_struct() |> Map.merge(map)
-
-  defp maybe_add_prompt(map, prompt) when is_binary(prompt), do: Map.put(map, :prompt, prompt)
-  defp maybe_add_prompt(map, _prompt), do: map
-
-  defp maybe_add_tool(map, nil), do: map
-  defp maybe_add_tool(map, tool), do: Map.put(map, :instructions, tool.instructions())
-
-  defp maybe_prep_input(map, input, nil), do: Map.put(map, :input, input)
-  defp maybe_prep_input(map, input, tool), do: Map.put(map, :input, tool.pre(input))
-
-  @spec maybe_use_tool(module(), Message.t()) :: Message.t()
-  defp maybe_use_tool(nil, message), do: message
-
-  defp maybe_use_tool(tool, %Message{} = message) do
-    send(
-      message.parent_pid,
-      {:tool_started, {message.job_name, message.step_index}, message.result}
-    )
-
-    raw =
-      message.result
-      |> tool.to_args()
-      |> tool.execute()
-
-    send(message.parent_pid, {:tool_raw, {message.job_name, message.step_index}, raw})
-
-    result = tool.post(raw)
-
-    send(message.parent_pid, {:tool_result, {message.job_name, message.step_index}, result})
-
-    Map.put(message, :result, result)
   end
 end

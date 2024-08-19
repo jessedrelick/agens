@@ -61,7 +61,7 @@ defmodule Agens.AgentTest do
 
       assert Agent.stop(:test_stop_agent) == :ok
 
-      result = Agent.message(message)
+      result = Message.send(message)
       assert result == {:error, :agent_not_running}
     end
   end
@@ -91,7 +91,7 @@ defmodule Agens.AgentTest do
         input: input
       }
 
-      message = Agent.message(message)
+      message = Message.send(message)
 
       assert message.result == "ERROR"
     end
@@ -102,7 +102,7 @@ defmodule Agens.AgentTest do
         input: "J"
       }
 
-      result = Agent.message(message)
+      result = Message.send(message)
       assert result == {:error, :agent_not_running}
     end
   end
@@ -117,43 +117,43 @@ defmodule Agens.AgentTest do
 
   #     # 0
   #     message = %Message{agent_name: :first_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "C"
   #     message = %Message{agent_name: :second_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "E"
   #     message = %Message{agent_name: :verifier_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "E"
 
   #     # 1
   #     message = %Message{agent_name: :first_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "D"
   #     message = %Message{agent_name: :second_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "F"
   #     message = %Message{agent_name: :verifier_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "F"
 
   #     # 2
   #     message = %Message{agent_name: :first_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "E"
   #     message = %Message{agent_name: :second_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "G"
   #     message = %Message{agent_name: :verifier_agent, input: input}
-  #     %Message{result: result} = Agent.message(message)
+  #     %Message{result: result} = Message.send(message)
   #     input = post_process(result)
   #     assert input == "TRUE"
   #   end

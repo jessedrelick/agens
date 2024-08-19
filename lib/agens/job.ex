@@ -115,7 +115,7 @@ defmodule Agens.Job do
 
   require Logger
 
-  alias Agens.{Agent, Job, Message}
+  alias Agens.Message
 
   @doc """
   Starts a new Job process using the provided `Agens.Job.Config`.
@@ -124,7 +124,7 @@ defmodule Agens.Job do
   """
   @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
-    spec = Job.child_spec(config)
+    spec = child_spec(config)
 
     pid =
       Agens
@@ -292,7 +292,7 @@ defmodule Agens.Job do
     }
 
     send(state.parent, {:step_started, {message.job_name, message.step_index}, message.input})
-    message = Agent.message(message)
+    message = Message.send(message)
     send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
 
     if step.conditions do
