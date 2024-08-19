@@ -115,7 +115,6 @@ defmodule Agens.JobTest do
     setup [:start_agens, :start_serving]
 
     @tag capture_log: true
-    @tag :skip
     test "crash" do
       name = :crash_job
 
@@ -152,6 +151,7 @@ defmodule Agens.JobTest do
 
       input = "F"
       assert is_pid(pid)
+      ref = Process.monitor(pid)
       result = Job.run(name, input)
       assert result == :ok
       assert_receive {:job_started, ^name}
@@ -159,14 +159,20 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, {^name, 0}, "F"}
       assert_receive {:step_result, {^name, 0}, "E"}
       assert_receive {:step_started, {^name, 1}, "E"}
-      assert_receive {:step_result, {^name, 1}, "FALSE"}
+      assert_receive {:step_result, {^name, 1}, "E"}
 
       assert_receive {:job_ended, ^name,
                       {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
 
-      Process.sleep(100)
+      assert_receive {:DOWN, ^ref, :process, ^pid, _reason}
+      Process.demonitor(ref)
       refute Process.alive?(pid)
 
+      # TODO: alternative to Process.sleep/1?
+      # custom send from start_link/1 or init/1: 'from' not available
+      # supervisor: does not send any message when restarting child
+      # monitor: only notifies of terminated process
+      Process.sleep(100)
       new_pid = GenServer.whereis(name)
       assert is_pid(new_pid)
       refute pid == new_pid
