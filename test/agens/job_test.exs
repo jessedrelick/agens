@@ -3,6 +3,8 @@ defmodule Agens.JobTest do
 
   alias Agens.{Agent, Job}
 
+  @lm_result_timeout 100_000
+
   defp start_agens(_ctx) do
     {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
     :ok
@@ -288,8 +290,15 @@ defmodule Agens.JobTest do
   end
 
   describe "lm" do
+    setup :start_agens
+
+    @tag timeout: :infinity
+    @tag capture_log: true
     @tag :lm
     test "run job" do
+      name = :test_lm_job
+      input = "start real lm job"
+
       {:ok, pid} =
         %Agens.Serving.Config{
           name: :text_generation_lm,
@@ -298,6 +307,47 @@ defmodule Agens.JobTest do
         |> Agens.Serving.start()
 
       assert is_pid(pid)
+
+      [
+        %Agent.Config{
+          name: :first_agent,
+          serving: :text_generation_lm
+        },
+        %Agent.Config{
+          name: :verifier_agent,
+          serving: :text_generation
+        }
+      ]
+      |> Agent.start()
+
+      job = %Job.Config{
+        name: name,
+        description: "to test a real lm using Nx.Serving",
+        steps: [
+          %Job.Step{
+            agent: :first_agent
+          },
+          %Job.Step{
+            agent: :verifier_agent,
+            conditions: %{
+              "__DEFAULT__" => :end
+            }
+          }
+        ]
+      }
+
+      {:ok, pid} = Job.start(job)
+      assert is_pid(pid)
+      assert Job.run(name, input) == :ok
+
+      assert_receive {:job_started, ^name}
+
+      assert_receive {:step_started, {^name, 0}, ^input}
+      assert_receive {:step_result, {^name, 0}, _}, @lm_result_timeout
+      assert_receive {:step_started, {^name, 1}, _}
+      assert_receive {:step_result, {^name, 1}, _}, @lm_result_timeout
+
+      assert_receive {:job_ended, ^name, :complete}
     end
   end
 end

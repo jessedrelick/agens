@@ -21,7 +21,7 @@ jobs:
       - run: mix compile --warnings-as-errors --force
       - run: mix format --check-formatted
       - run: mix dialyzer
-      - run: mix coveralls.json
+      - run: mix coveralls.json --include lm
       - name: Codecov
         uses: codecov/codecov-action@v3
         env:
