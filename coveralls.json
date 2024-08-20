@@ -1,5 +1,6 @@
 {
   "skip_files": [
+    "lib/agens/tool.ex",
     "test/support/helpers.ex",
     "test/support/serving.ex"
   ]
