@@ -134,7 +134,7 @@ defmodule Agens.Job do
           pid
 
         {:error, {:already_started, pid}} ->
-          Logger.warning("Agent #{config.name} already started")
+          Logger.warning("Job #{config.name} already started")
           pid
       end
 

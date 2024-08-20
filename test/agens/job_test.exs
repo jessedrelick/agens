@@ -1,6 +1,8 @@
 defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: false
 
+  import ExUnit.CaptureLog
+
   alias Agens.{Agent, Job}
 
   @lm_result_timeout 100_000
@@ -53,6 +55,22 @@ defmodule Agens.JobTest do
       job: job,
       pid: pid
     ]
+  end
+
+  describe "errors" do
+    setup [:start_agens, :start_job]
+
+    test "start running", %{job: job, pid: pid} do
+      assert is_pid(pid)
+
+      assert capture_log([level: :warning], fn ->
+               Job.start(job)
+             end) =~ "Job #{job.name} already started"
+    end
+
+    test "job missing" do
+      assert {:error, :job_not_found} == Job.run(:missing_job, "input")
+    end
   end
 
   describe "config" do
