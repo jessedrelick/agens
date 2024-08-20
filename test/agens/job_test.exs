@@ -1,5 +1,5 @@
 defmodule Agens.JobTest do
-  use Test.Support.AgentCase, async: true
+  use Test.Support.AgentCase, async: false
 
   alias Agens.{Agent, Job}
 

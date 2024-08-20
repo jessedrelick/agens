@@ -22,8 +22,6 @@ defmodule Test.Support.Serving do
   defmodule Stub do
     use GenServer
 
-    require Logger
-
     def get() do
       __MODULE__
     end
