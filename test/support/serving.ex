@@ -4,7 +4,6 @@ defmodule Test.Support.Serving do
       IO.puts("Enabling EXLA Backend")
       Application.put_env(:nx, :default_backend, EXLA.Backend)
       auth_token = System.get_env("HF_AUTH_TOKEN")
-      IO.puts("Auth Token: #{auth_token |> String.split("_") |> List.first()}")
       repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
 
       IO.puts("Loading Model")
