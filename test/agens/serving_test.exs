@@ -55,7 +55,8 @@ defmodule Agens.ServingTest do
     end
 
     test "not running" do
-      assert {:error, :serving_not_running} == Serving.run(%Message{serving_name: :serving_missing, input: "input"})
+      assert {:error, :serving_not_running} ==
+               Serving.run(%Message{serving_name: :serving_missing, input: "input"})
     end
   end
 
@@ -77,6 +78,7 @@ defmodule Agens.ServingTest do
 
     test "message" do
       serving_name = :nx_serving_test
+
       config = %Serving.Config{
         name: serving_name,
         serving: Nx.Serving.new(fn opts -> Nx.Defn.jit(&MyDefn.print_and_multiply/1, opts) end)
@@ -89,11 +91,12 @@ defmodule Agens.ServingTest do
       batch = Nx.Batch.stack([Nx.tensor([1, 2, 3])])
 
       message = %Message{serving_name: serving_name, prompt: batch}
+
       assert %Nx.Tensor{
-        type: {:s, 64},
-        shape: {1, 3},
-        data: %Nx.BinaryBackend{state: _}
-      } = Serving.run(message)
+               type: {:s, 64},
+               shape: {1, 3},
+               data: %Nx.BinaryBackend{state: _}
+             } = Serving.run(message)
     end
   end
 end
