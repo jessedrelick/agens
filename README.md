@@ -10,6 +10,14 @@ Drawing inspiration from popular tools in the Python ecosystem, such as [LangCha
 
 By combining Agens with powerful Elixir libraries like [Bumblebee](https://github.com/elixir-nx/bumblebee) and [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html), along with [structured outputs in the OpenAI API](https://openai.com/index/introducing-structured-outputs-in-the-api/) and the continuous improvement of open-source language models, the reliance on Python for multi-agent workflows is significantly reduced. This shift allows Elixir’s concurrency model to truly shine.
 
+> **⚠️ Experimental:** v0.1  
+>  
+> Agens is currently an experimental project. As of version 0.1, it is primarily a proof-of-concept and learning tool. 
+>  
+> The next phase of the project focuses on developing real-world examples to uncover potential issues or gaps that the current test suite may not address.  
+>  
+> These examples are designed to not only help you get started but also to advance Agens towards becoming a production-ready tool, suitable for integration into new or existing Elixir applications.
+
 ## Installation
 Add `agens` to your list of dependencies in `mix.exs`:
 
