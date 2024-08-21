@@ -4,6 +4,7 @@ defmodule Agens.JobTest do
   import ExUnit.CaptureLog
 
   alias Agens.{Agent, Job}
+  alias Test.Support.Tools.NoopTool
 
   @lm_result_timeout 100_000
 
@@ -253,7 +254,7 @@ defmodule Agens.JobTest do
   describe "prompt" do
     setup [:start_agens, :start_serving]
 
-    @tag :skip
+    @tag capture_log: true
     test "full prompt" do
       job_name = :test_prompt_job
       agent_name = :test_prompt_agent
@@ -264,6 +265,7 @@ defmodule Agens.JobTest do
         constraints: "test agent constraints",
         context: "test agent context",
         reflection: "test agent reflection"
+        # TODO
         # examples: [
         #   %{input: "A", output: "C"},
         #   %{input: "F", output: "H"},
@@ -298,8 +300,8 @@ defmodule Agens.JobTest do
 
       assert_receive {:job_started, ^job_name}
 
-      assert_receive {:step_started, {^job_name, 0}, "test input"}
-      assert_receive {:tool_started, {^job_name, 0}, "STUB RUN"}
+      assert_receive {:step_started, {^job_name, 0}, ^input}
+      assert_receive {:tool_started, {^job_name, 0}, "sent 'test input' to: test_prompt_agent"}
       assert_receive {:tool_raw, {^job_name, 0}, %{}}
       assert_receive {:tool_result, {^job_name, 0}, "TRUE"}
       assert_receive {:step_result, {^job_name, 0}, "TRUE"}
