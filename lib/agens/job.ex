@@ -10,26 +10,26 @@ defmodule Agens.Job do
   Agens emits several events that can be handled by the caller using `handle_info/3` for purposes such as UI updates, pubsub, logging, persistence and other side effects.
 
   #### Job
-  ```elixir
+  ```
   {:job_started, job.name}
   ```
 
   Emitted when a job has started.
 
-  ```elixir
+  ```
   {:job_ended, job.name, :completed | {:error, error}}
   ```
 
   Emitted when a job has ended, either due to completion or an error.
 
   #### Step
-  ```elixir
+  ```
   {:step_started, {job.name, step_index}, message.input}
   ```
 
   Emitted when a step has started. Includes the input data provided to the step, whether from the user or a previous step.
 
-  ```elixir
+  ```
   {:step_result, {job.name, step_index}, message.result}
   ```
 
@@ -38,19 +38,19 @@ defmodule Agens.Job do
   #### Tool
   The following events are emitted only if the Agent has a Tool specified in `Agens.Agent.Config`:
 
-  ```elixir
+  ```
   {:tool_started, {job.name, step_index}, message.result}
   ```
 
   Emitted when a Tool is about to be called. `message.result` here is the Serving result, which will be overriden by the value returned from the Tool prior to final output.
 
-  ```elixir
+  ```
   {:tool_raw, {job.name, step_index}, message.raw}
   ```
 
   Emitted after completing the Tool function call. It provides the raw result of the Tool before any post-processing.
 
-  ```elixir
+  ```
   {:tool_result, {job.name, step_index}, message.result}
   ```
 
@@ -83,7 +83,7 @@ defmodule Agens.Job do
 
     ## Fields
     - `name` - An atom that identifies the Job.
-    - `description` - A optional string to be added to the LM prompt that describes the basic goal of the Job.
+    - `description` - An optional string to be added to the LM prompt that describes the basic goal of the Job.
     - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
     """
 

@@ -2,7 +2,7 @@ defmodule Agens.Agent do
   @moduledoc """
   The Agent module provides functions for starting, stopping and running Agents.
 
-  `Agens.Agent` is the the primary entity powering the `Agens` library. It uses `Agens.Serving` to interact with language models through `Nx.Serving`, or with language model APIs through a `GenServer`.
+  `Agens.Agent` is the the primary entity powering `Agens`. It uses `Agens.Serving` to interact with language models through `Nx.Serving`, or with language model APIs through a `GenServer`.
 
   Agents can have detailed identities to further refine LM outputs, and are used together in multi-agent workflows via the `Agens.Job` module.
 
@@ -19,7 +19,7 @@ defmodule Agens.Agent do
     - `:identity` - a string representing the purpose and capabilities of the agent
     - `:context` - a string representing the goal or purpose of the agent's actions
     - `:constraints` - a string listing any constraints or limitations on the agent's actions
-    - `:examples` - a list of maps representing example inputs and outputs for the agent
+    - `:examples` - a list of example inputs and outputs for the agent
     - `:reflection` - a string representing any additional considerations or reflection the agent should make before returning results
     """
 
@@ -46,7 +46,7 @@ defmodule Agens.Agent do
     - `:serving` - The serving module or `Nx.Serving` struct for the Agent.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
-    - `:tool` - The `Agens.Tool` module for the Agent. Default is nil.
+    - `:tool` - The module implementing the `Agens.Tool` behaviour for the Agent. Default is nil.
     """
 
     @type t :: %__MODULE__{

@@ -6,13 +6,13 @@ defmodule Agens.Supervisor do
 
   The Registry module can be overriden by your application config:
 
-  ```elixir
+  ```
   config :agens, registry: MyApp.Registry
   ```
 
   In order to use `Agens` simply add `Agens.Supervisor` to your application supervision tree:
 
-  ```elixir
+  ```
   Supervisor.start_link(
     [
       {Agens.Supervisor, name: Agens.Supervisor}
