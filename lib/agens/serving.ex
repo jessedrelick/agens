@@ -95,13 +95,16 @@ defmodule Agens.Serving do
 
   @spec do_run({pid(), Config.t()}, Message.t()) :: String.t()
   defp do_run({_, %Config{serving: %Nx.Serving{}}}, %Message{} = message) do
-    %{results: [%{text: result}]} = Nx.Serving.batched_run(message.serving_name, message.prompt)
-
-    result
+    message.serving_name
+    |> Nx.Serving.batched_run(message.prompt)
+    |> case do
+      %{results: [%{text: result}]} -> result
+      result -> result
+    end
   end
 
   defp do_run({serving_pid, _}, %Message{} = message) do
-    # GenServer.call(serving_name, {:run, input})
+    # GenServer.call(serving_name, {:run, message})
     GenServer.call(serving_pid, {:run, message})
   end
 
