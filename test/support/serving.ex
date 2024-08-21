@@ -34,6 +34,9 @@ defmodule Test.Support.Serving do
       {:ok, opts}
     end
 
+    # Normally a Serving would use `message.prompt` rather than `message.input`
+    # The Job or Agent would use config and `message.input` to build `message.prompt`
+    # In this case, using `message.input` instead to map to a result simplifies testing
     def handle_call({:run, %Agens.Message{} = message}, _, state) do
       result = Test.Support.Helpers.map_input(message.agent_name, message.input)
       {:reply, result, state}
