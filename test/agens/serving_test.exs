@@ -1,5 +1,5 @@
 defmodule Agens.ServingTest do
-  use Test.Support.AgentCase, async: false
+  use Test.Support.AgentCase, async: true
 
   import ExUnit.CaptureLog
 
