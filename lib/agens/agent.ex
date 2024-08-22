@@ -23,8 +23,6 @@ defmodule Agens.Agent do
     - `:reflection` - a string representing any additional considerations or reflection the agent should make before returning results
     """
 
-    @derive Jason.Encoder
-
     @type t :: %__MODULE__{
             identity: String.t() | nil,
             context: String.t() | nil,

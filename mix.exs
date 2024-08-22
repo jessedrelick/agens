@@ -38,11 +38,11 @@ defmodule Agens.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:bumblebee, "~> 0.5.3"},
       {:nx, "~> 0.7.3"},
-      {:exla, "~> 0.7.0"},
+      {:bumblebee, "~> 0.5.3", only: :test},
+      {:exla, "~> 0.7.0", only: :test},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.17.1", only: :test}
     ]
   end
