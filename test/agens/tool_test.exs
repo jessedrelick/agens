@@ -1,5 +1,5 @@
 defmodule Test.ToolTest do
-  use Test.Support.AgentCase, async: true
+  use Test.Support.AgentCase, async: false
 
   defmodule TestTool do
     @behaviour Agens.Tool
