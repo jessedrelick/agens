@@ -1,8 +1,6 @@
 defmodule Agens.ServingTest do
   use Test.Support.AgentCase, async: true
 
-  import ExUnit.CaptureLog
-
   alias Agens.{Message, Serving}
 
   defp start_agens(_ctx) do
@@ -49,9 +47,7 @@ defmodule Agens.ServingTest do
     test "start running", %{config: config, pid: pid} do
       assert is_pid(pid)
 
-      assert capture_log([level: :warning], fn ->
-               Serving.start(config)
-             end) =~ "Serving #{config.name} already started"
+      assert {:error, {:already_started, ^pid}} = Serving.start(config)
     end
 
     test "not running" do

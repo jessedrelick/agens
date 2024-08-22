@@ -1,8 +1,6 @@
 defmodule Agens.AgentTest do
   use Test.Support.AgentCase, async: true
 
-  import ExUnit.CaptureLog
-
   alias Agens.{Agent, Message}
 
   defp start_agens(_ctx) do
@@ -79,9 +77,7 @@ defmodule Agens.AgentTest do
       {:ok, pid} = Agent.start(agent)
       assert is_pid(pid)
 
-      assert capture_log([level: :warning], fn ->
-               Agent.start(agent)
-             end) =~ "Agent #{agent.name} already started"
+      assert {:error, {:already_started, ^pid}} = Agent.start(agent)
     end
 
     test "stop non-existent agent" do

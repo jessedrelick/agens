@@ -1,8 +1,6 @@
 defmodule Agens.JobTest do
   use Test.Support.AgentCase, async: true
 
-  import ExUnit.CaptureLog
-
   alias Agens.{Agent, Job}
   alias Test.Support.Tools.NoopTool
 
@@ -64,9 +62,7 @@ defmodule Agens.JobTest do
     test "start running", %{job: job, pid: pid} do
       assert is_pid(pid)
 
-      assert capture_log([level: :warning], fn ->
-               Job.start(job)
-             end) =~ "Job #{job.name} already started"
+      assert {:error, {:already_started, ^pid}} = Job.start(job)
     end
 
     test "job missing" do

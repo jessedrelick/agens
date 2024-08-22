@@ -61,8 +61,6 @@ defmodule Agens.Agent do
 
   use GenServer
 
-  require Logger
-
   @registry Application.compile_env(:agens, :registry)
 
   @doc """
@@ -84,20 +82,16 @@ defmodule Agens.Agent do
       # restart: :transient
     }
 
-    pid =
-      Agens
-      |> DynamicSupervisor.start_child(spec)
-      |> case do
-        {:ok, pid} ->
-          pid
+    Agens
+    |> DynamicSupervisor.start_child(spec)
+    |> case do
+      {:ok, pid} when is_pid(pid) ->
+        Registry.register(@registry, config.name, {pid, config})
+        {:ok, pid}
 
-        {:error, {:already_started, pid}} ->
-          Logger.warning("Agent #{config.name} already started")
-          pid
-      end
-
-    Registry.register(@registry, config.name, {pid, config})
-    {:ok, pid}
+      {:error, {:already_started, pid}} = err when is_pid(pid) ->
+        err
+    end
   end
 
   @doc """

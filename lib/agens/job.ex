@@ -113,8 +113,6 @@ defmodule Agens.Job do
 
   use GenServer
 
-  require Logger
-
   alias Agens.Message
 
   @doc """
@@ -126,19 +124,15 @@ defmodule Agens.Job do
   def start(config) do
     spec = child_spec(config)
 
-    pid =
-      Agens
-      |> DynamicSupervisor.start_child(spec)
-      |> case do
-        {:ok, pid} ->
-          pid
+    Agens
+    |> DynamicSupervisor.start_child(spec)
+    |> case do
+      {:ok, pid} = result when is_pid(pid) ->
+        result
 
-        {:error, {:already_started, pid}} ->
-          Logger.warning("Job #{config.name} already started")
-          pid
-      end
-
-    {:ok, pid}
+      {:error, {:already_started, pid}} = error when is_pid(pid) ->
+        error
+    end
   end
 
   @doc """

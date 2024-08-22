@@ -29,8 +29,6 @@ defmodule Agens.Serving do
     defstruct [:name, :serving]
   end
 
-  require Logger
-
   alias Agens.Message
 
   @registry Application.compile_env(:agens, :registry)
@@ -45,20 +43,16 @@ defmodule Agens.Serving do
       start: start_function(config)
     }
 
-    pid =
-      Agens
-      |> DynamicSupervisor.start_child(spec)
-      |> case do
-        {:ok, pid} ->
-          pid
+    Agens
+    |> DynamicSupervisor.start_child(spec)
+    |> case do
+      {:ok, pid} when is_pid(pid) ->
+        Registry.register(@registry, config.name, {pid, config})
+        {:ok, pid}
 
-        {:error, {:already_started, pid}} ->
-          Logger.warning("Serving #{config.name} already started")
-          pid
-      end
-
-    Registry.register(@registry, config.name, {pid, config})
-    {:ok, pid}
+      {:error, {:already_started, pid}} = error when is_pid(pid) ->
+        error
+    end
   end
 
   @doc """
