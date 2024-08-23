@@ -71,32 +71,7 @@ defmodule Agens do
     alias Agens.{Agent, Serving}
 
     @registry Application.compile_env(:agens, :registry)
-    @fields Application.compile_env(:agens, :prompts, %{
-              prompt:
-                {"Agent",
-                 "You are a specialized agent with the following capabilities and expertise"},
-              identity:
-                {"Identity",
-                 "You are a specialized agent with the following capabilities and expertise"},
-              context: {"Context", "The purpose or goal behind your tasks are to"},
-              constraints:
-                {"Constraints", "You must operate with the following constraints or limitations"},
-              examples:
-                {"Examples",
-                 "You should consider the following examples before returning results"},
-              reflection:
-                {"Reflection",
-                 "You should reflect on the following factors before returning results"},
-              instructions:
-                {"Tool Instructions",
-                 "You should provide structured output for function calling based on the following instructions"},
-              objective: {"Step Objective", "The objective of this step is to"},
-              description:
-                {"Job Description", "This is part of multi-step job to achieve the following"},
-              input:
-                {"Input",
-                 "The following is the actual input from the user, system or another agent"}
-            })
+    @fields Application.compile_env(:agens, :prompts)
 
     @doc """
     Sends an `Agens.Message` to an `Agens.Agent`

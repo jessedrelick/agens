@@ -29,6 +29,46 @@ def deps do
 end
 ```
 
+## Configuration
+Future versions of Agens will be configurable by providing options to `Agens.Supervisor` in order to [avoid using application configuration](https://hexdocs.pm/elixir/1.17.2/design-anti-patterns.html#using-application-configuration-for-libraries). For now, however, you can change the Agens `Registry` if needed via config:
+
+```elixir
+config :agens, registry: Agens.Registry
+```
+
+In addition, you can also override the prompt prefixes:
+
+```elixir
+config :agens, prompts: %{
+  prompt:
+    {"Agent",
+      "You are a specialized agent with the following capabilities and expertise"},
+  identity:
+    {"Identity",
+      "You are a specialized agent with the following capabilities and expertise"},
+  context: {"Context", "The purpose or goal behind your tasks are to"},
+  constraints:
+    {"Constraints", "You must operate with the following constraints or limitations"},
+  examples:
+    {"Examples",
+      "You should consider the following examples before returning results"},
+  reflection:
+    {"Reflection",
+      "You should reflect on the following factors before returning results"},
+  instructions:
+    {"Tool Instructions",
+      "You should provide structured output for function calling based on the following instructions"},
+  objective: {"Step Objective", "The objective of this step is to"},
+  description:
+    {"Job Description", "This is part of multi-step job to achieve the following"},
+  input:
+    {"Input",
+      "The following is the actual input from the user, system or another agent"}
+}
+```
+
+See the [Prompting](#prompting) section below or `Agens.Message` for more information on prompt prefixes.
+
 ## Usage
 Building a multi-agent workflow with Agens involves a few different steps and core entities:
 
