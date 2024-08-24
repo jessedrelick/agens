@@ -72,26 +72,95 @@ See the [Prompting](#prompting) section below or `Agens.Message` for more inform
 ## Usage
 Building a multi-agent workflow with Agens involves a few different steps and core entities:
 
-### 1. Add Agens to your Supervision tree
+---
+**1. Add the Agens Supervisor to your Supervision tree**
 
-This will start Agens as a supervised process inside your application
+This will start Agens as a supervised process inside your application:
 
-### 2. Start one or more Servings (`Agens.Serving`)
+```elixir
+Supervisor.start_link(
+  [
+    {Agens.Supervisor, name: Agens.Supervisor}
+  ],
+  strategy: :one_for_one
+)
+```
 
-A 'Serving' is basically a wrapper for language model inference, and can be a `Nx.Serving` struct, returned by `Bumblebee` or manually created, or a `GenServer` that uses the OpenAI API or other LM APIs. Technically, due to GenServer support, a Serving doesn't even have to be related to language models or machine learning, and can be a regular API call.
+See `Agens.Supervisor` for more information
 
-### 3. Create and start one or more Agents (`Agens.Agent`)
+---
+**2. Start one or more Servings**
+
+A **Serving** is basically a wrapper for language model inference, and can be a `Nx.Serving` struct, returned by `Bumblebee` or manually created, or a `GenServer` that uses the OpenAI API or other LM APIs. Technically, due to GenServer support, a Serving doesn't even have to be related to language models or machine learning, and can be a regular API call.
+
+```elixir
+Application.put_env(:nx, :default_backend, EXLA.Backend)
+auth_token = System.get_env("HF_AUTH_TOKEN")
+
+my_serving = fn ->
+  repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
+
+  {:ok, model} = Bumblebee.load_model(repo, type: :bf16)
+  {:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
+  {:ok, generation_config} = Bumblebee.load_generation_config(repo)
+
+  Bumblebee.Text.generation(model, tokenizer, generation_config)
+end
+
+serving_config = %Agens.Serving.Config{
+  name: :my_serving,
+  serving: my_serving()
+}
+
+{:ok, pid} = Agens.Serving.start(serving_config)
+```
+
+See `Agens.Serving` for more information
+
+---
+**3. Create and start one or more Agents**
 
 An Agent in the context of Agens is responsible for communicating with Servings, and can provide additional context when communicating with Servings. In practice, this means Agents will typically have some their own specialized task or capabilities while communicating with the same Serving. Many projects may only have a single Serving, whether that be a LM or LM API, but use multiple Agents for performing different tasks using that single Serving. Agents can also use Tools to provide additional function-calling capabilities beyond standard LM inference.
 
-### 4. Create and start one or more Jobs (`Agens.Job`)
+```elixir
+agent_config = %Agens.Agent.Config{
+  name: :my_agent,
+  serving: :my_serving
+}
+{:ok, pid} = Agens.Agent.start(agent_config)
+```
 
-While Agens is designed to be flexible enough where you can communicate directly with a Serving or Agent, the real goal is to create a multi-agent workflow that uses a variety of steps to achieve a final result. Each step (`Agens.Job.Step`) uses an Agent to achieve its objective, and the results of that step are passed to the next step of the Job. Conditions can also be used to route to different Steps of the Job or complete the Job.
+See `Agens.Agent` for more information
 
-See the [Documentation]() for more information.
+---
+**4. Create and start one or more Jobs**
 
-## Example
-See `/examples/simple-job.exs` to see how Servings, Agents and Jobs come together to create a cohesive multi-agent workflow.
+While Agens is designed to be flexible enough where you can communicate directly with a Serving or Agent, the real goal is to create a multi-agent workflow that uses a variety of steps to achieve a final result. Each step (`Agens.Job.Step`) uses an Agent to achieve its objective, and the results of that step are passed to the next step of the Job. Conditions can also be used to route to different steps of the job or complete the job.
+
+```elixir
+job_config = %Agens.Job.Config{
+  name: :my_job,
+  description: "an example job",
+  steps: [
+    %Job.Step{
+      agent: :my_agent,
+      objective: "first step objective"
+    },
+    %Job.Step{
+      agent: :my_agent,
+      conditions: %{
+        "__DEFAULT__" => :end
+      }
+    }
+  ]
+}
+{:ok, pid} = Agens.Job.start(job_config)
+Agens.Job.run(:my_job, "user input")
+```
+
+See `Agens.Job` for more information
+
+---
 
 ## Prompting
 Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt’s content.
