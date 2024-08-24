@@ -23,25 +23,28 @@ defmodule Agens.Supervisor do
   """
   use Supervisor
 
-  @registry Application.compile_env(:agens, :registry)
-
   @doc false
-  @spec start_link(any()) :: Supervisor.on_start()
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  @spec start_link(keyword()) :: Supervisor.on_start()
+  def start_link(args) do
+    defaults = [registry: Agens.Registry]
+    override = Keyword.get(args, :opts, [])
+    opts = Keyword.merge(defaults, override)
+
+    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc false
   @impl true
-  @spec init(any()) ::
+  @spec init(keyword()) ::
           {:ok,
            {:supervisor.sup_flags(),
             [:supervisor.child_spec() | (old_erlang_child_spec :: :supervisor.child_spec())]}}
           | :ignore
-  def init(_init_arg) do
+  def init(opts) do
+    registry = Keyword.fetch!(opts, :registry)
     children = [
-      {Agens, name: Agens},
-      {Registry, keys: :unique, name: @registry}
+      {Agens, name: Agens, opts: opts},
+      {Registry, keys: :unique, name: registry}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

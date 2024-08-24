@@ -164,14 +164,15 @@ defmodule Agens do
   use DynamicSupervisor
 
   @doc false
-  @spec start_link(any()) :: :ignore | {:error, any()} | {:ok, pid()}
-  def start_link(_) do
-    DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
+  @spec start_link(keyword()) :: :ignore | {:error, any()} | {:ok, pid()}
+  def start_link(args) do
+    opts = Keyword.fetch!(args, :opts)
+    DynamicSupervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc false
-  @spec init(any()) :: {:ok, any()}
-  def init(:ok) do
-    DynamicSupervisor.init(strategy: :one_for_one)
+  @spec init(keyword()) :: {:ok, any()}
+  def init(opts) do
+    DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [opts])
   end
 end

@@ -29,6 +29,8 @@ defmodule Agens.Serving do
     defstruct [:name, :serving]
   end
 
+  use GenServer
+
   alias Agens.Message
 
   @registry Application.compile_env(:agens, :registry)
@@ -38,20 +40,39 @@ defmodule Agens.Serving do
   """
   @spec start(Config.t()) :: {:ok, pid()}
   def start(%Config{} = config) do
-    spec = %{
-      id: config.name,
-      start: start_function(config)
-    }
+    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
+  end
 
-    Agens
-    |> DynamicSupervisor.start_child(spec)
+  def child_spec(config) do
+    %{
+      id: Module.concat(config.name, "Wrapper"),
+      start: {__MODULE__, :start_link, [config]}
+    }
+  end
+
+  def start_link(extra, config) do
+    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
+  end
+
+  def init([config, opts]) do
+    registry = Keyword.fetch!(opts, :registry)
+    {:ok, %{config: config, registry: registry}, {:continue, :start_serving}}
+  end
+
+  def handle_continue(:start_serving, state) do
+    {m, f, a} = start_function(state.config)
+    m
+    |> apply(f, a)
     |> case do
       {:ok, pid} when is_pid(pid) ->
-        Registry.register(@registry, config.name, {pid, config})
-        {:ok, pid}
+        Registry.register(state.registry, state.config.name, {pid, state.config})
+        {:noreply, state}
 
-      {:error, {:already_started, pid}} = error when is_pid(pid) ->
-        error
+      {:error, {:already_started, pid}} when is_pid(pid) ->
+        {:noreply, state}
+
+      {:error, reason} ->
+        {:stop, reason, state}
     end
   end
 
@@ -78,7 +99,9 @@ defmodule Agens.Serving do
   """
   @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
   def run(%Message{} = message) do
-    case Registry.lookup(@registry, message.serving_name) do
+    @registry
+    |> Registry.lookup(message.serving_name)
+    |> case do
       [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
         do_run({serving_pid, config}, message)
 
