@@ -33,6 +33,9 @@ defmodule Agens.Serving do
 
   alias Agens.Message
 
+  @suffix "Supervisor"
+  @parent "Wrapper"
+
   @doc """
   Starts an `Agens.Serving` process
   """
@@ -42,32 +45,32 @@ defmodule Agens.Serving do
   end
 
   def child_spec(config) do
+    name = parent_name(config.name)
     %{
-      id: Module.concat(config.name, "Wrapper"),
+      id: name,
       start: {__MODULE__, :start_link, [config]}
     }
   end
 
   def start_link(extra, config) do
-    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
+    name = parent_name(config.name)
+    GenServer.start_link(__MODULE__, [config, extra], name: name)
   end
 
   def init([config, opts]) do
     registry = Keyword.fetch!(opts, :registry)
-    {:ok, %{config: config, registry: registry}, {:continue, :start_serving}}
-  end
-
-  def handle_continue(:start_serving, state) do
-    {m, f, a} = start_function(state.config)
+    state = %{config: config, registry: registry}
+    {m, f, a} = start_function(config)
     m
     |> apply(f, a)
     |> case do
       {:ok, pid} when is_pid(pid) ->
-        Registry.register(state.registry, state.config.name, {pid, state.config})
-        {:noreply, state}
+        name = serving_name(config.name)
+        Registry.register(registry, name, {pid, config})
+        {:ok, state}
 
       {:error, {:already_started, pid}} when is_pid(pid) ->
-        {:noreply, state}
+        {:ok, state}
 
       {:error, reason} ->
         {:stop, reason, state}
@@ -78,8 +81,18 @@ defmodule Agens.Serving do
   Stops an `Agens.Serving` process
   """
   @spec stop(atom()) :: :ok | {:error, :serving_not_found}
-  def stop(serving_name) do
-    GenServer.call(serving_name, {:stop, serving_name})
+  def stop(name) do
+    name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, {:stop, name})
+        :ok = DynamicSupervisor.terminate_child(Agens, pid)
+    end
   end
 
   @doc """
@@ -87,12 +100,22 @@ defmodule Agens.Serving do
   """
   @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
   def run(%Message{} = message) do
-    GenServer.call(message.serving_name, {:run, message})
+    message.serving_name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, {:run, message})
+    end
   end
 
   def handle_call({:run, %Message{} = message}, _, state) do
+    serving_name = serving_name(message.serving_name)
     state.registry
-    |> Registry.lookup(message.serving_name)
+    |> Registry.lookup(serving_name)
     |> case do
       [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
         {:reply, do_run({serving_pid, config}, message), state}
@@ -103,17 +126,9 @@ defmodule Agens.Serving do
   end
 
   def handle_call({:stop, serving_name}, _from, state) do
-    serving_name
-    |> Module.concat("Supervisor")
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid ->
-        :ok = DynamicSupervisor.terminate_child(Agens, pid)
-        Registry.unregister(state.registry, serving_name)
-    end
+    serving_name = serving_name(serving_name)
+    Registry.unregister(state.registry, serving_name)
+    {:reply, :ok, state}
   end
 
   @spec do_run({pid(), Config.t()}, Message.t()) :: String.t()
@@ -138,7 +153,11 @@ defmodule Agens.Serving do
 
   # Module.concat with "Supervisor" for Nx.Serving parity
   defp start_function(%Config{serving: serving} = config) when is_atom(serving) do
-    name = Module.concat(config.name, "Supervisor")
+    name = serving_name(config.name)
     {serving, :start_link, [[name: name, config: config]]}
   end
+
+  defp serving_name(name) when is_atom(name), do: Module.concat(name, @suffix)
+
+  defp parent_name(name) when is_atom(name), do: Module.concat(name, @parent)
 end

@@ -52,7 +52,7 @@ defmodule Agens.ServingTest do
     end
 
     test "not running" do
-      assert {:error, :serving_not_running} ==
+      assert {:error, :serving_not_found} ==
                Serving.run(%Message{serving_name: :serving_missing, input: "input"})
     end
   end
