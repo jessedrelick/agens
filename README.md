@@ -91,7 +91,7 @@ See `Agens.Supervisor` for more information
 ---
 **2. Start one or more Servings**
 
-A **Serving** is basically a wrapper for language model inference, and can be a `Nx.Serving` struct, returned by `Bumblebee` or manually created, or a `GenServer` that uses the OpenAI API or other LM APIs. Technically, due to GenServer support, a Serving doesn't even have to be related to language models or machine learning, and can be a regular API call.
+A **Serving** is essentially a wrapper for language model inference. It can be an `Nx.Serving` struct, either returned by `Bumblebee` or manually created, or a `GenServer` that interfaces with the OpenAI API or other language model APIs. Technically, due to `GenServer` support, a Serving doesn't need to be limited to language models or machine learning—it can also handle regular API calls.
 
 ```elixir
 Application.put_env(:nx, :default_backend, EXLA.Backend)
@@ -120,7 +120,11 @@ See `Agens.Serving` for more information
 ---
 **3. Create and start one or more Agents**
 
-An Agent in the context of Agens is responsible for communicating with Servings, and can provide additional context when communicating with Servings. In practice, this means Agents will typically have some their own specialized task or capabilities while communicating with the same Serving. Many projects may only have a single Serving, whether that be a LM or LM API, but use multiple Agents for performing different tasks using that single Serving. Agents can also use Tools to provide additional function-calling capabilities beyond standard LM inference.
+An **Agent** in the context of Agens is responsible for communicating with Servings and can provide additional context during these interactions.
+
+In practice, Agents typically have their own specialized tasks or capabilities while communicating with the same Serving. Many projects may use a single Serving, such as a language model (LM) or an LM API, but employ multiple Agents to perform different tasks using that Serving. 
+
+Additionally, Agents can use modules implementing the `Agens.Tool` behaviour to extend their capabilities beyond standard LM inference, enabling function-calling and other advanced operations.
 
 ```elixir
 agent_config = %Agens.Agent.Config{
@@ -135,18 +139,18 @@ See `Agens.Agent` for more information
 ---
 **4. Create and start one or more Jobs**
 
-While Agens is designed to be flexible enough where you can communicate directly with a Serving or Agent, the real goal is to create a multi-agent workflow that uses a variety of steps to achieve a final result. Each step (`Agens.Job.Step`) uses an Agent to achieve its objective, and the results of that step are passed to the next step of the Job. Conditions can also be used to route to different steps of the job or complete the job.
+While Agens is designed to be flexible enough to allow direct communication with an `Agens.Serving` or `Agens.Agent`, its primary goal is to facilitate a multi-agent workflow that uses various steps to achieve a final result. Each step (`Agens.Job.Step`) employs an Agent to accomplish its objective, and the results are then passed to the next step in the **Job**. Conditions can also be used to determine the routing between steps or to conclude the job.
 
 ```elixir
 job_config = %Agens.Job.Config{
   name: :my_job,
   description: "an example job",
   steps: [
-    %Job.Step{
+    %Agens.Job.Step{
       agent: :my_agent,
       objective: "first step objective"
     },
-    %Job.Step{
+    %Agens.Job.Step{
       agent: :my_agent,
       conditions: %{
         "__DEFAULT__" => :end
