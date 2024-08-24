@@ -112,15 +112,16 @@ defmodule Agens.Agent do
   end
 
   @doc false
-  @spec start_link(Config.t()) :: GenServer.on_start()
-  def start_link(config) do
-    GenServer.start_link(__MODULE__, config, name: config.name)
+  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
+  def start_link(extra, config) do
+    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
   end
 
   @doc false
-  @spec init(Config.t()) :: {:ok, map()}
+  @spec init(any()) :: {:ok, map()}
   @impl true
-  def init(_config) do
-    {:ok, %{}}
+  def init([_config, opts]) do
+    registry = Keyword.fetch!(opts, :registry)
+    {:ok, %{registry: registry}}
   end
 end

@@ -104,11 +104,12 @@ defmodule Agens.Job do
             status: :init | :running | :error | :completed,
             step_index: non_neg_integer() | nil,
             config: Config.t(),
-            parent: pid() | nil
+            parent: pid() | nil,
+            registry: atom()
           }
 
-    @enforce_keys [:status, :config]
-    defstruct [:status, :step_index, :config, :parent]
+    @enforce_keys [:status, :config, :registry]
+    defstruct [:status, :step_index, :config, :parent, :registry]
   end
 
   use GenServer
@@ -178,8 +179,8 @@ defmodule Agens.Job do
   end
 
   @doc false
-  def start_link(config) do
-    GenServer.start_link(__MODULE__, config, name: config.name)
+  def start_link(extra, config) do
+    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
   end
 
   @doc false
@@ -194,13 +195,14 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec init(Config.t()) ::
+  @spec init(any()) ::
           {:ok, State.t()}
           | {:ok, State.t(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
           | :ignore
           | {:stop, reason :: any()}
-  def init(config) do
-    {:ok, %State{status: :init, config: config}}
+  def init([config, opts]) do
+    registry = Keyword.fetch!(opts, :registry)
+    {:ok, %State{status: :init, config: config, registry: registry}}
   end
 
   @doc false
