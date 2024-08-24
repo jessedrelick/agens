@@ -33,8 +33,6 @@ defmodule Agens.Serving do
 
   alias Agens.Message
 
-  @registry Application.compile_env(:agens, :registry)
-
   @doc """
   Starts an `Agens.Serving` process
   """
@@ -81,6 +79,30 @@ defmodule Agens.Serving do
   """
   @spec stop(atom()) :: :ok | {:error, :serving_not_found}
   def stop(serving_name) do
+    GenServer.call(serving_name, {:stop, serving_name})
+  end
+
+  @doc """
+  Executes an `Agens.Message` against an `Agens.Serving`
+  """
+  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
+  def run(%Message{} = message) do
+    GenServer.call(message.serving_name, {:run, message})
+  end
+
+  def handle_call({:run, %Message{} = message}, _, state) do
+    state.registry
+    |> Registry.lookup(message.serving_name)
+    |> case do
+      [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
+        {:reply, do_run({serving_pid, config}, message), state}
+
+      [] ->
+        {:reply, {:error, :serving_not_running}, state}
+    end
+  end
+
+  def handle_call({:stop, serving_name}, _from, state) do
     serving_name
     |> Module.concat("Supervisor")
     |> Process.whereis()
@@ -90,23 +112,7 @@ defmodule Agens.Serving do
 
       pid ->
         :ok = DynamicSupervisor.terminate_child(Agens, pid)
-        Registry.unregister(@registry, serving_name)
-    end
-  end
-
-  @doc """
-  Executes an `Agens.Message` against an `Agens.Serving`
-  """
-  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
-  def run(%Message{} = message) do
-    @registry
-    |> Registry.lookup(message.serving_name)
-    |> case do
-      [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
-        do_run({serving_pid, config}, message)
-
-      [] ->
-        {:error, :serving_not_running}
+        Registry.unregister(state.registry, serving_name)
     end
   end
 
