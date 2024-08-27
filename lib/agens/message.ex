@@ -76,25 +76,14 @@ defmodule Agens.Message do
 
   @doc false
   @spec build_prompt(Agent.Config.t() | nil, t(), map()) :: String.t()
-  defp build_prompt(nil, %__MODULE__{} = message, prompts) do
+  defp build_prompt(agent_config, %__MODULE__{} = message, prompts) do
     %{
       objective: message.step_objective,
       description: message.job_description
     }
-    |> Enum.reject(&filter_empty/1)
-    |> Enum.map(fn {key, value} -> field({key, value}, prompts) end)
-    |> Enum.map(&to_prompt/1)
-    |> Enum.join("\n\n")
-  end
-
-  defp build_prompt(%Agent.Config{prompt: prompt, tool: tool}, %__MODULE__{} = message, prompts) do
-    %{
-      objective: message.step_objective,
-      description: message.job_description
-    }
-    |> maybe_add_prompt(prompt)
-    |> maybe_add_tool(tool)
-    |> maybe_prep_input(message.input, tool)
+    |> maybe_add_prompt(agent_config)
+    |> maybe_add_tool(agent_config)
+    |> maybe_prep_input(message.input, agent_config)
     |> Enum.reject(&filter_empty/1)
     |> Enum.map(fn {key, value} -> field({key, value}, prompts) end)
     |> Enum.map(&to_prompt/1)
@@ -121,22 +110,28 @@ defmodule Agens.Message do
   end
 
   @doc false
-  @spec maybe_add_prompt(map(), Agent.Prompt.t()) :: map()
-  defp maybe_add_prompt(map, %Agent.Prompt{} = prompt),
+  @spec maybe_add_prompt(map(), Agent.Config.t() | nil) :: map()
+  defp maybe_add_prompt(map, %Agent.Config{prompt: %Agent.Prompt{} = prompt}),
     do: prompt |> Map.from_struct() |> Map.merge(map)
 
-  defp maybe_add_prompt(map, prompt) when is_binary(prompt), do: Map.put(map, :prompt, prompt)
-  defp maybe_add_prompt(map, _prompt), do: map
+  defp maybe_add_prompt(map, %Agent.Config{prompt: prompt}) when is_binary(prompt),
+    do: Map.put(map, :prompt, prompt)
+
+  defp maybe_add_prompt(map, _), do: map
 
   @doc false
-  @spec maybe_add_tool(map(), module() | nil) :: map()
-  defp maybe_add_tool(map, nil), do: map
-  defp maybe_add_tool(map, tool), do: Map.put(map, :instructions, tool.instructions())
+  @spec maybe_add_tool(map(), Agent.Config.t() | nil) :: map()
+  defp maybe_add_tool(map, %Agent.Config{tool: tool}) when not is_nil(tool),
+    do: Map.put(map, :instructions, tool.instructions())
+
+  defp maybe_add_tool(map, _), do: map
 
   @doc false
-  @spec maybe_prep_input(map(), String.t(), module() | nil) :: map()
-  defp maybe_prep_input(map, input, nil), do: Map.put(map, :input, input)
-  defp maybe_prep_input(map, input, tool), do: Map.put(map, :input, tool.pre(input))
+  @spec maybe_prep_input(map(), String.t(), Agent.Config.t() | nil) :: map()
+  defp maybe_prep_input(map, input, %Agent.Config{tool: tool}) when not is_nil(tool),
+    do: Map.put(map, :input, tool.pre(input))
+
+  defp maybe_prep_input(map, input, _), do: Map.put(map, :input, input)
 
   @doc false
   @spec maybe_use_tool(t(), module() | nil) :: t()

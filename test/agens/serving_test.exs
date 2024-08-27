@@ -70,6 +70,21 @@ defmodule Agens.ServingTest do
     end
   end
 
+  describe "config" do
+    setup [:start_agens, :start_serving]
+
+    test "get" do
+      serving_name = :serving_test
+      {:ok, %Serving.Config{name: name, serving: serving}} = Serving.get_config(serving_name)
+      assert name == serving_name
+      assert serving == Test.Support.Serving.Stub
+    end
+
+    test "not found" do
+      assert {:error, :serving_not_found} == Serving.get_config(:serving_missing)
+    end
+  end
+
   describe "nx" do
     setup :start_agens
 
