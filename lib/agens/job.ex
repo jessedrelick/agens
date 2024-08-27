@@ -180,7 +180,8 @@ defmodule Agens.Job do
 
   @doc false
   def start_link(extra, config) do
-    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
 
   @doc false
@@ -195,13 +196,14 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec init(any()) ::
+  @spec init(keyword()) ::
           {:ok, State.t()}
           | {:ok, State.t(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
           | :ignore
           | {:stop, reason :: any()}
-  def init([config, opts]) do
+  def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
+    config = Keyword.fetch!(opts, :config)
     {:ok, %State{status: :init, config: config, registry: registry}}
   end
 

@@ -49,7 +49,7 @@ defmodule Agens.Agent do
 
     @type t :: %__MODULE__{
             name: atom(),
-            serving: module() | Nx.Serving.t(),
+            serving: atom(),
             knowledge: module() | nil,
             prompt: Agens.Agent.Prompt.t() | String.t() | nil,
             tool: module() | nil
@@ -59,9 +59,17 @@ defmodule Agens.Agent do
     defstruct [:name, :serving, :knowledge, :prompt, :tool]
   end
 
-  use GenServer
+  defmodule State do
+    @type t :: %__MODULE__{
+            registry: atom(),
+            config: Agens.Agent.Config.t()
+          }
 
-  @registry Application.compile_env(:agens, :registry)
+    @enforce_keys [:registry, :config]
+    defstruct [:registry, :config]
+  end
+
+  use GenServer
 
   @doc """
   Starts one or more `Agens.Agent` processes
@@ -82,16 +90,7 @@ defmodule Agens.Agent do
       # restart: :transient
     }
 
-    Agens
-    |> DynamicSupervisor.start_child(spec)
-    |> case do
-      {:ok, pid} when is_pid(pid) ->
-        Registry.register(@registry, config.name, {pid, config})
-        {:ok, pid}
-
-      {:error, {:already_started, pid}} = err when is_pid(pid) ->
-        err
-    end
+    DynamicSupervisor.start_child(Agens, spec)
   end
 
   @doc """
@@ -106,22 +105,66 @@ defmodule Agens.Agent do
         {:error, :agent_not_found}
 
       pid ->
+        GenServer.call(pid, {:stop, agent_name})
         :ok = DynamicSupervisor.terminate_child(Agens, pid)
-        Registry.unregister(@registry, agent_name)
     end
+  end
+
+  @doc """
+  Retrieves the Job configuration by Job name or `pid`.
+  """
+  @spec get_config(pid | atom) :: {:ok, term} | {:error, :agent_not_found}
+  def get_config(name) when is_atom(name) do
+    name
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :agent_not_found}
+
+      pid when is_pid(pid) ->
+        get_config(pid)
+    end
+  end
+
+  def get_config(pid) when is_pid(pid) do
+    GenServer.call(pid, :get_config)
+  end
+
+  @doc false
+  @impl true
+  def handle_call({:stop, agent_name}, _from, state) do
+    Registry.unregister(state.registry, agent_name)
+    {:reply, :ok, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
+  def handle_call(:get_config, _from, state) do
+    {:reply, state.config, state}
   end
 
   @doc false
   @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
   def start_link(extra, config) do
-    GenServer.start_link(__MODULE__, [config, extra], name: config.name)
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
 
   @doc false
-  @spec init(any()) :: {:ok, map()}
+  @spec init(keyword()) :: {:ok, map()}
   @impl true
-  def init([_config, opts]) do
+  def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
-    {:ok, %{registry: registry}}
+    config = Keyword.fetch!(opts, :config)
+    state = %State{registry: registry, config: config}
+
+    case Registry.register(registry, config.name, {self(), config}) do
+      {:ok, _} ->
+        {:ok, state}
+
+      {:error, reason} ->
+        {:stop, reason}
+    end
   end
 end

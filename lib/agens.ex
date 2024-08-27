@@ -70,35 +70,43 @@ defmodule Agens do
 
     alias Agens.{Agent, Serving}
 
-    @registry Application.compile_env(:agens, :registry)
-    @fields Application.compile_env(:agens, :prompts)
-
     @doc """
     Sends an `Agens.Message` to an `Agens.Agent`
     """
-    @spec send(__MODULE__.t()) :: __MODULE__.t() | {:error, :agent_not_running}
-    def send(%__MODULE__{} = message) do
-      case Registry.lookup(@registry, message.agent_name) do
-        [{_, {agent_pid, config}}] when is_pid(agent_pid) ->
-          base = build_prompt(config, message)
-          prompt = "<s>[INST]#{base}[/INST]"
+    @spec send(__MODULE__.t()) :: __MODULE__.t() | {:error, atom()}
+    def send(%__MODULE__{agent_name: nil, serving_name: nil}) do
+      {:error, :no_agent_or_serving_name}
+    end
 
-          result =
-            message
-            |> Map.put(:serving_name, config.serving)
-            |> Map.put(:prompt, prompt)
-            |> Serving.run()
+    def send(%__MODULE__{serving_name: nil} = message) do
+      case Agent.get_config(message.agent_name) do
+        %Agent.Config{serving: serving} ->
+          message
+          |> Map.put(:serving_name, serving)
+          |> Serving.run()
 
-          message = Map.put(message, :result, result)
-          maybe_use_tool(message, config.tool)
-
-        [] ->
-          {:error, :agent_not_running}
+        {:error, reason} ->
+          {:error, reason}
       end
     end
 
-    @spec build_prompt(Agent.Config.t(), t()) :: String.t()
-    defp build_prompt(%Agent.Config{prompt: prompt, tool: tool}, %__MODULE__{} = message) do
+    def send(%__MODULE__{} = message) do
+      Serving.run(message)
+    end
+
+    @spec build_prompt(Agent.Config.t() | nil, t(), map()) :: String.t()
+    def build_prompt(nil, %__MODULE__{} = message, prompts) do
+      %{
+        objective: message.step_objective,
+        description: message.job_description
+      }
+      |> Enum.reject(&filter_empty/1)
+      |> Enum.map(fn {key, value} -> field({key, value}, prompts) end)
+      |> Enum.map(&to_prompt/1)
+      |> Enum.join("\n\n")
+    end
+
+    def build_prompt(%Agent.Config{prompt: prompt, tool: tool}, %__MODULE__{} = message, prompts) do
       %{
         objective: message.step_objective,
         description: message.job_description
@@ -107,15 +115,15 @@ defmodule Agens do
       |> maybe_add_tool(tool)
       |> maybe_prep_input(message.input, tool)
       |> Enum.reject(&filter_empty/1)
-      |> Enum.map(&field/1)
+      |> Enum.map(fn {key, value} -> field({key, value}, prompts) end)
       |> Enum.map(&to_prompt/1)
       |> Enum.join("\n\n")
     end
 
     defp filter_empty({_, value}), do: value == "" or is_nil(value)
 
-    defp field({key, value}) do
-      {Map.get(@fields, key), value}
+    defp field({key, value}, prompts) do
+      {Map.get(prompts, key), value}
     end
 
     defp to_prompt({{heading, detail}, value}) do
@@ -138,9 +146,9 @@ defmodule Agens do
     defp maybe_prep_input(map, input, tool), do: Map.put(map, :input, tool.pre(input))
 
     @spec maybe_use_tool(__MODULE__.t(), module() | nil) :: __MODULE__.t()
-    defp maybe_use_tool(message, nil), do: message
+    def maybe_use_tool(message, nil), do: message
 
-    defp maybe_use_tool(%__MODULE__{} = message, tool) do
+    def maybe_use_tool(%__MODULE__{} = message, tool) do
       send(
         message.parent_pid,
         {:tool_started, {message.job_name, message.step_index}, message.result}

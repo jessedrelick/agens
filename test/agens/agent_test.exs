@@ -61,7 +61,7 @@ defmodule Agens.AgentTest do
       assert Agent.stop(:test_stop_agent) == :ok
 
       result = Message.send(message)
-      assert result == {:error, :agent_not_running}
+      assert result == {:error, :agent_not_found}
     end
   end
 
@@ -114,7 +114,7 @@ defmodule Agens.AgentTest do
       }
 
       result = Message.send(message)
-      assert result == {:error, :agent_not_running}
+      assert result == {:error, :agent_not_found}
     end
   end
 

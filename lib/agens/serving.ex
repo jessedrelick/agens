@@ -46,6 +46,7 @@ defmodule Agens.Serving do
 
   def child_spec(config) do
     name = parent_name(config.name)
+
     %{
       id: name,
       start: {__MODULE__, :start_link, [config]}
@@ -54,13 +55,17 @@ defmodule Agens.Serving do
 
   def start_link(extra, config) do
     name = parent_name(config.name)
-    GenServer.start_link(__MODULE__, [config, extra], name: name)
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  def init([config, opts]) do
+  def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
-    state = %{config: config, registry: registry}
+    prompts = Keyword.fetch!(opts, :prompts)
+    config = Keyword.fetch!(opts, :config)
+    state = %{config: config, registry: registry, prompts: prompts}
     {m, f, a} = start_function(config)
+
     m
     |> apply(f, a)
     |> case do
@@ -112,23 +117,53 @@ defmodule Agens.Serving do
     end
   end
 
-  def handle_call({:run, %Message{} = message}, _, state) do
-    serving_name = serving_name(message.serving_name)
-    state.registry
-    |> Registry.lookup(serving_name)
-    |> case do
-      [{_, {serving_pid, config}}] when is_pid(serving_pid) ->
-        {:reply, do_run({serving_pid, config}, message), state}
-
-      [] ->
-        {:reply, {:error, :serving_not_running}, state}
-    end
-  end
-
   def handle_call({:stop, serving_name}, _from, state) do
     serving_name = serving_name(serving_name)
     Registry.unregister(state.registry, serving_name)
     {:reply, :ok, state}
+  end
+
+  def handle_call({:run, %Message{} = message}, _, %{registry: registry} = state) do
+    result =
+      with {:ok, agent_config} <- get_agent_config(registry, message.agent_name),
+           serving_name <- serving_name(message.serving_name),
+           {:ok, {serving_pid, serving_config}} <- get_serving_config(registry, serving_name) do
+        base = Message.build_prompt(agent_config, message, state.prompts)
+        prompt = "<s>[INST]#{base}[/INST]"
+        message = Map.put(message, :prompt, prompt)
+
+        result = do_run({serving_pid, serving_config}, message)
+
+        message = Map.put(message, :result, result)
+        tool = if agent_config, do: agent_config.tool, else: nil
+        Message.maybe_use_tool(message, tool)
+      else
+        {:error, reason} -> {:error, reason}
+      end
+
+    {:reply, result, state}
+  end
+
+  defp get_agent_config(_registry, nil), do: {:ok, nil}
+
+  defp get_agent_config(registry, agent_name) do
+    case Registry.lookup(registry, agent_name) do
+      [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
+        {:ok, agent_config}
+
+      [] ->
+        {:error, :agent_not_running}
+    end
+  end
+
+  defp get_serving_config(registry, serving_name) do
+    case Registry.lookup(registry, serving_name) do
+      [{_, {serving_pid, serving_config}}] when is_pid(serving_pid) ->
+        {:ok, {serving_pid, serving_config}}
+
+      [] ->
+        {:error, :serving_not_running}
+    end
   end
 
   @spec do_run({pid(), Config.t()}, Message.t()) :: String.t()
