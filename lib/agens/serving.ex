@@ -22,11 +22,22 @@ defmodule Agens.Serving do
 
     @type t :: %__MODULE__{
             name: atom(),
-            serving: Nx.Serving.t() | module()
+            serving: Nx.Serving.t() | module(),
+            prompts: map() | nil
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving]
+    defstruct [:name, :serving, :prompts]
+  end
+
+  defmodule State do
+    @type t :: %__MODULE__{
+      registry: atom(),
+      config: Config.t()
+    }
+
+    @enforce_keys [:registry, :config]
+    defstruct [:registry, :config]
   end
 
   use GenServer
@@ -59,11 +70,13 @@ defmodule Agens.Serving do
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
+  @impl true
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     prompts = Keyword.fetch!(opts, :prompts)
     config = Keyword.fetch!(opts, :config)
-    state = %{config: config, registry: registry, prompts: prompts}
+    config = if is_nil(config.prompts), do: Map.put(config, :prompts, prompts), else: config
+    state = %{config: config, registry: registry}
     {m, f, a} = start_function(config)
 
     m
@@ -117,57 +130,39 @@ defmodule Agens.Serving do
     end
   end
 
+  def get_config(serving_name) when is_atom(serving_name) do
+    serving_name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, :get_config)
+    end
+  end
+
   def handle_call({:stop, serving_name}, _from, state) do
     serving_name = serving_name(serving_name)
     Registry.unregister(state.registry, serving_name)
     {:reply, :ok, state}
   end
 
-  def handle_call({:run, %Message{} = message}, _, %{registry: registry} = state) do
-    result =
-      with {:ok, agent_config} <- get_agent_config(registry, message.agent_name),
-           serving_name <- serving_name(message.serving_name),
-           {:ok, {serving_pid, serving_config}} <- get_serving_config(registry, serving_name) do
-        base = Message.build_prompt(agent_config, message, state.prompts)
-        prompt = "<s>[INST]#{base}[/INST]"
-        message = Map.put(message, :prompt, prompt)
-
-        result = do_run({serving_pid, serving_config}, message)
-
-        message = Map.put(message, :result, result)
-        tool = if agent_config, do: agent_config.tool, else: nil
-        Message.maybe_use_tool(message, tool)
-      else
-        {:error, reason} -> {:error, reason}
-      end
-
+  def handle_call({:run, %Message{} = message}, _, state) do
+    result = do_run(state.config, message)
     {:reply, result, state}
   end
 
-  defp get_agent_config(_registry, nil), do: {:ok, nil}
-
-  defp get_agent_config(registry, agent_name) do
-    case Registry.lookup(registry, agent_name) do
-      [{_, {agent_pid, agent_config}}] when is_pid(agent_pid) ->
-        {:ok, agent_config}
-
-      [] ->
-        {:error, :agent_not_running}
-    end
+  @doc false
+  @impl true
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, {:ok, Config.t()}, State.t()}
+  def handle_call(:get_config, _from, state) do
+    {:reply, {:ok, state.config}, state}
   end
 
-  defp get_serving_config(registry, serving_name) do
-    case Registry.lookup(registry, serving_name) do
-      [{_, {serving_pid, serving_config}}] when is_pid(serving_pid) ->
-        {:ok, {serving_pid, serving_config}}
-
-      [] ->
-        {:error, :serving_not_running}
-    end
-  end
-
-  @spec do_run({pid(), Config.t()}, Message.t()) :: String.t()
-  defp do_run({_, %Config{serving: %Nx.Serving{}}}, %Message{} = message) do
+  @spec do_run(Config.t(), Message.t()) :: String.t()
+  defp do_run(%Config{serving: %Nx.Serving{}}, %Message{} = message) do
     message.serving_name
     |> Nx.Serving.batched_run(message.prompt)
     |> case do
@@ -176,9 +171,10 @@ defmodule Agens.Serving do
     end
   end
 
-  defp do_run({serving_pid, _}, %Message{} = message) do
-    # GenServer.call(serving_name, {:run, message})
-    GenServer.call(serving_pid, {:run, message})
+  defp do_run(_, %Message{} = message) do
+    serving_name = serving_name(message.serving_name)
+    # need to get pid?
+    GenServer.call(serving_name, {:run, message})
   end
 
   @spec start_function(Config.t()) :: tuple()

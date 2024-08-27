@@ -78,20 +78,25 @@ defmodule Agens do
       {:error, :no_agent_or_serving_name}
     end
 
-    def send(%__MODULE__{serving_name: nil} = message) do
-      case Agent.get_config(message.agent_name) do
-        %Agent.Config{serving: serving} ->
-          message
-          |> Map.put(:serving_name, serving)
-          |> Serving.run()
-
-        {:error, reason} ->
-          {:error, reason}
-      end
-    end
-
     def send(%__MODULE__{} = message) do
-      Serving.run(message)
+      with {:ok, agent_config} <- maybe_get_agent_config(message.agent_name),
+           {:ok, serving_config} <- get_serving_config(agent_config, message) do
+        base = build_prompt(agent_config, message, serving_config.prompts)
+        prompt = "<s>[INST]#{base}[/INST]"
+
+        message =
+          message
+          |> Map.put(:prompt, prompt)
+          |> Map.put(:serving_name, serving_config.name)
+
+        result = Serving.run(message)
+
+        message = Map.put(message, :result, result)
+        tool = if agent_config, do: agent_config.tool, else: nil
+        maybe_use_tool(message, tool)
+      else
+        {:error, reason} -> {:error, reason}
+      end
     end
 
     @spec build_prompt(Agent.Config.t() | nil, t(), map()) :: String.t()
@@ -167,6 +172,13 @@ defmodule Agens do
 
       Map.put(message, :result, result)
     end
+
+    defp get_serving_config(nil, %__MODULE__{serving_name: serving_name}) when is_atom(serving_name), do: Serving.get_config(serving_name)
+    defp get_serving_config(%Agent.Config{serving: serving_name}, _) when is_atom(serving_name), do: Serving.get_config(serving_name)
+    defp get_serving_config(_, _), do: {:error, :no_serving_name}
+
+    defp maybe_get_agent_config(nil), do: {:ok, nil}
+    defp maybe_get_agent_config(agent_name) when is_atom(agent_name), do: Agent.get_config(agent_name)
   end
 
   use DynamicSupervisor

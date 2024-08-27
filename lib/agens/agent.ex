@@ -111,7 +111,7 @@ defmodule Agens.Agent do
   end
 
   @doc """
-  Retrieves the Job configuration by Job name or `pid`.
+  Retrieves the Agent configuration by Agent name or `pid`.
   """
   @spec get_config(pid | atom) :: {:ok, term} | {:error, :agent_not_found}
   def get_config(name) when is_atom(name) do
@@ -122,7 +122,7 @@ defmodule Agens.Agent do
         {:error, :agent_not_found}
 
       pid when is_pid(pid) ->
-        get_config(pid)
+        {:ok, get_config(pid)}
     end
   end
 
