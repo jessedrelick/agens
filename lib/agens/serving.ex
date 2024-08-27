@@ -187,7 +187,8 @@ defmodule Agens.Serving do
 
   @doc false
   @impl true
-  @spec handle_call({:run, Message.t()}, {pid, term}, State.t()) :: {:reply, String.t(), State.t()}
+  @spec handle_call({:run, Message.t()}, {pid, term}, State.t()) ::
+          {:reply, String.t(), State.t()}
   def handle_call({:run, %Message{} = message}, _, state) do
     result = do_run(state.config, message)
     {:reply, result, state}

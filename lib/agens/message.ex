@@ -48,7 +48,7 @@ defmodule Agens.Message do
   @doc """
   Sends an `Agens.Message` to an `Agens.Agent`
   """
-  @spec send(__MODULE__.t()) :: __MODULE__.t() | {:error, atom()}
+  @spec send(t()) :: t() | {:error, atom()}
   def send(%__MODULE__{agent_name: nil, serving_name: nil}) do
     {:error, :no_agent_or_serving_name}
   end
@@ -74,6 +74,7 @@ defmodule Agens.Message do
     end
   end
 
+  @doc false
   @spec build_prompt(Agent.Config.t() | nil, t(), map()) :: String.t()
   defp build_prompt(nil, %__MODULE__{} = message, prompts) do
     %{
@@ -100,12 +101,18 @@ defmodule Agens.Message do
     |> Enum.join("\n\n")
   end
 
+  @doc false
+  @spec filter_empty({atom(), String.t()}) :: boolean()
   defp filter_empty({_, value}), do: value == "" or is_nil(value)
 
+  @doc false
+  @spec field({atom(), String.t()}, map()) :: {String.t(), String.t()}
   defp field({key, value}, prompts) do
     {Map.get(prompts, key), value}
   end
 
+  @doc false
+  @spec to_prompt({{String.t(), String.t()}, String.t()}) :: String.t()
   defp to_prompt({{heading, detail}, value}) do
     """
     ## #{heading}
@@ -113,19 +120,26 @@ defmodule Agens.Message do
     """
   end
 
+  @doc false
+  @spec maybe_add_prompt(map(), Agent.Prompt.t()) :: map()
   defp maybe_add_prompt(map, %Agent.Prompt{} = prompt),
     do: prompt |> Map.from_struct() |> Map.merge(map)
 
   defp maybe_add_prompt(map, prompt) when is_binary(prompt), do: Map.put(map, :prompt, prompt)
   defp maybe_add_prompt(map, _prompt), do: map
 
+  @doc false
+  @spec maybe_add_tool(map(), module() | nil) :: map()
   defp maybe_add_tool(map, nil), do: map
   defp maybe_add_tool(map, tool), do: Map.put(map, :instructions, tool.instructions())
 
+  @doc false
+  @spec maybe_prep_input(map(), String.t(), module() | nil) :: map()
   defp maybe_prep_input(map, input, nil), do: Map.put(map, :input, input)
   defp maybe_prep_input(map, input, tool), do: Map.put(map, :input, tool.pre(input))
 
-  @spec maybe_use_tool(__MODULE__.t(), module() | nil) :: __MODULE__.t()
+  @doc false
+  @spec maybe_use_tool(t(), module() | nil) :: t()
   defp maybe_use_tool(message, nil), do: message
 
   defp maybe_use_tool(%__MODULE__{} = message, tool) do
@@ -148,6 +162,9 @@ defmodule Agens.Message do
     Map.put(message, :result, result)
   end
 
+  @doc false
+  @spec get_serving_config(Agent.Config.t() | nil, t()) ::
+          {:ok, Serving.Config.t()} | {:error, atom()}
   defp get_serving_config(nil, %__MODULE__{serving_name: serving_name})
        when is_atom(serving_name),
        do: Serving.get_config(serving_name)
@@ -157,6 +174,8 @@ defmodule Agens.Message do
 
   defp get_serving_config(_, _), do: {:error, :no_serving_name}
 
+  @doc false
+  @spec maybe_get_agent_config(atom() | nil) :: {:ok, Agent.Config.t() | nil}
   defp maybe_get_agent_config(nil), do: {:ok, nil}
 
   defp maybe_get_agent_config(agent_name) when is_atom(agent_name),

@@ -33,6 +33,7 @@ defmodule Agens do
   end
 
   @doc false
+  @impl true
   @spec init(keyword()) :: {:ok, any()}
   def init(opts) do
     DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [opts])
