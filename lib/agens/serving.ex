@@ -154,10 +154,8 @@ defmodule Agens.Serving do
     |> case do
       {:ok, pid} when is_pid(pid) ->
         name = serving_name(config.name)
-        Registry.register(registry, name, {pid, config})
-        {:ok, state}
+        {:ok, _} = Registry.register(registry, name, {pid, config})
 
-      {:error, {:already_started, pid}} when is_pid(pid) ->
         {:ok, state}
 
       {:error, reason} ->
