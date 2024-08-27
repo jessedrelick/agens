@@ -159,13 +159,9 @@ defmodule Agens.Agent do
     config = Keyword.fetch!(opts, :config)
     state = %State{registry: registry, config: config}
 
-    case Registry.register(registry, config.name, {self(), config}) do
-      {:ok, _} ->
-        {:ok, state}
+    {:ok, _} = Registry.register(registry, config.name, {self(), config})
 
-      {:error, reason} ->
-        {:stop, reason}
-    end
+    {:ok, state}
   end
 
   # ===========================================================================

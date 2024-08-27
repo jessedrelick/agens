@@ -167,8 +167,6 @@ defmodule Agens.Message do
   defp get_serving_config(%Agent.Config{serving: serving_name}, _) when is_atom(serving_name),
     do: Serving.get_config(serving_name)
 
-  defp get_serving_config(_, _), do: {:error, :no_serving_name}
-
   @doc false
   @spec maybe_get_agent_config(atom() | nil) :: {:ok, Agent.Config.t() | nil}
   defp maybe_get_agent_config(nil), do: {:ok, nil}
