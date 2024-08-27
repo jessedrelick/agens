@@ -60,6 +60,8 @@ defmodule Agens.Agent do
   end
 
   defmodule State do
+    @moduledoc false
+
     @type t :: %__MODULE__{
             registry: atom(),
             config: Agens.Agent.Config.t()
@@ -70,6 +72,10 @@ defmodule Agens.Agent do
   end
 
   use GenServer
+
+  # ===========================================================================
+  # Public API
+  # ===========================================================================
 
   @doc """
   Starts one or more `Agens.Agent` processes
@@ -83,14 +89,7 @@ defmodule Agens.Agent do
   end
 
   def start(%Config{} = config) do
-    spec = %{
-      id: config.name,
-      start: {__MODULE__, :start_link, [config]}
-      # type: :worker,
-      # restart: :transient
-    }
-
-    DynamicSupervisor.start_child(Agens, spec)
+    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
   end
 
   @doc """
@@ -130,18 +129,18 @@ defmodule Agens.Agent do
     GenServer.call(pid, :get_config)
   end
 
-  @doc false
-  @impl true
-  def handle_call({:stop, agent_name}, _from, state) do
-    Registry.unregister(state.registry, agent_name)
-    {:reply, :ok, state}
-  end
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
 
   @doc false
-  @impl true
-  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
-  def handle_call(:get_config, _from, state) do
-    {:reply, state.config, state}
+  def child_spec(%Config{} = config) do
+    %{
+      id: config.name,
+      start: {__MODULE__, :start_link, [config]},
+      type: :worker,
+      restart: :transient
+    }
   end
 
   @doc false
@@ -167,4 +166,27 @@ defmodule Agens.Agent do
         {:stop, reason}
     end
   end
+
+  # ===========================================================================
+  # Callbacks
+  # ===========================================================================
+
+  @doc false
+  @impl true
+  def handle_call({:stop, agent_name}, _from, state) do
+    Registry.unregister(state.registry, agent_name)
+    {:reply, :ok, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
+  def handle_call(:get_config, _from, state) do
+    {:reply, state.config, state}
+  end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
+
 end

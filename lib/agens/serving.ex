@@ -31,6 +31,8 @@ defmodule Agens.Serving do
   end
 
   defmodule State do
+    @moduledoc false
+
     @type t :: %__MODULE__{
       registry: atom(),
       config: Config.t()
@@ -47,6 +49,10 @@ defmodule Agens.Serving do
   @suffix "Supervisor"
   @parent "Wrapper"
 
+  # ===========================================================================
+  # Public API
+  # ===========================================================================
+
   @doc """
   Starts an `Agens.Serving` process
   """
@@ -55,12 +61,67 @@ defmodule Agens.Serving do
     DynamicSupervisor.start_child(Agens, {__MODULE__, config})
   end
 
-  def child_spec(config) do
+  @doc """
+  Stops an `Agens.Serving` process
+  """
+  @spec stop(atom()) :: :ok | {:error, :serving_not_found}
+  def stop(name) do
+    name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, {:stop, name})
+        :ok = DynamicSupervisor.terminate_child(Agens, pid)
+    end
+  end
+
+  def get_config(serving_name) when is_atom(serving_name) do
+    serving_name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, :get_config)
+    end
+  end
+
+  @doc """
+  Executes an `Agens.Message` against an `Agens.Serving`
+  """
+  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
+  def run(%Message{} = message) do
+    message.serving_name
+    |> parent_name()
+    |> Process.whereis()
+    |> case do
+      nil ->
+        {:error, :serving_not_found}
+
+      pid when is_pid(pid) ->
+        GenServer.call(pid, {:run, message})
+    end
+  end
+
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
+
+  @doc false
+  def child_spec(%Config{} = config) do
     name = parent_name(config.name)
 
     %{
       id: name,
-      start: {__MODULE__, :start_link, [config]}
+      start: {__MODULE__, :start_link, [config]},
+      type: :worker,
+      restart: :transient
     }
   end
 
@@ -95,63 +156,16 @@ defmodule Agens.Serving do
     end
   end
 
-  @doc """
-  Stops an `Agens.Serving` process
-  """
-  @spec stop(atom()) :: :ok | {:error, :serving_not_found}
-  def stop(name) do
-    name
-    |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
+  # ===========================================================================
+  # Callbacks
+  # ===========================================================================
 
-      pid when is_pid(pid) ->
-        GenServer.call(pid, {:stop, name})
-        :ok = DynamicSupervisor.terminate_child(Agens, pid)
-    end
-  end
-
-  @doc """
-  Executes an `Agens.Message` against an `Agens.Serving`
-  """
-  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
-  def run(%Message{} = message) do
-    message.serving_name
-    |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid when is_pid(pid) ->
-        GenServer.call(pid, {:run, message})
-    end
-  end
-
-  def get_config(serving_name) when is_atom(serving_name) do
-    serving_name
-    |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid when is_pid(pid) ->
-        GenServer.call(pid, :get_config)
-    end
-  end
-
+  @doc false
+  @impl true
   def handle_call({:stop, serving_name}, _from, state) do
     serving_name = serving_name(serving_name)
     Registry.unregister(state.registry, serving_name)
     {:reply, :ok, state}
-  end
-
-  def handle_call({:run, %Message{} = message}, _, state) do
-    result = do_run(state.config, message)
-    {:reply, result, state}
   end
 
   @doc false
@@ -160,6 +174,17 @@ defmodule Agens.Serving do
   def handle_call(:get_config, _from, state) do
     {:reply, {:ok, state.config}, state}
   end
+
+  @doc false
+  @impl true
+  def handle_call({:run, %Message{} = message}, _, state) do
+    result = do_run(state.config, message)
+    {:reply, result, state}
+  end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
 
   @spec do_run(Config.t(), Message.t()) :: String.t()
   defp do_run(%Config{serving: %Nx.Serving{}}, %Message{} = message) do

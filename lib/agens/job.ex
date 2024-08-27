@@ -116,6 +116,10 @@ defmodule Agens.Job do
 
   alias Agens.Message
 
+  # ===========================================================================
+  # Public API
+  # ===========================================================================
+
   @doc """
   Starts a new Job process using the provided `Agens.Job.Config`.
 
@@ -123,17 +127,27 @@ defmodule Agens.Job do
   """
   @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
-    spec = child_spec(config)
+    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
+  end
 
-    Agens
-    |> DynamicSupervisor.start_child(spec)
+  @doc """
+  Retrieves the Job configuration by Job name or `pid`.
+  """
+  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
+  def get_config(name) when is_atom(name) do
+    name
+    |> Process.whereis()
     |> case do
-      {:ok, pid} = result when is_pid(pid) ->
-        result
+      nil ->
+        {:error, :job_not_found}
 
-      {:error, {:already_started, pid}} = error when is_pid(pid) ->
-        error
+      pid when is_pid(pid) ->
+        get_config(pid)
     end
+  end
+
+  def get_config(pid) when is_pid(pid) do
+    GenServer.call(pid, :get_config)
   end
 
   @doc """
@@ -158,40 +172,24 @@ defmodule Agens.Job do
     GenServer.call(pid, {:run, input})
   end
 
-  @doc """
-  Retrieves the Job configuration by Job name or `pid`.
-  """
-  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
-  def get_config(name) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :job_not_found}
-
-      pid when is_pid(pid) ->
-        get_config(pid)
-    end
-  end
-
-  def get_config(pid) when is_pid(pid) do
-    GenServer.call(pid, :get_config)
-  end
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
 
   @doc false
-  def start_link(extra, config) do
-    opts = Keyword.put(extra, :config, config)
-    GenServer.start_link(__MODULE__, opts, name: config.name)
-  end
-
-  @doc false
-  def child_spec(config) do
+  def child_spec(%Config{} = config) do
     %{
       id: config.name,
       start: {__MODULE__, :start_link, [config]},
       type: :worker,
       restart: :transient
     }
+  end
+
+  @doc false
+  def start_link(extra, config) do
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
 
   @doc false
@@ -206,6 +204,10 @@ defmodule Agens.Job do
     config = Keyword.fetch!(opts, :config)
     {:ok, %State{status: :init, config: config, registry: registry}}
   end
+
+  # ===========================================================================
+  # Callbacks
+  # ===========================================================================
 
   @doc false
   @impl true
@@ -273,6 +275,10 @@ defmodule Agens.Job do
     send(state.parent, {:job_ended, name, {:error, error}})
     :ok
   end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
 
   @doc false
   @spec do_step(String.t(), State.t()) :: :ok
