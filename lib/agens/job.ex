@@ -133,7 +133,7 @@ defmodule Agens.Job do
   @doc """
   Retrieves the Job configuration by Job name or `pid`.
   """
-  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
+  @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :job_not_found}
   def get_config(name) when is_atom(name) do
     name
     |> Process.whereis()
@@ -147,7 +147,7 @@ defmodule Agens.Job do
   end
 
   def get_config(pid) when is_pid(pid) do
-    GenServer.call(pid, :get_config)
+    {:ok, GenServer.call(pid, :get_config)}
   end
 
   @doc """
@@ -155,7 +155,7 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | atom, term) :: {:ok, term} | {:error, :job_not_found}
+  @spec run(pid | atom, String.t()) :: {:ok, term} | {:error, :job_not_found}
   def run(name, input) when is_atom(name) do
     name
     |> Process.whereis()
@@ -177,6 +177,7 @@ defmodule Agens.Job do
   # ===========================================================================
 
   @doc false
+  @spec child_spec(Config.t()) :: Supervisor.child_spec()
   def child_spec(%Config{} = config) do
     %{
       id: config.name,
@@ -187,6 +188,7 @@ defmodule Agens.Job do
   end
 
   @doc false
+  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
   def start_link(extra, config) do
     opts = Keyword.put(extra, :config, config)
     GenServer.start_link(__MODULE__, opts, name: config.name)

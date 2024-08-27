@@ -112,7 +112,7 @@ defmodule Agens.Agent do
   @doc """
   Retrieves the Agent configuration by Agent name or `pid`.
   """
-  @spec get_config(pid | atom) :: {:ok, term} | {:error, :agent_not_found}
+  @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :agent_not_found}
   def get_config(name) when is_atom(name) do
     name
     |> Process.whereis()
@@ -134,6 +134,7 @@ defmodule Agens.Agent do
   # ===========================================================================
 
   @doc false
+  @spec child_spec(Config.t()) :: Supervisor.child_spec()
   def child_spec(%Config{} = config) do
     %{
       id: config.name,
@@ -151,8 +152,8 @@ defmodule Agens.Agent do
   end
 
   @doc false
-  @spec init(keyword()) :: {:ok, map()}
   @impl true
+  @spec init(keyword()) :: {:ok, map()}
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
@@ -173,6 +174,7 @@ defmodule Agens.Agent do
 
   @doc false
   @impl true
+  @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
   def handle_call({:stop, agent_name}, _from, state) do
     Registry.unregister(state.registry, agent_name)
     {:reply, :ok, state}

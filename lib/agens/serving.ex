@@ -56,7 +56,7 @@ defmodule Agens.Serving do
   @doc """
   Starts an `Agens.Serving` process
   """
-  @spec start(Config.t()) :: {:ok, pid()}
+  @spec start(Config.t()) :: {:ok, pid()} | {:error, term}
   def start(%Config{} = config) do
     DynamicSupervisor.start_child(Agens, {__MODULE__, config})
   end
@@ -79,6 +79,10 @@ defmodule Agens.Serving do
     end
   end
 
+  @doc """
+  Needs docs
+  """
+  @spec get_config(atom()) :: {:ok, Config.t()} | {:error, :serving_not_found}
   def get_config(serving_name) when is_atom(serving_name) do
     serving_name
     |> parent_name()
@@ -88,7 +92,7 @@ defmodule Agens.Serving do
         {:error, :serving_not_found}
 
       pid when is_pid(pid) ->
-        GenServer.call(pid, :get_config)
+        {:ok, GenServer.call(pid, :get_config)}
     end
   end
 
@@ -114,6 +118,7 @@ defmodule Agens.Serving do
   # ===========================================================================
 
   @doc false
+  @spec child_spec(Config.t()) :: Supervisor.child_spec()
   def child_spec(%Config{} = config) do
     name = parent_name(config.name)
 
@@ -125,13 +130,17 @@ defmodule Agens.Serving do
     }
   end
 
+  @doc false
+  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
   def start_link(extra, config) do
     name = parent_name(config.name)
     opts = Keyword.put(extra, :config, config)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
+  @doc false
   @impl true
+  @spec init(keyword()) :: {:ok, map()}
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     prompts = Keyword.fetch!(opts, :prompts)
@@ -162,6 +171,7 @@ defmodule Agens.Serving do
 
   @doc false
   @impl true
+  @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
   def handle_call({:stop, serving_name}, _from, state) do
     serving_name = serving_name(serving_name)
     Registry.unregister(state.registry, serving_name)
@@ -170,13 +180,14 @@ defmodule Agens.Serving do
 
   @doc false
   @impl true
-  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, {:ok, Config.t()}, State.t()}
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
   def handle_call(:get_config, _from, state) do
-    {:reply, {:ok, state.config}, state}
+    {:reply, state.config, state}
   end
 
   @doc false
   @impl true
+  @spec handle_call({:run, Message.t()}, {pid, term}, State.t()) :: {:reply, String.t(), State.t()}
   def handle_call({:run, %Message{} = message}, _, state) do
     result = do_run(state.config, message)
     {:reply, result, state}
@@ -186,6 +197,7 @@ defmodule Agens.Serving do
   # Private
   # ===========================================================================
 
+  @doc false
   @spec do_run(Config.t(), Message.t()) :: String.t()
   defp do_run(%Config{serving: %Nx.Serving{}}, %Message{} = message) do
     message.serving_name
@@ -202,18 +214,25 @@ defmodule Agens.Serving do
     GenServer.call(serving_name, {:run, message})
   end
 
+  @doc false
   @spec start_function(Config.t()) :: tuple()
   defp start_function(%Config{serving: %Nx.Serving{} = serving} = config) do
     {Nx.Serving, :start_link, [[serving: serving, name: config.name]]}
   end
 
+  @doc false
+  @spec start_function(Config.t()) :: tuple()
   # Module.concat with "Supervisor" for Nx.Serving parity
   defp start_function(%Config{serving: serving} = config) when is_atom(serving) do
     name = serving_name(config.name)
     {serving, :start_link, [[name: name, config: config]]}
   end
 
+  @doc false
+  @spec serving_name(atom) :: atom
   defp serving_name(name) when is_atom(name), do: Module.concat(name, @suffix)
 
+  @doc false
+  @spec parent_name(atom) :: atom
   defp parent_name(name) when is_atom(name), do: Module.concat(name, @parent)
 end
