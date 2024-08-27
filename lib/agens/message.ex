@@ -148,10 +148,17 @@ defmodule Agens.Message do
     Map.put(message, :result, result)
   end
 
-  defp get_serving_config(nil, %__MODULE__{serving_name: serving_name}) when is_atom(serving_name), do: Serving.get_config(serving_name)
-  defp get_serving_config(%Agent.Config{serving: serving_name}, _) when is_atom(serving_name), do: Serving.get_config(serving_name)
+  defp get_serving_config(nil, %__MODULE__{serving_name: serving_name})
+       when is_atom(serving_name),
+       do: Serving.get_config(serving_name)
+
+  defp get_serving_config(%Agent.Config{serving: serving_name}, _) when is_atom(serving_name),
+    do: Serving.get_config(serving_name)
+
   defp get_serving_config(_, _), do: {:error, :no_serving_name}
 
   defp maybe_get_agent_config(nil), do: {:ok, nil}
-  defp maybe_get_agent_config(agent_name) when is_atom(agent_name), do: Agent.get_config(agent_name)
+
+  defp maybe_get_agent_config(agent_name) when is_atom(agent_name),
+    do: Agent.get_config(agent_name)
 end

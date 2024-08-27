@@ -34,9 +34,9 @@ defmodule Agens.Serving do
     @moduledoc false
 
     @type t :: %__MODULE__{
-      registry: atom(),
-      config: Config.t()
-    }
+            registry: atom(),
+            config: Config.t()
+          }
 
     @enforce_keys [:registry, :config]
     defstruct [:registry, :config]
