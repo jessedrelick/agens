@@ -134,16 +134,8 @@ defmodule Agens.Job do
   Retrieves the Job configuration by Job name or `pid`.
   """
   @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :job_not_found}
-  def get_config(name) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :job_not_found}
-
-      pid when is_pid(pid) ->
-        get_config(pid)
-    end
+  def get_config(job_name) when is_atom(job_name) do
+    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> get_config(pid) end)
   end
 
   def get_config(pid) when is_pid(pid) do
@@ -156,16 +148,8 @@ defmodule Agens.Job do
   A supervised process for the Job must be started first using `start/1`.
   """
   @spec run(pid | atom, String.t()) :: {:ok, term} | {:error, :job_not_found}
-  def run(name, input) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :job_not_found}
-
-      pid when is_pid(pid) ->
-        run(pid, input)
-    end
+  def run(job_name, input) when is_atom(job_name) do
+    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> run(pid, input) end)
   end
 
   def run(pid, input) when is_pid(pid) do

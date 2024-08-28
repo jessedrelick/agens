@@ -38,4 +38,13 @@ defmodule Agens do
   def init(opts) do
     DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [opts])
   end
+
+  @doc false
+  @spec name_to_pid(atom(), {:error, term()}, (pid() -> any())) :: any()
+  def name_to_pid(name, err, cb) do
+    case Process.whereis(name) do
+      nil -> err
+      pid when is_pid(pid) -> cb.(pid)
+    end
+  end
 end

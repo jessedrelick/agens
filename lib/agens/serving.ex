@@ -65,52 +65,37 @@ defmodule Agens.Serving do
   Stops an `Agens.Serving` process
   """
   @spec stop(atom()) :: :ok | {:error, :serving_not_found}
-  def stop(name) do
+  def stop(name) when is_atom(name) do
     name
     |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid when is_pid(pid) ->
-        GenServer.call(pid, {:stop, name})
-        :ok = DynamicSupervisor.terminate_child(Agens, pid)
-    end
+    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
+      GenServer.call(pid, {:stop, name})
+      :ok = DynamicSupervisor.terminate_child(Agens, pid)
+    end)
   end
 
   @doc """
   Needs docs
   """
   @spec get_config(atom()) :: {:ok, Config.t()} | {:error, :serving_not_found}
-  def get_config(serving_name) when is_atom(serving_name) do
-    serving_name
+  def get_config(name) when is_atom(name) do
+    name
     |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid when is_pid(pid) ->
-        {:ok, GenServer.call(pid, :get_config)}
-    end
+    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
+      {:ok, GenServer.call(pid, :get_config)}
+    end)
   end
 
   @doc """
   Executes an `Agens.Message` against an `Agens.Serving`
   """
-  @spec run(Message.t()) :: String.t() | {:error, :serving_not_running}
-  def run(%Message{} = message) do
-    message.serving_name
+  @spec run(Message.t()) :: String.t() | {:error, :serving_not_found}
+  def run(%Message{serving_name: name} = message) when is_atom(name) do
+    name
     |> parent_name()
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :serving_not_found}
-
-      pid when is_pid(pid) ->
-        GenServer.call(pid, {:run, message})
-    end
+    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
+      GenServer.call(pid, {:run, message})
+    end)
   end
 
   # ===========================================================================

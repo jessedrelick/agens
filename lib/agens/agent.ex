@@ -97,32 +97,18 @@ defmodule Agens.Agent do
   """
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
-    agent_name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :agent_not_found}
-
-      pid ->
-        GenServer.call(pid, {:stop, agent_name})
-        :ok = DynamicSupervisor.terminate_child(Agens, pid)
-    end
+    Agens.name_to_pid(agent_name, {:error, :agent_not_found}, fn pid ->
+      GenServer.call(pid, {:stop, agent_name})
+      :ok = DynamicSupervisor.terminate_child(Agens, pid)
+    end)
   end
 
   @doc """
   Retrieves the Agent configuration by Agent name or `pid`.
   """
   @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :agent_not_found}
-  def get_config(name) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :agent_not_found}
-
-      pid when is_pid(pid) ->
-        {:ok, get_config(pid)}
-    end
+  def get_config(agent_name) when is_atom(agent_name) do
+    Agens.name_to_pid(agent_name, {:error, :agent_not_found}, fn pid -> {:ok, get_config(pid)} end)
   end
 
   def get_config(pid) when is_pid(pid) do
