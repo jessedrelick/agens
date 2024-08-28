@@ -140,13 +140,13 @@ defmodule Agens.Serving do
 
   @doc false
   @impl true
-  @spec init(keyword()) :: {:ok, map()}
+  @spec init(keyword()) :: {:ok, State.t()} | {:stop, term(), State.t()}
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     prompts = Keyword.fetch!(opts, :prompts)
     config = Keyword.fetch!(opts, :config)
     config = if is_nil(config.prompts), do: Map.put(config, :prompts, prompts), else: config
-    state = %{config: config, registry: registry}
+    state = %State{config: config, registry: registry}
     {m, f, a} = start_function(config)
 
     m

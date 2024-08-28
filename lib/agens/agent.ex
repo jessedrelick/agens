@@ -153,7 +153,7 @@ defmodule Agens.Agent do
 
   @doc false
   @impl true
-  @spec init(keyword()) :: {:ok, map()}
+  @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)

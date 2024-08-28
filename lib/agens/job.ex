@@ -196,11 +196,7 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec init(keyword()) ::
-          {:ok, State.t()}
-          | {:ok, State.t(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-          | :ignore
-          | {:stop, reason :: any()}
+  @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
     registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
@@ -267,14 +263,14 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec terminate(:complete | {:error, term}, State.t()) :: :ok
+  @spec terminate(:complete | {term(), list()}, State.t()) :: :ok
   def terminate(:complete, %State{config: %{name: name}} = state) do
     send(state.parent, {:job_ended, name, :complete})
     :ok
   end
 
-  def terminate({error, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, {:error, error}})
+  def terminate({exception, _}, %State{config: %{name: name}} = state) do
+    send(state.parent, {:job_ended, name, {:error, exception}})
     :ok
   end
 
