@@ -21,6 +21,7 @@ defmodule Agens do
   - `Agens.Serving` - used to interact with language models
   - `Agens.Agent` - used to interact with servings in a specialized manner
   - `Agens.Job` - used to define multi-agent workflows
+  - `Agens.Message` - used to facilitate communication between agents, jobs, and servings
   """
 
   use DynamicSupervisor

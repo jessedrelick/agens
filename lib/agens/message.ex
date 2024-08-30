@@ -6,7 +6,7 @@ defmodule Agens.Message do
 
     * `:parent_pid` - The process identifier of the parent/caller process.
     * `:input` - The input string for the message.
-    * `:prompt` - The prompt string or `Agens.Agent.Prompt` struct for the message.
+    * `:prompt` - The final prompt string constructed for `Agens.Serving.run/1`.
     * `:result` - The result string for the message.
     * `:agent_name` - The name of the `Agens.Agent`.
     * `:serving_name` - The name of the `Agens.Serving`.
@@ -46,7 +46,7 @@ defmodule Agens.Message do
   alias Agens.{Agent, Serving}
 
   @doc """
-  Sends an `Agens.Message` to an `Agens.Agent`
+  Sends an `Agens.Message` to an `Agens.Agent` or `Agens.Serving`.
   """
   @spec send(t()) :: t() | {:error, atom()}
   def send(%__MODULE__{agent_name: nil, serving_name: nil}) do

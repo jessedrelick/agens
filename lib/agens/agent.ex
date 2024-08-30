@@ -41,7 +41,7 @@ defmodule Agens.Agent do
 
     ## Fields
     - `:name` - The name of the Agent process.
-    - `:serving` - The serving module or `Nx.Serving` struct for the Agent.
+    - `:serving` - The name specified in `Agens.Serving.Config`.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
     - `:tool` - The module implementing the `Agens.Tool` behaviour for the Agent. Default is nil.

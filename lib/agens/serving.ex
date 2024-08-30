@@ -18,6 +18,7 @@ defmodule Agens.Serving do
     ## Fields
     - `:name` - The name of the `Agens.Serving` process.
     - `:serving` - The `Nx.Serving` struct or `GenServer` module for the `Agens.Serving`.
+    - `:prompts` - A map of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prompts` options in `Agens.Supervisor`.
     """
 
     @type t :: %__MODULE__{
@@ -75,15 +76,17 @@ defmodule Agens.Serving do
   end
 
   @doc """
-  Needs docs
+  Retrieves the Serving configuration by Serving name or `pid`.
   """
   @spec get_config(atom()) :: {:ok, Config.t()} | {:error, :serving_not_found}
   def get_config(name) when is_atom(name) do
     name
     |> parent_name()
-    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
-      {:ok, GenServer.call(pid, :get_config)}
-    end)
+    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid -> get_config(pid) end)
+  end
+
+  def get_config(pid) when is_pid(pid) do
+    {:ok, GenServer.call(pid, :get_config)}
   end
 
   @doc """

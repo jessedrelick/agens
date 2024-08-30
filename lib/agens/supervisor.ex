@@ -4,12 +4,6 @@ defmodule Agens.Supervisor do
 
   `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Agent`, `Agens.Serving`, and `Agens.Job` processes. It also starts a `Registry` for keeping track of these processes.
 
-  The Registry module can be overriden by your application config:
-
-  ```
-  config :agens, registry: MyApp.Registry
-  ```
-
   In order to use `Agens` simply add `Agens.Supervisor` to your application supervision tree:
 
   ```
@@ -20,6 +14,12 @@ defmodule Agens.Supervisor do
     strategy: :one_for_one
   )
   ```
+
+  ### Options
+    * `:registry` (`atom`) - The default registry can be overriden with this option. Default is `Agens.Registry`.
+    * `:prompts` (`map`) - The default prompt prefixes can be overriden with this option. Each `Agens.Serving.Config` can also override the defaults on a per-serving basis.
+
+  See the [README.md](README.md#configuration) for more info.
   """
   use Supervisor
 
