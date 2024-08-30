@@ -104,16 +104,21 @@ defmodule Agens.Job do
             status: :init | :running | :error | :completed,
             step_index: non_neg_integer() | nil,
             config: Config.t(),
-            parent: pid() | nil
+            parent: pid() | nil,
+            registry: atom()
           }
 
-    @enforce_keys [:status, :config]
-    defstruct [:status, :step_index, :config, :parent]
+    @enforce_keys [:status, :config, :registry]
+    defstruct [:status, :step_index, :config, :parent, :registry]
   end
 
   use GenServer
 
   alias Agens.Message
+
+  # ===========================================================================
+  # Public API
+  # ===========================================================================
 
   @doc """
   Starts a new Job process using the provided `Agens.Job.Config`.
@@ -122,17 +127,19 @@ defmodule Agens.Job do
   """
   @spec start(Config.t()) :: {:ok, pid} | {:error, term}
   def start(config) do
-    spec = child_spec(config)
+    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
+  end
 
-    Agens
-    |> DynamicSupervisor.start_child(spec)
-    |> case do
-      {:ok, pid} = result when is_pid(pid) ->
-        result
+  @doc """
+  Retrieves the Job configuration by Job name or `pid`.
+  """
+  @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :job_not_found}
+  def get_config(job_name) when is_atom(job_name) do
+    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> get_config(pid) end)
+  end
 
-      {:error, {:already_started, pid}} = error when is_pid(pid) ->
-        error
-    end
+  def get_config(pid) when is_pid(pid) do
+    {:ok, GenServer.call(pid, :get_config)}
   end
 
   @doc """
@@ -140,50 +147,22 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | atom, term) :: {:ok, term} | {:error, :job_not_found}
-  def run(name, input) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :job_not_found}
-
-      pid when is_pid(pid) ->
-        run(pid, input)
-    end
+  @spec run(pid | atom, String.t()) :: {:ok, term} | {:error, :job_not_found}
+  def run(job_name, input) when is_atom(job_name) do
+    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> run(pid, input) end)
   end
 
   def run(pid, input) when is_pid(pid) do
     GenServer.call(pid, {:run, input})
   end
 
-  @doc """
-  Retrieves the Job configuration by Job name or `pid`.
-  """
-  @spec get_config(pid | atom) :: {:ok, term} | {:error, :job_not_found}
-  def get_config(name) when is_atom(name) do
-    name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :job_not_found}
-
-      pid when is_pid(pid) ->
-        get_config(pid)
-    end
-  end
-
-  def get_config(pid) when is_pid(pid) do
-    GenServer.call(pid, :get_config)
-  end
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
 
   @doc false
-  def start_link(config) do
-    GenServer.start_link(__MODULE__, config, name: config.name)
-  end
-
-  @doc false
-  def child_spec(config) do
+  @spec child_spec(Config.t()) :: Supervisor.child_spec()
+  def child_spec(%Config{} = config) do
     %{
       id: config.name,
       start: {__MODULE__, :start_link, [config]},
@@ -193,15 +172,24 @@ defmodule Agens.Job do
   end
 
   @doc false
-  @impl true
-  @spec init(Config.t()) ::
-          {:ok, State.t()}
-          | {:ok, State.t(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-          | :ignore
-          | {:stop, reason :: any()}
-  def init(config) do
-    {:ok, %State{status: :init, config: config}}
+  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
+  def start_link(extra, config) do
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
+
+  @doc false
+  @impl true
+  @spec init(keyword()) :: {:ok, State.t()}
+  def init(opts) do
+    registry = Keyword.fetch!(opts, :registry)
+    config = Keyword.fetch!(opts, :config)
+    {:ok, %State{status: :init, config: config, registry: registry}}
+  end
+
+  # ===========================================================================
+  # Callbacks
+  # ===========================================================================
 
   @doc false
   @impl true
@@ -259,16 +247,20 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec terminate(:complete | {:error, term}, State.t()) :: :ok
+  @spec terminate(:complete | {term(), list()}, State.t()) :: :ok
   def terminate(:complete, %State{config: %{name: name}} = state) do
     send(state.parent, {:job_ended, name, :complete})
     :ok
   end
 
-  def terminate({error, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, {:error, error}})
+  def terminate({exception, _}, %State{config: %{name: name}} = state) do
+    send(state.parent, {:job_ended, name, {:error, exception}})
     :ok
   end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
 
   @doc false
   @spec do_step(String.t(), State.t()) :: :ok

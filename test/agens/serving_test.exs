@@ -4,7 +4,8 @@ defmodule Agens.ServingTest do
   alias Agens.{Message, Serving}
 
   defp start_agens(_ctx) do
-    {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
+    opts = [registry: Agens.CustomRegistry]
+    {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor, opts: opts})
     :ok
   end
 
@@ -51,7 +52,7 @@ defmodule Agens.ServingTest do
     end
 
     test "not running" do
-      assert {:error, :serving_not_running} ==
+      assert {:error, :serving_not_found} ==
                Serving.run(%Message{serving_name: :serving_missing, input: "input"})
     end
   end
@@ -66,6 +67,21 @@ defmodule Agens.ServingTest do
     test "stop missing" do
       assert {:error, :serving_not_found} ==
                Serving.stop(:serving_missing)
+    end
+  end
+
+  describe "config" do
+    setup [:start_agens, :start_serving]
+
+    test "get" do
+      serving_name = :serving_test
+      {:ok, %Serving.Config{name: name, serving: serving}} = Serving.get_config(serving_name)
+      assert name == serving_name
+      assert serving == Test.Support.Serving.Stub
+    end
+
+    test "not found" do
+      assert {:error, :serving_not_found} == Serving.get_config(:serving_missing)
     end
   end
 

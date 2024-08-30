@@ -1,12 +1,12 @@
 defmodule Agens.Agent do
   @moduledoc """
-  The Agent module provides functions for starting, stopping and running Agents.
+  The Agent module provides functions for starting and stopping Agents.
 
   `Agens.Agent` is the the primary entity powering `Agens`. It uses `Agens.Serving` to interact with language models through `Nx.Serving`, or with language model APIs through a `GenServer`.
 
   Agents can have detailed identities to further refine LM outputs, and are used together in multi-agent workflows via the `Agens.Job` module.
 
-  Agent capabilities can be expanded even further with `Agens.Tool` modules, which are designed to handle LM functional calling. In future releases, Agents will also have access to RAG generations via knowledge base features.
+  Agent capabilities can be expanded even further with `Agens.Tool` modules, which are designed to handle LM functional calling.
   """
 
   defmodule Prompt do
@@ -41,7 +41,7 @@ defmodule Agens.Agent do
 
     ## Fields
     - `:name` - The name of the Agent process.
-    - `:serving` - The serving module or `Nx.Serving` struct for the Agent.
+    - `:serving` - The name of the Serving specified in `Agens.Serving.Config`.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
     - `:tool` - The module implementing the `Agens.Tool` behaviour for the Agent. Default is nil.
@@ -49,7 +49,7 @@ defmodule Agens.Agent do
 
     @type t :: %__MODULE__{
             name: atom(),
-            serving: module() | Nx.Serving.t(),
+            serving: atom(),
             knowledge: module() | nil,
             prompt: Agens.Agent.Prompt.t() | String.t() | nil,
             tool: module() | nil
@@ -59,9 +59,23 @@ defmodule Agens.Agent do
     defstruct [:name, :serving, :knowledge, :prompt, :tool]
   end
 
+  defmodule State do
+    @moduledoc false
+
+    @type t :: %__MODULE__{
+            registry: atom(),
+            config: Agens.Agent.Config.t()
+          }
+
+    @enforce_keys [:registry, :config]
+    defstruct [:registry, :config]
+  end
+
   use GenServer
 
-  @registry Application.compile_env(:agens, :registry)
+  # ===========================================================================
+  # Public API
+  # ===========================================================================
 
   @doc """
   Starts one or more `Agens.Agent` processes
@@ -75,23 +89,7 @@ defmodule Agens.Agent do
   end
 
   def start(%Config{} = config) do
-    spec = %{
-      id: config.name,
-      start: {__MODULE__, :start_link, [config]}
-      # type: :worker,
-      # restart: :transient
-    }
-
-    Agens
-    |> DynamicSupervisor.start_child(spec)
-    |> case do
-      {:ok, pid} when is_pid(pid) ->
-        Registry.register(@registry, config.name, {pid, config})
-        {:ok, pid}
-
-      {:error, {:already_started, pid}} = err when is_pid(pid) ->
-        err
-    end
+    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
   end
 
   @doc """
@@ -99,28 +97,79 @@ defmodule Agens.Agent do
   """
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
-    agent_name
-    |> Process.whereis()
-    |> case do
-      nil ->
-        {:error, :agent_not_found}
+    Agens.name_to_pid(agent_name, {:error, :agent_not_found}, fn pid ->
+      GenServer.call(pid, {:stop, agent_name})
+      :ok = DynamicSupervisor.terminate_child(Agens, pid)
+    end)
+  end
 
-      pid ->
-        :ok = DynamicSupervisor.terminate_child(Agens, pid)
-        Registry.unregister(@registry, agent_name)
-    end
+  @doc """
+  Retrieves the Agent configuration by Agent name or `pid`.
+  """
+  @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :agent_not_found}
+  def get_config(agent_name) when is_atom(agent_name) do
+    Agens.name_to_pid(agent_name, {:error, :agent_not_found}, fn pid -> {:ok, get_config(pid)} end)
+  end
+
+  def get_config(pid) when is_pid(pid) do
+    GenServer.call(pid, :get_config)
+  end
+
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
+
+  @doc false
+  @spec child_spec(Config.t()) :: Supervisor.child_spec()
+  def child_spec(%Config{} = config) do
+    %{
+      id: config.name,
+      start: {__MODULE__, :start_link, [config]},
+      type: :worker,
+      restart: :transient
+    }
   end
 
   @doc false
-  @spec start_link(Config.t()) :: GenServer.on_start()
-  def start_link(config) do
-    GenServer.start_link(__MODULE__, config, name: config.name)
+  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
+  def start_link(extra, config) do
+    opts = Keyword.put(extra, :config, config)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
 
   @doc false
-  @spec init(Config.t()) :: {:ok, map()}
   @impl true
-  def init(_config) do
-    {:ok, %{}}
+  @spec init(keyword()) :: {:ok, State.t()}
+  def init(opts) do
+    registry = Keyword.fetch!(opts, :registry)
+    config = Keyword.fetch!(opts, :config)
+    state = %State{registry: registry, config: config}
+
+    {:ok, _} = Registry.register(registry, config.name, {self(), config})
+
+    {:ok, state}
   end
+
+  # ===========================================================================
+  # Callbacks
+  # ===========================================================================
+
+  @doc false
+  @impl true
+  @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
+  def handle_call({:stop, agent_name}, _from, state) do
+    Registry.unregister(state.registry, agent_name)
+    {:reply, :ok, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
+  def handle_call(:get_config, _from, state) do
+    {:reply, state.config, state}
+  end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
 end

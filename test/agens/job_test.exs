@@ -82,8 +82,8 @@ defmodule Agens.JobTest do
       {:ok, pid} = Job.start(job)
 
       assert is_pid(pid)
-      assert job == Job.get_config(pid)
-      assert job == Job.get_config(:job_config)
+      assert {:ok, job} == Job.get_config(pid)
+      assert {:ok, job} == Job.get_config(:job_config)
       assert {:error, :job_not_found} == Job.get_config(:missing_job)
     end
   end

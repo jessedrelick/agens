@@ -28,46 +28,6 @@ def deps do
 end
 ```
 
-## Configuration
-Future versions of Agens will be configurable by providing options to `Agens.Supervisor` in order to [avoid using application configuration](https://hexdocs.pm/elixir/1.17.2/design-anti-patterns.html#using-application-configuration-for-libraries). For now, however, you can change the Agens `Registry` if needed via config:
-
-```elixir
-config :agens, registry: Agens.Registry
-```
-
-In addition, you can also override the prompt prefixes:
-
-```elixir
-config :agens, prompts: %{
-  prompt:
-    {"Agent",
-      "You are a specialized agent with the following capabilities and expertise"},
-  identity:
-    {"Identity",
-      "You are a specialized agent with the following capabilities and expertise"},
-  context: {"Context", "The purpose or goal behind your tasks are to"},
-  constraints:
-    {"Constraints", "You must operate with the following constraints or limitations"},
-  examples:
-    {"Examples",
-      "You should consider the following examples before returning results"},
-  reflection:
-    {"Reflection",
-      "You should reflect on the following factors before returning results"},
-  instructions:
-    {"Tool Instructions",
-      "You should provide structured output for function calling based on the following instructions"},
-  objective: {"Step Objective", "The objective of this step is to"},
-  description:
-    {"Job Description", "This is part of multi-step job to achieve the following"},
-  input:
-    {"Input",
-      "The following is the actual input from the user, system or another agent"}
-}
-```
-
-See the [Prompting](#prompting) section below or `Agens.Message` for more information on prompt prefixes.
-
 ## Usage
 Building a multi-agent workflow with Agens involves a few different steps and core entities:
 
@@ -77,12 +37,11 @@ Building a multi-agent workflow with Agens involves a few different steps and co
 This will start Agens as a supervised process inside your application:
 
 ```elixir
-Supervisor.start_link(
-  [
-    {Agens.Supervisor, name: Agens.Supervisor}
-  ],
-  strategy: :one_for_one
-)
+children = [
+  {Agens.Supervisor, name: Agens.Supervisor}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 See `Agens.Supervisor` for more information
@@ -96,19 +55,17 @@ A **Serving** is essentially a wrapper for language model inference. It can be a
 Application.put_env(:nx, :default_backend, EXLA.Backend)
 auth_token = System.get_env("HF_AUTH_TOKEN")
 
-my_serving = fn ->
-  repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
+repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
 
-  {:ok, model} = Bumblebee.load_model(repo, type: :bf16)
-  {:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
-  {:ok, generation_config} = Bumblebee.load_generation_config(repo)
+{:ok, model} = Bumblebee.load_model(repo, type: :bf16)
+{:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
+{:ok, generation_config} = Bumblebee.load_generation_config(repo)
 
-  Bumblebee.Text.generation(model, tokenizer, generation_config)
-end
+serving = Bumblebee.Text.generation(model, tokenizer, generation_config)
 
 serving_config = %Agens.Serving.Config{
   name: :my_serving,
-  serving: my_serving()
+  serving: serving
 }
 
 {:ok, pid} = Agens.Serving.start(serving_config)
@@ -165,10 +122,61 @@ See `Agens.Job` for more information
 
 ---
 
+## Configuration
+Additional options can be passed to `Agens.Supervisor` in order to override the default values:
+
+```elixir
+opts = [
+  registry: Agens.MyCustomRegistry,
+  prompts: custom_prompt_prefixes
+]
+
+children = [
+  {Agens.Supervisor, name: Agens.Supervisor, opts: opts}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+The following default prompt prefixes can be copied, customized and used for the `prompts` option above:
+
+```elixir
+%{
+  prompt:
+    {"Agent",
+      "You are a specialized agent with the following capabilities and expertise"},
+  identity:
+    {"Identity",
+      "You are a specialized agent with the following capabilities and expertise"},
+  context: {"Context", "The purpose or goal behind your tasks are to"},
+  constraints:
+    {"Constraints", "You must operate with the following constraints or limitations"},
+  examples:
+    {"Examples",
+      "You should consider the following examples before returning results"},
+  reflection:
+    {"Reflection",
+      "You should reflect on the following factors before returning results"},
+  instructions:
+    {"Tool Instructions",
+      "You should provide structured output for function calling based on the following instructions"},
+  objective: {"Step Objective", "The objective of this step is to"},
+  description:
+    {"Job Description", "This is part of multi-step job to achieve the following"},
+  input:
+    {"Input",
+      "The following is the actual input from the user, system or another agent"}
+}
+```
+
+See the [Prompting](#prompting) section below or `Agens.Message` for more information on prompt prefixes. 
+
+You can also see `Agens.Supervisor` for more information on configuration options.
+
 ## Prompting
 Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt’s content.
 
-All fields with values, in addition to user input, will be included in the final prompt !!!!using the [in-context learning]() method!!!!. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
+All fields with values, in addition to user input, will be included in the final prompt. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
 
 ### User/Agent
 The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored in `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
