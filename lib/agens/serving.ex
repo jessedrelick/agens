@@ -78,7 +78,7 @@ defmodule Agens.Serving do
   @doc """
   Retrieves the Serving configuration by Serving name or `pid`.
   """
-  @spec get_config(atom()) :: {:ok, Config.t()} | {:error, :serving_not_found}
+  @spec get_config(atom() | pid()) :: {:ok, Config.t()} | {:error, :serving_not_found}
   def get_config(name) when is_atom(name) do
     name
     |> parent_name()

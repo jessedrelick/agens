@@ -37,12 +37,11 @@ Building a multi-agent workflow with Agens involves a few different steps and co
 This will start Agens as a supervised process inside your application:
 
 ```elixir
-Supervisor.start_link(
-  [
-    {Agens.Supervisor, name: Agens.Supervisor}
-  ],
-  strategy: :one_for_one
-)
+children = [
+  {Agens.Supervisor, name: Agens.Supervisor}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 See `Agens.Supervisor` for more information
@@ -127,12 +126,16 @@ See `Agens.Job` for more information
 Additional options can be passed to `Agens.Supervisor` in order to override the default values:
 
 ```elixir
-Supervisor.start_link(
-  [
-    {Agens.Supervisor, name: Agens.Supervisor, registry: Agens.MyCustomRegistry, prompts: custom_prompt_prefixes}
-  ],
-  strategy: :one_for_one
-)
+opts = [
+  registry: Agens.MyCustomRegistry,
+  prompts: custom_prompt_prefixes
+]
+
+children = [
+  {Agens.Supervisor, name: Agens.Supervisor, opts: opts}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 The following default prompt prefixes can be copied, customized and used for the `prompts` option above:

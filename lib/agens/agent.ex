@@ -1,12 +1,12 @@
 defmodule Agens.Agent do
   @moduledoc """
-  The Agent module provides functions for starting, stopping and running Agents.
+  The Agent module provides functions for starting and stopping Agents.
 
   `Agens.Agent` is the the primary entity powering `Agens`. It uses `Agens.Serving` to interact with language models through `Nx.Serving`, or with language model APIs through a `GenServer`.
 
   Agents can have detailed identities to further refine LM outputs, and are used together in multi-agent workflows via the `Agens.Job` module.
 
-  Agent capabilities can be expanded even further with `Agens.Tool` modules, which are designed to handle LM functional calling. In future releases, Agents will also have access to RAG generations via knowledge base features.
+  Agent capabilities can be expanded even further with `Agens.Tool` modules, which are designed to handle LM functional calling.
   """
 
   defmodule Prompt do
@@ -41,7 +41,7 @@ defmodule Agens.Agent do
 
     ## Fields
     - `:name` - The name of the Agent process.
-    - `:serving` - The name specified in `Agens.Serving.Config`.
+    - `:serving` - The name of the Serving specified in `Agens.Serving.Config`.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
     - `:tool` - The module implementing the `Agens.Tool` behaviour for the Agent. Default is nil.
