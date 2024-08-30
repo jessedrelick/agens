@@ -76,7 +76,7 @@ defmodule Agens.MixProject do
   defp docs do
     [
       main: "Agens",
-      extras: [{"README.md", [title: "Agens"]}, "LICENSE"],
+      extras: [{"README.md", [title: "Agens"]}, {"CHANGELOG.md", [title: "Changelog"]}, "LICENSE"],
       source_url: "https://github.com/jessedrelick/agens",
       groups_for_modules: [
         Agent: [
