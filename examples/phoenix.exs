@@ -74,7 +74,16 @@ defmodule AgensDemo.MainLive do
   @impl true
   def mount(_params, _session, socket) do
     send(self(), :mounted)
-    {:ok, assign(socket, text: "", ready: false, result: nil, job: nil, logs: [])}
+
+    {:ok,
+     assign(socket,
+       text: "",
+       destination: "nx_serving",
+       ready: false,
+       result: nil,
+       job: nil,
+       logs: []
+     )}
   end
 
   @impl true
@@ -83,7 +92,7 @@ defmodule AgensDemo.MainLive do
     <div class="h-screen w-screen flex items-start justify-center antialiased gap-4 px-10 py-10">
       <div class="flex flex-col w-1/2 gap-2">
         <.heading>Input:</.heading>
-        <.input text={@text} ready={@ready} />
+        <.input text={@text} destination={@destination} ready={@ready} />
         <.buttons ready={@ready} />
         <.result result={@result} />
       </div>
@@ -96,11 +105,18 @@ defmodule AgensDemo.MainLive do
   end
 
   attr(:text, :string, required: true)
+  attr(:destination, :string, required: true)
   attr(:ready, :boolean, required: true)
 
   defp input(assigns) do
     ~H"""
-    <form phx-change="update_text" class="m-0">
+    <form phx-change="update_inputs" class="m-0">
+      <select name="destination" value={@destination} disabled={@ready != true} class="mb-2 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        <option value="nx_serving">Nx Serving</option>
+        <option value="gs_serving">GenServer Serving</option>
+        <option value="nx_agent">Nx Agent</option>
+        <option value="gs_agent">GenServer Agent</option>
+      </select>
       <input
         class="block w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
         type="text"
@@ -125,7 +141,7 @@ defmodule AgensDemo.MainLive do
         Send Message
       </button>
       <button
-        class="px-5 py-2.5 text-center mr-1 inline-flex items-center text-white disabled:bg-gray-300 bg-blue-700 font-medium rounded-lg text-sm hover:bg-blue-800 focus:ring-4 focus:ring-blue-300"
+        class="px-5 py-2.5 text-center mr-1 inline-flex items-center text-white disabled:bg-gray-300 bg-green-700 font-medium rounded-lg text-sm hover:bg-green-800 focus:ring-4 focus:ring-blue-300"
         phx-click="start_job"
         disabled={@ready != true}
       >
@@ -195,13 +211,18 @@ defmodule AgensDemo.MainLive do
   end
 
   @impl true
-  def handle_event("update_text", %{"text" => text}, socket) do
-    {:noreply, socket |> assign(:text, text)}
+  def handle_event("update_inputs", %{"text" => text, "destination" => destination}, socket) do
+    {:noreply, socket |> assign(text: text, destination: destination)}
   end
 
   @impl true
   def handle_event("send_message", _, %{assigns: assigns} = socket) do
-    name = :nx_agent
+    name = String.to_existing_atom(assigns.destination)
+
+    {key, type} =
+      if name in [:nx_agent, :gs_agent],
+        do: {:agent_name, "agent"},
+        else: {:serving_name, "serving"}
 
     socket =
       socket
@@ -209,14 +230,14 @@ defmodule AgensDemo.MainLive do
       |> assign_async(:result, fn ->
         %Message{result: result} =
           %Message{
-            input: assigns.text,
-            agent_name: name
+            input: assigns.text
           }
+          |> Map.put(key, name)
           |> Message.send()
 
         {:ok, %{result: result}}
       end)
-      |> assign(:logs, ["Sent message to agent: #{name}" | assigns.logs])
+      |> assign(:logs, ["Sent message to #{type}: #{name}" | assigns.logs])
 
     {:noreply, socket}
   end
@@ -283,7 +304,9 @@ defmodule AgensDemo.MainLive do
     })
 
     send(self(), :servings_started)
-    {:noreply, socket |> assign(:logs, ["Servings started: #{name_nx}, #{name_gs}" | assigns.logs])}
+
+    {:noreply,
+     socket |> assign(:logs, ["Servings started: #{name_nx}, #{name_gs}" | assigns.logs])}
   end
 
   @impl true
