@@ -122,6 +122,17 @@ See `Agens.Job` for more information
 
 ---
 
+## Examples
+The `examples` directory includes a [single-file Phoenix LiveView application](examples/phoenix.exs) showcasing the basic usage of Agens.
+
+To run the example, use the following command in your terminal:
+
+```bash
+elixir examples/phoenix.exs
+```
+
+This will start a local Phoenix server, accessible at [http://localhost:8080](http://localhost:8080).
+
 ## Configuration
 Additional options can be passed to `Agens.Supervisor` in order to override the default values:
 
