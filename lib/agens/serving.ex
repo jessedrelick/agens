@@ -47,8 +47,7 @@ defmodule Agens.Serving do
 
   alias Agens.Message
 
-  @suffix "Supervisor"
-  @parent "Wrapper"
+  @suffix "Serving"
 
   # ===========================================================================
   # Public API
@@ -68,7 +67,6 @@ defmodule Agens.Serving do
   @spec stop(atom()) :: :ok | {:error, :serving_not_found}
   def stop(name) when is_atom(name) do
     name
-    |> parent_name()
     |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
       GenServer.call(pid, {:stop, name})
       :ok = DynamicSupervisor.terminate_child(Agens, pid)
@@ -81,7 +79,6 @@ defmodule Agens.Serving do
   @spec get_config(atom() | pid()) :: {:ok, Config.t()} | {:error, :serving_not_found}
   def get_config(name) when is_atom(name) do
     name
-    |> parent_name()
     |> Agens.name_to_pid({:error, :serving_not_found}, fn pid -> get_config(pid) end)
   end
 
@@ -95,7 +92,6 @@ defmodule Agens.Serving do
   @spec run(Message.t()) :: String.t() | {:error, :serving_not_found}
   def run(%Message{serving_name: name} = message) when is_atom(name) do
     name
-    |> parent_name()
     |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
       GenServer.call(pid, {:run, message})
     end)
@@ -108,10 +104,8 @@ defmodule Agens.Serving do
   @doc false
   @spec child_spec(Config.t()) :: Supervisor.child_spec()
   def child_spec(%Config{} = config) do
-    name = parent_name(config.name)
-
     %{
-      id: name,
+      id: config.name,
       start: {__MODULE__, :start_link, [config]},
       type: :worker,
       restart: :transient
@@ -121,9 +115,8 @@ defmodule Agens.Serving do
   @doc false
   @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
   def start_link(extra, config) do
-    name = parent_name(config.name)
     opts = Keyword.put(extra, :config, config)
-    GenServer.start_link(__MODULE__, opts, name: name)
+    GenServer.start_link(__MODULE__, opts, name: config.name)
   end
 
   @doc false
@@ -135,10 +128,9 @@ defmodule Agens.Serving do
     config = Keyword.fetch!(opts, :config)
     config = if is_nil(config.prompts), do: Map.put(config, :prompts, prompts), else: config
     state = %State{config: config, registry: registry}
-    {m, f, a} = start_function(config)
 
-    m
-    |> apply(f, a)
+    config
+    |> start_serving()
     |> case do
       {:ok, pid} when is_pid(pid) ->
         name = serving_name(config.name)
@@ -188,6 +180,7 @@ defmodule Agens.Serving do
   @spec do_run(Config.t(), Message.t()) :: String.t()
   defp do_run(%Config{serving: %Nx.Serving{}}, %Message{} = message) do
     message.serving_name
+    |> serving_name()
     |> Nx.Serving.batched_run(message.prompt)
     |> case do
       %{results: [%{text: result}]} -> result
@@ -196,30 +189,24 @@ defmodule Agens.Serving do
   end
 
   defp do_run(_, %Message{} = message) do
-    serving_name = serving_name(message.serving_name)
-    # need to get pid?
-    GenServer.call(serving_name, {:run, message})
+    message.serving_name
+    |> serving_name()
+    |> GenServer.call({:run, message})
   end
 
   @doc false
-  @spec start_function(Config.t()) :: tuple()
-  defp start_function(%Config{serving: %Nx.Serving{} = serving} = config) do
-    {Nx.Serving, :start_link, [[serving: serving, name: config.name]]}
-  end
-
-  @doc false
-  @spec start_function(Config.t()) :: tuple()
-  # Module.concat with "Supervisor" for Nx.Serving parity
-  defp start_function(%Config{serving: serving} = config) when is_atom(serving) do
+  @spec start_serving(Config.t()) :: tuple()
+  defp start_serving(%Config{serving: %Nx.Serving{} = serving} = config) do
     name = serving_name(config.name)
-    {serving, :start_link, [[name: name, config: config]]}
+    Nx.Serving.start_link([serving: serving, name: name])
+  end
+
+  defp start_serving(%Config{serving: serving} = config) when is_atom(serving) do
+    name = serving_name(config.name)
+    GenServer.start_link(serving, config, name: name)
   end
 
   @doc false
   @spec serving_name(atom) :: atom
   defp serving_name(name) when is_atom(name), do: Module.concat(name, @suffix)
-
-  @doc false
-  @spec parent_name(atom) :: atom
-  defp parent_name(name) when is_atom(name), do: Module.concat(name, @parent)
 end

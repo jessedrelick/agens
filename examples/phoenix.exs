@@ -12,9 +12,31 @@ Mix.install([
   {:bumblebee, "~> 0.5.0"},
   {:exla, "~> 0.7.0"},
   {:agens, "~> 0.1.2"}
+  # {:agens, path: Path.expand("../agens")}
 ])
 
 Application.put_env(:nx, :default_backend, EXLA.Backend)
+
+defmodule AgensDemo.CustomServing do
+  use GenServer
+
+  alias Agens.{Message, Serving}
+
+  def start_link(args) do
+    {config, args} = Keyword.pop(args, :config)
+    GenServer.start_link(__MODULE__, config, args)
+  end
+
+  def init(%Serving.Config{} = config) do
+    {:ok, config}
+  end
+
+  @impl true
+  def handle_call({:run, %Message{input: input}}, _from, state) do
+    result = "RESULT: #{input}"
+    {:reply, result, state}
+  end
+end
 
 defmodule AgensDemo.Layouts do
   use Phoenix.Component
@@ -179,7 +201,7 @@ defmodule AgensDemo.MainLive do
 
   @impl true
   def handle_event("send_message", _, %{assigns: assigns} = socket) do
-    name = :my_agent
+    name = :nx_agent
 
     socket =
       socket
@@ -212,13 +234,13 @@ defmodule AgensDemo.MainLive do
       name: name,
       steps: [
         %Job.Step{
-          agent: :my_agent
+          agent: :nx_agent
         },
         %Job.Step{
-          agent: :my_agent
+          agent: :gs_agent
         },
         %Job.Step{
-          agent: :my_agent,
+          agent: :nx_agent,
           conditions: %{
             "__DEFAULT__" => :end
           }
@@ -247,32 +269,45 @@ defmodule AgensDemo.MainLive do
 
   @impl true
   def handle_info(:mounted, %{assigns: assigns} = socket) do
-    name = :text_generation
+    name_nx = :nx_serving
+    name_gs = :gs_serving
 
     Serving.start(%Serving.Config{
-      name: name,
+      name: name_nx,
       serving: serving()
     })
 
-    send(self(), :serving_started)
-    {:noreply, socket |> assign(:logs, ["Serving started: #{name}" | assigns.logs])}
-  end
-
-  @impl true
-  def handle_info(:serving_started, %{assigns: assigns} = socket) do
-    name = :my_agent
-
-    Agent.start(%Agent.Config{
-      name: name,
-      serving: :text_generation
+    Serving.start(%Serving.Config{
+      name: name_gs,
+      serving: AgensDemo.CustomServing
     })
 
-    send(self(), :agent_started)
-    {:noreply, socket |> assign(:logs, ["Agent started: #{name}" | assigns.logs])}
+    send(self(), :servings_started)
+    {:noreply, socket |> assign(:logs, ["Servings started: #{name_nx}, #{name_gs}" | assigns.logs])}
   end
 
   @impl true
-  def handle_info(:agent_started, %{assigns: assigns} = socket) do
+  def handle_info(:servings_started, %{assigns: assigns} = socket) do
+    name_nx = :nx_agent
+    name_gs = :gs_agent
+
+    Agent.start([
+      %Agent.Config{
+        name: name_nx,
+        serving: :nx_serving
+      },
+      %Agent.Config{
+        name: name_gs,
+        serving: :gs_serving
+      }
+    ])
+
+    send(self(), :agents_started)
+    {:noreply, socket |> assign(:logs, ["Agents started: #{name_nx}, #{name_gs}" | assigns.logs])}
+  end
+
+  @impl true
+  def handle_info(:agents_started, %{assigns: assigns} = socket) do
     {:noreply, socket |> assign(:logs, ["Ready" | assigns.logs]) |> assign(:ready, true)}
   end
 
