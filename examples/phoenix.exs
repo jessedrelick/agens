@@ -111,11 +111,11 @@ defmodule AgensDemo.MainLive do
   defp input(assigns) do
     ~H"""
     <form phx-change="update_inputs" class="m-0">
-      <select name="destination" value={@destination} disabled={@ready != true} class="mb-2 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500">
-        <option value="nx_serving">Nx Serving</option>
-        <option value="gs_serving">GenServer Serving</option>
-        <option value="nx_agent">Nx Agent</option>
-        <option value="gs_agent">GenServer Agent</option>
+      <select name="destination" disabled={@ready != true} class="mb-2 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        <option value="nx_serving" selected={@destination == "nx_serving"}>Nx Serving</option>
+        <option value="gs_serving" selected={@destination == "gs_serving"}>GenServer Serving</option>
+        <option value="nx_agent" selected={@destination == "nx_agent"}>Nx Agent</option>
+        <option value="gs_agent" selected={@destination == "gs_agent"}>GenServer Agent</option>
       </select>
       <input
         class="block w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
