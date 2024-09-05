@@ -198,7 +198,7 @@ defmodule Agens.Serving do
   @spec start_serving(Config.t()) :: tuple()
   defp start_serving(%Config{serving: %Nx.Serving{} = serving} = config) do
     name = serving_name(config.name)
-    Nx.Serving.start_link([serving: serving, name: name])
+    Nx.Serving.start_link(serving: serving, name: name)
   end
 
   defp start_serving(%Config{serving: serving} = config) when is_atom(serving) do
