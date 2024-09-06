@@ -138,7 +138,6 @@ Additional options can be passed to `Agens.Supervisor` in order to override the 
 
 ```elixir
 opts = [
-  registry: Agens.MyCustomRegistry,
   prompts: custom_prompt_prefixes
 ]
 

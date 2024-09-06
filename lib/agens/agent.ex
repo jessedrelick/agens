@@ -63,12 +63,11 @@ defmodule Agens.Agent do
     @moduledoc false
 
     @type t :: %__MODULE__{
-            registry: atom(),
             config: Agens.Agent.Config.t()
           }
 
-    @enforce_keys [:registry, :config]
-    defstruct [:registry, :config]
+    @enforce_keys [:config]
+    defstruct [:config]
   end
 
   use GenServer
@@ -139,11 +138,8 @@ defmodule Agens.Agent do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
-    state = %State{registry: registry, config: config}
-
-    {:ok, _} = Registry.register(registry, config.name, {self(), config})
+    state = %State{config: config}
 
     {:ok, state}
   end
@@ -155,8 +151,7 @@ defmodule Agens.Agent do
   @doc false
   @impl true
   @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
-  def handle_call({:stop, agent_name}, _from, state) do
-    Registry.unregister(state.registry, agent_name)
+  def handle_call({:stop, _agent_name}, _from, state) do
     {:reply, :ok, state}
   end
 

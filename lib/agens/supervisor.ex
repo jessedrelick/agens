@@ -2,7 +2,7 @@ defmodule Agens.Supervisor do
   @moduledoc """
   The Supervisor module for the Agens application.
 
-  `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Agent`, `Agens.Serving`, and `Agens.Job` processes. It also starts a `Registry` for keeping track of these processes.
+  `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Agent`, `Agens.Serving`, and `Agens.Job` processes.
 
   In order to use `Agens` simply add `Agens.Supervisor` to your application supervision tree:
 
@@ -16,14 +16,12 @@ defmodule Agens.Supervisor do
   ```
 
   ### Options
-    * `:registry` (`atom`) - The default registry can be overriden with this option. Default is `Agens.Registry`.
     * `:prompts` (`map`) - The default prompt prefixes can be overriden with this option. Each `Agens.Serving.Config` can also override the defaults on a per-serving basis.
 
   See the [README.md](README.md#configuration) for more info.
   """
   use Supervisor
 
-  @default_registry Agens.Registry
   @default_prompts %{
     prompt:
       {"Agent", "You are a specialized agent with the following capabilities and expertise"},
@@ -42,7 +40,7 @@ defmodule Agens.Supervisor do
     description: {"Job Description", "This is part of multi-step job to achieve the following"},
     input: {"Input", "The following is the actual input from the user, system or another agent"}
   }
-  @default_opts [registry: @default_registry, prompts: @default_prompts]
+  @default_opts [prompts: @default_prompts]
 
   @doc false
   @spec child_spec(keyword()) :: Supervisor.child_spec()
@@ -71,11 +69,8 @@ defmodule Agens.Supervisor do
             [:supervisor.child_spec() | (old_erlang_child_spec :: :supervisor.child_spec())]}}
           | :ignore
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
-
     children = [
-      {Agens, name: Agens, opts: opts},
-      {Registry, keys: :unique, name: registry}
+      {Agens, name: Agens, opts: opts}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

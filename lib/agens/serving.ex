@@ -35,12 +35,11 @@ defmodule Agens.Serving do
     @moduledoc false
 
     @type t :: %__MODULE__{
-            registry: atom(),
             config: Config.t()
           }
 
-    @enforce_keys [:registry, :config]
-    defstruct [:registry, :config]
+    @enforce_keys [:config]
+    defstruct [:config]
   end
 
   use GenServer
@@ -121,19 +120,15 @@ defmodule Agens.Serving do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()} | {:stop, term(), State.t()}
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
     prompts = Keyword.fetch!(opts, :prompts)
     config = Keyword.fetch!(opts, :config)
     config = if is_nil(config.prompts), do: Map.put(config, :prompts, prompts), else: config
-    state = %State{config: config, registry: registry}
+    state = %State{config: config}
 
     config
     |> start_serving()
     |> case do
       {:ok, pid} when is_pid(pid) ->
-        name = serving_name(config.name)
-        {:ok, _} = Registry.register(registry, name, {pid, config})
-
         {:ok, state}
 
       {:error, reason} ->
@@ -148,9 +143,7 @@ defmodule Agens.Serving do
   @doc false
   @impl true
   @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
-  def handle_call({:stop, serving_name}, _from, state) do
-    serving_name = serving_name(serving_name)
-    Registry.unregister(state.registry, serving_name)
+  def handle_call({:stop, _serving_name}, _from, state) do
     {:reply, :ok, state}
   end
 

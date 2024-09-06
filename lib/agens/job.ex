@@ -104,12 +104,11 @@ defmodule Agens.Job do
             status: :init | :running | :error | :completed,
             step_index: non_neg_integer() | nil,
             config: Config.t(),
-            parent: pid() | nil,
-            registry: atom()
+            parent: pid() | nil
           }
 
-    @enforce_keys [:status, :config, :registry]
-    defstruct [:status, :step_index, :config, :parent, :registry]
+    @enforce_keys [:status, :config]
+    defstruct [:status, :step_index, :config, :parent]
   end
 
   use GenServer
@@ -180,9 +179,8 @@ defmodule Agens.Job do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
-    {:ok, %State{status: :init, config: config, registry: registry}}
+    {:ok, %State{status: :init, config: config}}
   end
 
   # ===========================================================================

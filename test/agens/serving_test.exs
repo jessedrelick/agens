@@ -4,8 +4,7 @@ defmodule Agens.ServingTest do
   alias Agens.{Message, Serving}
 
   defp start_agens(_ctx) do
-    opts = [registry: Agens.CustomRegistry]
-    {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor, opts: opts})
+    {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
     :ok
   end
 
