@@ -106,9 +106,7 @@ defmodule Agens.Serving do
   def child_spec(%Config{} = config) do
     %{
       id: config.name,
-      start: {__MODULE__, :start_link, [config]},
-      type: :worker,
-      restart: :transient
+      start: {__MODULE__, :start_link, [config]}
     }
   end
 

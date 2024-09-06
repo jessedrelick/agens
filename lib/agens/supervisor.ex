@@ -45,6 +45,16 @@ defmodule Agens.Supervisor do
   @default_opts [registry: @default_registry, prompts: @default_prompts]
 
   @doc false
+  @spec child_spec(keyword()) :: Supervisor.child_spec()
+  def child_spec(args) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [args]},
+      type: :supervisor
+    }
+  end
+
+  @doc false
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(args) do
     override = Keyword.get(args, :opts, [])
