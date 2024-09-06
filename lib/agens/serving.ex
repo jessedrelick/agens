@@ -24,11 +24,12 @@ defmodule Agens.Serving do
     @type t :: %__MODULE__{
             name: atom(),
             serving: Nx.Serving.t() | module(),
+            args: keyword(),
             prefixes: Agens.Prefixes.t() | nil
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving, :prefixes]
+    defstruct [:name, :serving, :prefixes, args: []]
   end
 
   defmodule State do
@@ -187,14 +188,22 @@ defmodule Agens.Serving do
 
   @doc false
   @spec start_serving(Config.t()) :: tuple()
-  defp start_serving(%Config{serving: %Nx.Serving{} = serving} = config) do
+  defp start_serving(%Config{serving: %Nx.Serving{} = serving, args: args} = config) do
     name = serving_name(config.name)
-    Nx.Serving.start_link(serving: serving, name: name)
+
+    opts =
+      args
+      |> Keyword.put(:serving, serving)
+      |> Keyword.put(:name, name)
+
+    Nx.Serving.start_link(opts)
   end
 
-  defp start_serving(%Config{serving: serving} = config) when is_atom(serving) do
+  defp start_serving(%Config{serving: serving, args: args} = config) when is_atom(serving) do
     name = serving_name(config.name)
-    GenServer.start_link(serving, config, name: name)
+    opts = Keyword.put(args, :name, name)
+
+    GenServer.start_link(serving, config, opts)
   end
 
   @doc false
