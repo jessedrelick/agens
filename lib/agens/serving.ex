@@ -18,17 +18,17 @@ defmodule Agens.Serving do
     ## Fields
     - `:name` - The name of the `Agens.Serving` process.
     - `:serving` - The `Nx.Serving` struct or `GenServer` module for the `Agens.Serving`.
-    - `:prompts` - A map of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prompts` options in `Agens.Supervisor`.
+    - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
     """
 
     @type t :: %__MODULE__{
             name: atom(),
             serving: Nx.Serving.t() | module(),
-            prompts: map() | nil
+            prefixes: Agens.Prefixes.t() | nil
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving, :prompts]
+    defstruct [:name, :serving, :prefixes]
   end
 
   defmodule State do
@@ -120,9 +120,9 @@ defmodule Agens.Serving do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()} | {:stop, term(), State.t()}
   def init(opts) do
-    prompts = Keyword.fetch!(opts, :prompts)
+    prefixes = Keyword.fetch!(opts, :prefixes)
     config = Keyword.fetch!(opts, :config)
-    config = if is_nil(config.prompts), do: Map.put(config, :prompts, prompts), else: config
+    config = if is_nil(config.prefixes), do: Map.put(config, :prefixes, prefixes), else: config
     state = %State{config: config}
 
     config

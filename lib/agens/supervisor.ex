@@ -16,31 +16,15 @@ defmodule Agens.Supervisor do
   ```
 
   ### Options
-    * `:prompts` (`map`) - The default prompt prefixes can be overriden with this option. Each `Agens.Serving.Config` can also override the defaults on a per-serving basis.
+    * `:prefixes` (`Agens.Prefixes`) - The default prompt prefixes can be overriden with this option. Each `Agens.Serving.Config` can also override the defaults on a per-serving basis.
 
   See the [README.md](README.md#configuration) for more info.
   """
   use Supervisor
 
-  @default_prompts %{
-    prompt:
-      {"Agent", "You are a specialized agent with the following capabilities and expertise"},
-    identity:
-      {"Identity", "You are a specialized agent with the following capabilities and expertise"},
-    context: {"Context", "The purpose or goal behind your tasks are to"},
-    constraints:
-      {"Constraints", "You must operate with the following constraints or limitations"},
-    examples: {"Examples", "You should consider the following examples before returning results"},
-    reflection:
-      {"Reflection", "You should reflect on the following factors before returning results"},
-    instructions:
-      {"Tool Instructions",
-       "You should provide structured output for function calling based on the following instructions"},
-    objective: {"Step Objective", "The objective of this step is to"},
-    description: {"Job Description", "This is part of multi-step job to achieve the following"},
-    input: {"Input", "The following is the actual input from the user, system or another agent"}
-  }
-  @default_opts [prompts: @default_prompts]
+  alias Agens.Prefixes
+
+  @default_opts [prefixes: Prefixes.default()]
 
   @doc false
   @spec child_spec(keyword()) :: Supervisor.child_spec()
