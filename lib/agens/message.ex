@@ -55,10 +55,9 @@ defmodule Agens.Message do
 
   def send(%__MODULE__{} = message) do
     with {:ok, agent_config} <- maybe_get_agent_config(message.agent_name),
-         {:ok, serving_config} <- get_serving_config(agent_config, message) do
-      base = build_prompt(agent_config, message, serving_config.prefixes)
-      prompt = "<s>[INST]#{base}[/INST]"
-
+         {:ok, serving_config} <- get_serving_config(agent_config, message),
+         base <- build_prompt(agent_config, message, serving_config.prefixes),
+         {:ok, prompt} <- Serving.finalize(serving_config.name, base) do
       message =
         message
         |> Map.put(:prompt, prompt)

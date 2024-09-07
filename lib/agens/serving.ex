@@ -25,11 +25,12 @@ defmodule Agens.Serving do
             name: atom(),
             serving: Nx.Serving.t() | module(),
             args: keyword(),
-            prefixes: Agens.Prefixes.t() | nil
+            prefixes: Agens.Prefixes.t() | nil,
+            finalize: {module(), atom()} | nil
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving, :prefixes, args: []]
+    defstruct [:name, :serving, :prefixes, :finalize, args: []]
   end
 
   defmodule State do
@@ -97,6 +98,19 @@ defmodule Agens.Serving do
     end)
   end
 
+  @doc false
+  @spec finalize(atom() | pid(), String.t()) :: {:ok, String.t()} | {:error, :serving_not_found}
+  def finalize(name, prompt) when is_atom(name) do
+    name
+    |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
+      finalize(pid, prompt)
+    end)
+  end
+
+  def finalize(pid, prompt) when is_pid(pid) do
+    {:ok, GenServer.call(pid, {:finalize, prompt})}
+  end
+
   # ===========================================================================
   # Setup
   # ===========================================================================
@@ -162,6 +176,20 @@ defmodule Agens.Serving do
   def handle_call({:run, %Message{} = message}, _, state) do
     result = do_run(state.config, message)
     {:reply, result, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_call({:finalize, String.t()}, {pid, term}, State.t()) ::
+          {:reply, String.t(), State.t()}
+  def handle_call({:finalize, prompt}, _, %State{config: %Config{finalize: finalize}} = state) do
+    final =
+      case finalize do
+        {module, function} -> apply(module, function, [prompt])
+        _ -> prompt
+      end
+
+    {:reply, final, state}
   end
 
   # ===========================================================================
