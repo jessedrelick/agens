@@ -97,10 +97,11 @@ defmodule Agens.JobTest do
     setup [:start_agens, :start_serving, :start_job]
 
     @tag capture_log: true
-    test "start", %{job: %{name: name}, pid: pid} do
+    test "start", %{job: %{name: name} = job, pid: pid} do
       input = "D"
 
       assert is_pid(pid)
+      assert {:error, {:already_started, ^pid}} = Job.start(job)
       assert Job.run(name, input) == :ok
 
       assert_receive {:job_started, ^name}
@@ -130,6 +131,12 @@ defmodule Agens.JobTest do
       assert_receive {:step_result, {^name, 2}, "TRUE"}
 
       assert_receive {:job_ended, ^name, :complete}
+
+      # Job must be started manually after job completion (transient restart)
+      assert job.name |> Process.whereis() |> is_nil()
+      assert {:error, :job_not_found} = Job.run(name, input)
+      assert {:ok, pid} = Job.start(job)
+      assert is_pid(pid)
     end
   end
 

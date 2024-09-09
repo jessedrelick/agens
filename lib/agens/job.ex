@@ -164,7 +164,8 @@ defmodule Agens.Job do
   def child_spec(%Config{} = config) do
     %{
       id: config.name,
-      start: {__MODULE__, :start_link, [config]}
+      start: {__MODULE__, :start_link, [config]},
+      restart: :transient
     }
   end
 
@@ -242,13 +243,13 @@ defmodule Agens.Job do
   @spec handle_cast(:end, State.t()) :: {:stop, :complete, State.t()}
   def handle_cast(:end, %State{} = state) do
     new_state = %State{state | status: :complete}
-    {:stop, :complete, new_state}
+    {:stop, :normal, new_state}
   end
 
   @doc false
   @impl true
-  @spec terminate(:complete | {term(), list()}, State.t()) :: :ok
-  def terminate(:complete, %State{config: %{name: name}} = state) do
+  @spec terminate(:normal | {term(), list()}, State.t()) :: :ok
+  def terminate(:normal, %State{config: %{name: name}} = state) do
     send(state.parent, {:job_ended, name, :complete})
     :ok
   end
