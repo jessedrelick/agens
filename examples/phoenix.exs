@@ -114,8 +114,10 @@ defmodule AgensDemo.MainLive do
       <select name="destination" disabled={@ready != true} class="mb-2 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500">
         <option value="nx_serving" selected={@destination == "nx_serving"}>Nx Serving</option>
         <option value="gs_serving" selected={@destination == "gs_serving"}>GenServer Serving</option>
+        <option value="invalid_serving" selected={@destination == "invalid_serving"}>Invalid Serving</option>
         <option value="nx_agent" selected={@destination == "nx_agent"}>Nx Agent</option>
         <option value="gs_agent" selected={@destination == "gs_agent"}>GenServer Agent</option>
+        <option value="invalid_agent" selected={@destination == "invalid_agent"}>Invalid Agent</option>
       </select>
       <input
         class="block w-full p-2.5 bg-gray-50 border border-gray-300 text-gray-900 disabled:bg-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -161,8 +163,8 @@ defmodule AgensDemo.MainLive do
         <:loading>
           <.spinner />
         </:loading>
-        <:failed :let={_reason}>
-          <span>Oops, something went wrong!</span>
+        <:failed :let={reason}>
+          <pre><%= inspect(reason) %></pre>
         </:failed>
         <p class="text-gray-600 text-md"><%= result %></p>
       </.async_result>
@@ -217,10 +219,15 @@ defmodule AgensDemo.MainLive do
 
   @impl true
   def handle_event("send_message", _, %{assigns: assigns} = socket) do
-    name = String.to_existing_atom(assigns.destination)
+    name =
+      case assigns.destination do
+        "invalid_serving" -> :invalid_serving
+        "invalid_agent" -> :invalid_agent
+        destination -> String.to_existing_atom(destination)
+      end
 
     {key, type} =
-      if name in [:nx_agent, :gs_agent],
+      if name in [:nx_agent, :gs_agent, :invalid_agent],
         do: {:agent_name, "agent"},
         else: {:serving_name, "serving"}
 
@@ -228,14 +235,15 @@ defmodule AgensDemo.MainLive do
       socket
       |> assign(:result, nil)
       |> assign_async(:result, fn ->
-        %Message{result: result} =
-          %Message{
-            input: assigns.text
-          }
-          |> Map.put(key, name)
-          |> Message.send()
-
-        {:ok, %{result: result}}
+        %Message{
+          input: assigns.text
+        }
+        |> Map.put(key, name)
+        |> Message.send()
+        |> case do
+          %Message{result: result} -> {:ok, %{result: result}}
+          {:error, reason} -> {:error, reason}
+        end
       end)
       |> assign(:logs, ["Sent message to #{type}: #{name}" | assigns.logs])
 
