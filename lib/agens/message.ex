@@ -49,6 +49,10 @@ defmodule Agens.Message do
   Sends an `Agens.Message` to an `Agens.Agent` or `Agens.Serving`.
   """
   @spec send(t()) :: t() | {:error, atom()}
+  def send(%__MODULE__{input: input}) when input in ["", nil] do
+    {:error, :input_required}
+  end
+
   def send(%__MODULE__{agent_name: nil, serving_name: nil}) do
     {:error, :no_agent_or_serving_name}
   end
