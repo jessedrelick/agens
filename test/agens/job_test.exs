@@ -57,16 +57,21 @@ defmodule Agens.JobTest do
   end
 
   describe "errors" do
-    setup [:start_agens, :start_job]
+    setup [:start_agens, :start_serving, :start_job]
 
-    test "start running", %{job: job, pid: pid} do
+    test "already started", %{job: job, pid: pid} do
       assert is_pid(pid)
 
       assert {:error, {:already_started, ^pid}} = Job.start(job)
     end
 
-    test "job missing" do
+    test "job not found" do
       assert {:error, :job_not_found} == Job.run(:missing_job, "input")
+    end
+
+    test "job already running", %{job: job} do
+      assert :ok == Job.run(job.name, "input")
+      assert {:error, :job_already_running} == Job.run(job.name, "input")
     end
   end
 

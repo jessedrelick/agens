@@ -197,6 +197,10 @@ defmodule Agens.Job do
   @doc false
   @impl true
   @spec handle_call({:run, String.t()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
+  def handle_call({:run, _}, _, %{status: :running} = state) do
+    {:reply, {:error, :job_already_running}, state}
+  end
+
   def handle_call({:run, input}, {parent, _}, state) do
     new_state = %State{state | status: :running, step_index: 0, parent: parent}
     {:reply, :ok, new_state, {:continue, {:run, input}}}
