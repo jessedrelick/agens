@@ -69,7 +69,6 @@ defmodule Agens.Serving do
   def stop(name) when is_atom(name) do
     name
     |> Agens.name_to_pid({:error, :serving_not_found}, fn pid ->
-      GenServer.call(pid, {:stop, name})
       :ok = DynamicSupervisor.terminate_child(Agens, pid)
     end)
   end
@@ -154,13 +153,6 @@ defmodule Agens.Serving do
   # ===========================================================================
   # Callbacks
   # ===========================================================================
-
-  @doc false
-  @impl true
-  @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
-  def handle_call({:stop, _serving_name}, _from, state) do
-    {:reply, :ok, state}
-  end
 
   @doc false
   @impl true
