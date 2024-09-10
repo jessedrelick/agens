@@ -291,9 +291,15 @@ defmodule AgensDemo.MainLive do
   @impl true
   def handle_info(:job_started, %{assigns: assigns} = socket) do
     name = :my_job
-    Job.run(name, assigns.text)
 
-    {:noreply, socket |> assign(:logs, ["Job running: #{name}" | assigns.logs])}
+    name
+    |> Job.run(assigns.text)
+    |> case do
+      :ok ->
+        {:noreply, socket |> assign(:logs, ["Job running: #{name}" | assigns.logs])}
+      {:error, reason} ->
+        {:noreply, socket |> assign(:logs, ["Job error: #{name}: #{inspect(reason)}" | assigns.logs])}
+    end
   end
 
   @impl true
@@ -371,6 +377,14 @@ defmodule AgensDemo.MainLive do
 
     {:noreply,
      socket |> assign(:logs, ["Agens event: job_ended (#{job_name}) #{result}" | assigns.logs])}
+  end
+
+  @impl true
+  def handle_info({:job_error, {job_name, step_index}, err}, %{assigns: assigns} = socket) do
+    debug("#{job_name} error (step #{step_index}): #{inspect(err)}")
+
+    {:noreply,
+     socket |> assign(:logs, ["Agens event: job_error (#{job_name}, step #{step_index}) #{inspect(err)}" | assigns.logs])}
   end
 
   # Helpers
