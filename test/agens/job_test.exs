@@ -79,7 +79,7 @@ defmodule Agens.JobTest do
       assert_receive {:job_started, ^name}
 
       assert_receive {:step_started, {^name, 0}, nil}
-      assert_receive {:job_ended, {^name, 0}, {:error, :input_required}}
+      assert_receive {:job_error, {^name, 0}, {:error, :input_required}}
     end
   end
 
@@ -198,7 +198,7 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, {^name, 1}, "E"}
       assert_receive {:step_result, {^name, 1}, "E"}
 
-      assert_receive {:job_ended, {^name, 1},
+      assert_receive {:job_error, {^name, 1},
                       {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
 
       assert_receive {:DOWN, ^ref, :process, ^pid, _reason}

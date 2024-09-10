@@ -17,10 +17,16 @@ defmodule Agens.Job do
   Emitted when a job has started.
 
   ```
-  {:job_ended, job.name, :completed | {:error, error}}
+  {:job_ended, job.name, :completed}
   ```
 
-  Emitted when a job has ended, either due to completion or an error.
+  Emitted when a job has been completed.
+
+  ```
+  {:job_error, {job.name, step_index}, {:error, error}}
+  ```
+
+  Emitted when a job has ended due to an error or unhandled exception.
 
   #### Step
   ```
@@ -252,7 +258,7 @@ defmodule Agens.Job do
   @spec handle_cast({:error, atom()}, State.t()) :: {:stop, :shutdown, State.t()}
   def handle_cast({:error, _reason} = err, %State{config: %Config{name: name}} = state) do
     new_state = %State{state | status: :error}
-    send(state.parent, {:job_ended, {name, state.step_index}, err})
+    send(state.parent, {:job_error, {name, state.step_index}, err})
     {:stop, :shutdown, new_state}
   end
 
@@ -260,7 +266,7 @@ defmodule Agens.Job do
   @impl true
   @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
   def terminate({exception, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, {name, state.step_index}, {:error, exception}})
+    send(state.parent, {:job_error, {name, state.step_index}, {:error, exception}})
     :ok
   end
 
