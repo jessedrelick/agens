@@ -10,7 +10,7 @@ In addition, this release removes the use of `Registry`, adds better error handl
 - Added `Agens.Prefixes`
 - Added pass-through `args` and `finalize` function to `Agens.Serving`
 - Added `{:job_error, {job.name, step_index}, {:error, reason | exception}}` event to `Agens.Job`
-- Added `Agens.child_spec/1` and `Agens.Supervisor.child_spec/1`
+- Added child specs to `Agens` and `Agens.Supervisor`
 - Added `{:error, :job_already_running}` when calling `Agens.Job.run/2` on running job
 - Added `{:error, :input_required}` when calling `Message.send/1` with empty `input`
 
@@ -19,7 +19,7 @@ In addition, this release removes the use of `Registry`, adds better error handl
 - Changed `prompts` to `prefixes` on `Agens.Serving.Config`
 
 ### Fixes
-- Removed `restart: :transient` from `Agens.Serving.child_spec/1` and `Agens.Agent.child_spec/1`
+- Removed `restart: :transient` from `Agens.Serving` and `Agens.Agent` child specs
 
 ## 0.1.2
 This release removes [application environment configuration](https://hexdocs.pm/elixir/1.17.2/design-anti-patterns.html#using-application-configuration-for-libraries) and moves to an opts-based configuration. See [README.md](README.md#configuration) for more info.
