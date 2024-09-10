@@ -43,7 +43,7 @@ defmodule Agens.Message do
     :step_objective
   ]
 
-  alias Agens.{Agent, Serving}
+  alias Agens.{Agent, Prefixes, Serving}
 
   @doc """
   Sends an `Agens.Message` to an `Agens.Agent` or `Agens.Serving`.
@@ -78,8 +78,8 @@ defmodule Agens.Message do
   end
 
   @doc false
-  @spec build_prompt(Agent.Config.t() | nil, t(), map()) :: String.t()
-  defp build_prompt(agent_config, %__MODULE__{} = message, prompts) do
+  @spec build_prompt(Agent.Config.t() | nil, t(), Prefixes.t()) :: String.t()
+  defp build_prompt(agent_config, %__MODULE__{} = message, prefixes) do
     %{
       objective: message.step_objective,
       description: message.job_description
@@ -88,7 +88,7 @@ defmodule Agens.Message do
     |> maybe_add_tool(agent_config)
     |> maybe_prep_input(message.input, agent_config)
     |> Enum.reject(&filter_empty/1)
-    |> Enum.map(fn {key, value} -> field({key, value}, prompts) end)
+    |> Enum.map(fn {key, value} -> field({key, value}, prefixes) end)
     |> Enum.map(&to_prompt/1)
     |> Enum.join("\n\n")
   end
@@ -98,9 +98,9 @@ defmodule Agens.Message do
   defp filter_empty({_, value}), do: value == "" or is_nil(value)
 
   @doc false
-  @spec field({atom(), String.t()}, map()) :: {String.t(), String.t()}
-  defp field({key, value}, prompts) do
-    {Map.get(prompts, key), value}
+  @spec field({atom(), String.t()}, Prefixes.t()) :: {String.t(), String.t()}
+  defp field({key, value}, prefixes) do
+    {Map.get(prefixes, key), value}
   end
 
   @doc false

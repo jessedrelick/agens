@@ -17,13 +17,13 @@ defmodule Agens.Job do
   Emitted when a job has started.
 
   ```
-  {:job_ended, job.name, :completed}
+  {:job_ended, job.name, :complete}
   ```
 
   Emitted when a job has been completed.
 
   ```
-  {:job_error, {job.name, step_index}, {:error, error}}
+  {:job_error, {job.name, step_index}, {:error, reason | exception}}
   ```
 
   Emitted when a job has ended due to an error or unhandled exception.
