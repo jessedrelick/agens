@@ -146,7 +146,7 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | atom, String.t()) :: {:ok, term} | {:error, :job_not_found}
+  @spec run(pid | atom, String.t()) :: :ok | {:error, :job_not_found}
   def run(job_name, input) when is_atom(job_name) do
     Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> run(pid, input) end)
   end
@@ -240,22 +240,31 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast(:end, State.t()) :: {:stop, :complete, State.t()}
-  def handle_cast(:end, %State{} = state) do
+  @spec handle_cast(:end, State.t()) :: {:stop, :normal, State.t()}
+  def handle_cast(:end, %State{config: %Config{name: name}} = state) do
     new_state = %State{state | status: :complete}
+    send(state.parent, {:job_ended, name, :complete})
     {:stop, :normal, new_state}
   end
 
   @doc false
   @impl true
-  @spec terminate(:normal | {term(), list()}, State.t()) :: :ok
-  def terminate(:normal, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, :complete})
+  @spec handle_cast({:error, atom()}, State.t()) :: {:stop, :shutdown, State.t()}
+  def handle_cast({:error, _reason} = err, %State{config: %Config{name: name}} = state) do
+    new_state = %State{state | status: :error}
+    send(state.parent, {:job_ended, {name, state.step_index}, err})
+    {:stop, :shutdown, new_state}
+  end
+
+  @doc false
+  @impl true
+  @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
+  def terminate({exception, _}, %State{config: %{name: name}} = state) do
+    send(state.parent, {:job_ended, {name, state.step_index}, {:error, exception}})
     :ok
   end
 
-  def terminate({exception, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, {:error, exception}})
+  def terminate(_reason, _state) do
     :ok
   end
 
@@ -279,13 +288,21 @@ defmodule Agens.Job do
     }
 
     send(state.parent, {:step_started, {message.job_name, message.step_index}, message.input})
-    message = Message.send(message)
-    send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
 
-    if step.conditions do
-      do_conditions(step.conditions, message)
-    else
-      GenServer.cast(self(), {:next, message})
+    message
+    |> Message.send()
+    |> case do
+      %Message{} = message ->
+        send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
+
+        if step.conditions do
+          do_conditions(step.conditions, message)
+        else
+          GenServer.cast(self(), {:next, message})
+        end
+
+      {:error, reason} ->
+        GenServer.cast(self(), {:error, reason})
     end
   end
 

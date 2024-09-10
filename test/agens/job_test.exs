@@ -73,6 +73,14 @@ defmodule Agens.JobTest do
       assert :ok == Job.run(job.name, "input")
       assert {:error, :job_already_running} == Job.run(job.name, "input")
     end
+
+    test "job error", %{job: %{name: name}} do
+      assert :ok == Job.run(name, nil)
+      assert_receive {:job_started, ^name}
+
+      assert_receive {:step_started, {^name, 0}, nil}
+      assert_receive {:job_ended, {^name, 0}, {:error, :input_required}}
+    end
   end
 
   describe "config" do
@@ -190,7 +198,7 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, {^name, 1}, "E"}
       assert_receive {:step_result, {^name, 1}, "E"}
 
-      assert_receive {:job_ended, ^name,
+      assert_receive {:job_ended, {^name, 1},
                       {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
 
       assert_receive {:DOWN, ^ref, :process, ^pid, _reason}
