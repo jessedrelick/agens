@@ -17,6 +17,7 @@ In addition, this release removes the use of `Registry`, adds better error handl
 ### Breaking Changes
 - Removed `Registry` usage and `registry` configuration option
 - Changed `prompts` to `prefixes` on `Agens.Serving.Config`
+- Added `input` to `@enforce_keys` and removed `nil` as accepted `input` type in `Agens.Message`
 
 ### Fixes
 - Removed `restart: :transient` from `Agens.Serving` and `Agens.Agent` child specs

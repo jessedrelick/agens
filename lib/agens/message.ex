@@ -5,7 +5,7 @@ defmodule Agens.Message do
   ## Fields
 
     * `:parent_pid` - The process identifier of the parent/caller process.
-    * `:input` - The input string for the message.
+    * `:input` - The input string for the message. Required.
     * `:prompt` - The final prompt string constructed for `Agens.Serving.run/1`.
     * `:result` - The result string for the message.
     * `:agent_name` - The name of the `Agens.Agent`.

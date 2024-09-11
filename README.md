@@ -151,7 +151,7 @@ Supervisor.start_link(children, strategy: :one_for_one)
 The following default prompt prefixes can be copied, customized and used for the `prefixes` option above:
 
 ```elixir
-%{
+%Agens.Prefixes{
   prompt:
     {"Agent",
       "You are a specialized agent with the following capabilities and expertise"},
