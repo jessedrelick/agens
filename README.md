@@ -23,7 +23,7 @@ Add `agens` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:agens, "~> 0.1.2"}
+    {:agens, "~> 0.1.3"}
   ]
 end
 ```
