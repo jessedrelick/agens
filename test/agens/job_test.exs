@@ -57,16 +57,29 @@ defmodule Agens.JobTest do
   end
 
   describe "errors" do
-    setup [:start_agens, :start_job]
+    setup [:start_agens, :start_serving, :start_job]
 
-    test "start running", %{job: job, pid: pid} do
+    test "already started", %{job: job, pid: pid} do
       assert is_pid(pid)
 
       assert {:error, {:already_started, ^pid}} = Job.start(job)
     end
 
-    test "job missing" do
+    test "job not found" do
       assert {:error, :job_not_found} == Job.run(:missing_job, "input")
+    end
+
+    test "job already running", %{job: job} do
+      assert :ok == Job.run(job.name, "input")
+      assert {:error, :job_already_running} == Job.run(job.name, "input")
+    end
+
+    test "job error", %{job: %{name: name}} do
+      assert :ok == Job.run(name, nil)
+      assert_receive {:job_started, ^name}
+
+      assert_receive {:step_started, {^name, 0}, nil}
+      assert_receive {:job_error, {^name, 0}, {:error, :input_required}}
     end
   end
 
@@ -92,10 +105,11 @@ defmodule Agens.JobTest do
     setup [:start_agens, :start_serving, :start_job]
 
     @tag capture_log: true
-    test "start", %{job: %{name: name}, pid: pid} do
+    test "start", %{job: %{name: name} = job, pid: pid} do
       input = "D"
 
       assert is_pid(pid)
+      assert {:error, {:already_started, ^pid}} = Job.start(job)
       assert Job.run(name, input) == :ok
 
       assert_receive {:job_started, ^name}
@@ -125,6 +139,12 @@ defmodule Agens.JobTest do
       assert_receive {:step_result, {^name, 2}, "TRUE"}
 
       assert_receive {:job_ended, ^name, :complete}
+
+      # Job must be started manually after job completion (transient restart)
+      assert job.name |> Process.whereis() |> is_nil()
+      assert {:error, :job_not_found} = Job.run(name, input)
+      assert {:ok, pid} = Job.start(job)
+      assert is_pid(pid)
     end
   end
 
@@ -178,7 +198,7 @@ defmodule Agens.JobTest do
       assert_receive {:step_started, {^name, 1}, "E"}
       assert_receive {:step_result, {^name, 1}, "E"}
 
-      assert_receive {:job_ended, ^name,
+      assert_receive {:job_error, {^name, 1},
                       {:error, %RuntimeError{message: "Invalid step index: :invalid"}}}
 
       assert_receive {:DOWN, ^ref, :process, ^pid, _reason}

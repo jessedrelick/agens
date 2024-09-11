@@ -122,13 +122,23 @@ See `Agens.Job` for more information
 
 ---
 
+## Examples
+The `examples` directory includes a [single-file Phoenix LiveView application](examples/phoenix.exs) showcasing the basic usage of Agens.
+
+To run the example, use the following command in your terminal:
+
+```bash
+elixir examples/phoenix.exs
+```
+
+This will start a local Phoenix server, accessible at [http://localhost:8080](http://localhost:8080).
+
 ## Configuration
 Additional options can be passed to `Agens.Supervisor` in order to override the default values:
 
 ```elixir
 opts = [
-  registry: Agens.MyCustomRegistry,
-  prompts: custom_prompt_prefixes
+  prefixes: custom_prompt_prefixes
 ]
 
 children = [
@@ -138,10 +148,10 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-The following default prompt prefixes can be copied, customized and used for the `prompts` option above:
+The following default prompt prefixes can be copied, customized and used for the `prefixes` option above:
 
 ```elixir
-%{
+%Agens.Prefixes{
   prompt:
     {"Agent",
       "You are a specialized agent with the following capabilities and expertise"},
@@ -169,12 +179,12 @@ The following default prompt prefixes can be copied, customized and used for the
 }
 ```
 
-See the [Prompting](#prompting) section below or `Agens.Message` for more information on prompt prefixes. 
+See the [Prompting](#prompting) section below or `Agens.Prefixes` for more information on prompt prefixes. 
 
 You can also see `Agens.Supervisor` for more information on configuration options.
 
 ## Prompting
-Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt’s content.
+Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt content.
 
 All fields with values, in addition to user input, will be included in the final prompt. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
 

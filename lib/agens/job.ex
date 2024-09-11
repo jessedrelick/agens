@@ -17,10 +17,16 @@ defmodule Agens.Job do
   Emitted when a job has started.
 
   ```
-  {:job_ended, job.name, :completed | {:error, error}}
+  {:job_ended, job.name, :complete}
   ```
 
-  Emitted when a job has ended, either due to completion or an error.
+  Emitted when a job has been completed.
+
+  ```
+  {:job_error, {job.name, step_index}, {:error, reason | exception}}
+  ```
+
+  Emitted when a job has ended due to an error or unhandled exception.
 
   #### Step
   ```
@@ -82,7 +88,7 @@ defmodule Agens.Job do
     The Config struct defines the details of a Job.
 
     ## Fields
-    - `name` - An atom that identifies the Job.
+    - `name` - The unique name used to identify the Job.
     - `description` - An optional string to be added to the LM prompt that describes the basic goal of the Job.
     - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
     """
@@ -104,12 +110,11 @@ defmodule Agens.Job do
             status: :init | :running | :error | :completed,
             step_index: non_neg_integer() | nil,
             config: Config.t(),
-            parent: pid() | nil,
-            registry: atom()
+            parent: pid() | nil
           }
 
-    @enforce_keys [:status, :config, :registry]
-    defstruct [:status, :step_index, :config, :parent, :registry]
+    @enforce_keys [:status, :config]
+    defstruct [:status, :step_index, :config, :parent]
   end
 
   use GenServer
@@ -147,7 +152,7 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | atom, String.t()) :: {:ok, term} | {:error, :job_not_found}
+  @spec run(pid | atom, String.t()) :: :ok | {:error, :job_not_found}
   def run(job_name, input) when is_atom(job_name) do
     Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> run(pid, input) end)
   end
@@ -166,7 +171,6 @@ defmodule Agens.Job do
     %{
       id: config.name,
       start: {__MODULE__, :start_link, [config]},
-      type: :worker,
       restart: :transient
     }
   end
@@ -182,9 +186,8 @@ defmodule Agens.Job do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
-    {:ok, %State{status: :init, config: config, registry: registry}}
+    {:ok, %State{status: :init, config: config}}
   end
 
   # ===========================================================================
@@ -201,6 +204,10 @@ defmodule Agens.Job do
   @doc false
   @impl true
   @spec handle_call({:run, String.t()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
+  def handle_call({:run, _}, _, %{status: :running} = state) do
+    {:reply, {:error, :job_already_running}, state}
+  end
+
   def handle_call({:run, input}, {parent, _}, state) do
     new_state = %State{state | status: :running, step_index: 0, parent: parent}
     {:reply, :ok, new_state, {:continue, {:run, input}}}
@@ -239,22 +246,31 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast(:end, State.t()) :: {:stop, :complete, State.t()}
-  def handle_cast(:end, %State{} = state) do
+  @spec handle_cast(:end, State.t()) :: {:stop, :normal, State.t()}
+  def handle_cast(:end, %State{config: %Config{name: name}} = state) do
     new_state = %State{state | status: :complete}
-    {:stop, :complete, new_state}
+    send(state.parent, {:job_ended, name, :complete})
+    {:stop, :normal, new_state}
   end
 
   @doc false
   @impl true
-  @spec terminate(:complete | {term(), list()}, State.t()) :: :ok
-  def terminate(:complete, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, :complete})
+  @spec handle_cast({:error, atom()}, State.t()) :: {:stop, :shutdown, State.t()}
+  def handle_cast({:error, _reason} = err, %State{config: %Config{name: name}} = state) do
+    new_state = %State{state | status: :error}
+    send(state.parent, {:job_error, {name, state.step_index}, err})
+    {:stop, :shutdown, new_state}
+  end
+
+  @doc false
+  @impl true
+  @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
+  def terminate({exception, _}, %State{config: %{name: name}} = state) do
+    send(state.parent, {:job_error, {name, state.step_index}, {:error, exception}})
     :ok
   end
 
-  def terminate({exception, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_ended, name, {:error, exception}})
+  def terminate(_reason, _state) do
     :ok
   end
 
@@ -278,13 +294,21 @@ defmodule Agens.Job do
     }
 
     send(state.parent, {:step_started, {message.job_name, message.step_index}, message.input})
-    message = Message.send(message)
-    send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
 
-    if step.conditions do
-      do_conditions(step.conditions, message)
-    else
-      GenServer.cast(self(), {:next, message})
+    message
+    |> Message.send()
+    |> case do
+      %Message{} = message ->
+        send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
+
+        if step.conditions do
+          do_conditions(step.conditions, message)
+        else
+          GenServer.cast(self(), {:next, message})
+        end
+
+      {:error, reason} ->
+        GenServer.cast(self(), {:error, reason})
     end
   end
 

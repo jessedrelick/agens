@@ -40,7 +40,7 @@ defmodule Agens.Agent do
     The Config struct represents the configuration for an Agent process.
 
     ## Fields
-    - `:name` - The name of the Agent process.
+    - `:name` - The unique name for the Agent process.
     - `:serving` - The name of the Serving specified in `Agens.Serving.Config`.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
@@ -63,12 +63,11 @@ defmodule Agens.Agent do
     @moduledoc false
 
     @type t :: %__MODULE__{
-            registry: atom(),
             config: Agens.Agent.Config.t()
           }
 
-    @enforce_keys [:registry, :config]
-    defstruct [:registry, :config]
+    @enforce_keys [:config]
+    defstruct [:config]
   end
 
   use GenServer
@@ -98,7 +97,6 @@ defmodule Agens.Agent do
   @spec stop(atom()) :: :ok | {:error, :agent_not_found}
   def stop(agent_name) do
     Agens.name_to_pid(agent_name, {:error, :agent_not_found}, fn pid ->
-      GenServer.call(pid, {:stop, agent_name})
       :ok = DynamicSupervisor.terminate_child(Agens, pid)
     end)
   end
@@ -124,9 +122,7 @@ defmodule Agens.Agent do
   def child_spec(%Config{} = config) do
     %{
       id: config.name,
-      start: {__MODULE__, :start_link, [config]},
-      type: :worker,
-      restart: :transient
+      start: {__MODULE__, :start_link, [config]}
     }
   end
 
@@ -141,11 +137,8 @@ defmodule Agens.Agent do
   @impl true
   @spec init(keyword()) :: {:ok, State.t()}
   def init(opts) do
-    registry = Keyword.fetch!(opts, :registry)
     config = Keyword.fetch!(opts, :config)
-    state = %State{registry: registry, config: config}
-
-    {:ok, _} = Registry.register(registry, config.name, {self(), config})
+    state = %State{config: config}
 
     {:ok, state}
   end
@@ -153,14 +146,6 @@ defmodule Agens.Agent do
   # ===========================================================================
   # Callbacks
   # ===========================================================================
-
-  @doc false
-  @impl true
-  @spec handle_call({:stop, atom()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
-  def handle_call({:stop, agent_name}, _from, state) do
-    Registry.unregister(state.registry, agent_name)
-    {:reply, :ok, state}
-  end
 
   @doc false
   @impl true
