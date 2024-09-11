@@ -101,7 +101,7 @@ defmodule Agens.ServingTest do
 
       batch = Nx.Batch.stack([Nx.tensor([1, 2, 3])])
 
-      message = %Message{serving_name: serving_name, prompt: batch}
+      message = %Message{serving_name: serving_name, prompt: batch, input: "not used"}
 
       assert %Nx.Tensor{
                type: {:s, 64},

@@ -22,10 +22,6 @@ defmodule Agens.MessageTest do
   end
 
   describe "errors" do
-    test "input required" do
-      assert {:error, :input_required} == Message.send(%Message{serving_name: :text_generation})
-    end
-
     test "no agent or serving" do
       assert {:error, :no_agent_or_serving_name} == Message.send(%Message{input: "test"})
     end

@@ -18,7 +18,7 @@ defmodule Agens.Message do
 
   @type t :: %__MODULE__{
           parent_pid: pid() | nil,
-          input: String.t() | nil,
+          input: String.t(),
           prompt: String.t() | Agens.Agent.Prompt.t() | nil,
           result: String.t() | nil,
           agent_name: atom() | nil,
@@ -29,7 +29,7 @@ defmodule Agens.Message do
           step_objective: String.t() | nil
         }
 
-  @enforce_keys []
+  @enforce_keys [:input]
   defstruct [
     :parent_pid,
     :input,
