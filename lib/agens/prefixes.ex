@@ -1,6 +1,22 @@
 defmodule Agens.Prefixes do
   @moduledoc """
-  The Prefixes struct represents configurable prompt prefixes used in Agens.
+  The Prefixes struct is used to configure prompt prefixes for building advanced prompts.
+
+  For each field used in the prompt (based on the configuration of Agents, Servings, and Jobs), a `heading` will be added, as well as some additional `detail`.
+
+  For example, if you are running an `Agens.Job` and have defined an `objective` for the current `Agens.Job.Step`, the following will be added to the prompt:
+
+  ```markdown
+  ## Step Objective
+
+  The objective of this step is to {{step.objective}}
+  ```
+
+  However, if you have not defined an `objective` for the current `Agens.Job.Step`, the `heading` and `detail` will also be omitted.
+
+  Default prompt prefixes can be overridden globally with the `prefixes` option in `Agens.Supervisor`, or for individual servings with `Agens.Serving.Config`.
+
+  See the [Prompting](README.md#prompting) section in the README for more information.
   """
 
   @type pair :: {heading :: String.t(), detail :: String.t()}
@@ -42,6 +58,8 @@ defmodule Agens.Prefixes do
     :input
   ]
 
+  @doc false
+  @spec default() :: t
   def default() do
     %__MODULE__{
       prompt:
