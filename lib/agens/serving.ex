@@ -16,9 +16,11 @@ defmodule Agens.Serving do
     The Config struct represents the configuration for a Serving process.
 
     ## Fields
-    - `:name` - The name of the `Agens.Serving` process.
+    - `:name` - The unique name for the Serving process.
     - `:serving` - The `Nx.Serving` struct or `GenServer` module for the `Agens.Serving`.
     - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
+    - `:finalize` - A function that accepts the prepared prompt (including any applied prefixes) and returns a modified version of the prompt. Useful for wrapping the prompt or applying final processing before sending to the LM for inference. If `nil`, the prepared prompt will be used as-is.
+    - `:args` - Additional arguments to be passed to the `Nx.Serving` or `GenServer` module. See the [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html) or [GenServer](https://hexdocs.pm/elixir/GenServer.html) documentation for more information.
     """
 
     @type t :: %__MODULE__{

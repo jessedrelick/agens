@@ -88,7 +88,7 @@ defmodule Agens.Job do
     The Config struct defines the details of a Job.
 
     ## Fields
-    - `name` - An atom that identifies the Job.
+    - `name` - The unique name used to identify the Job.
     - `description` - An optional string to be added to the LM prompt that describes the basic goal of the Job.
     - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
     """

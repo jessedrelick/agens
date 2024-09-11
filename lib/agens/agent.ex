@@ -40,7 +40,7 @@ defmodule Agens.Agent do
     The Config struct represents the configuration for an Agent process.
 
     ## Fields
-    - `:name` - The name of the Agent process.
+    - `:name` - The unique name for the Agent process.
     - `:serving` - The name of the Serving specified in `Agens.Serving.Config`.
     - `:knowledge` - The knowledge base or data source of the Agent. Default is nil. (Coming soon)
     - `:prompt` - The string or `Agens.Agent.Prompt` struct defining the Agent. Default is nil.
