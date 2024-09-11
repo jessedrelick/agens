@@ -11,7 +11,7 @@ Mix.install([
   {:phoenix_live_view, "0.20.1"},
   {:bumblebee, "~> 0.5.0"},
   {:exla, "~> 0.7.0"},
-  {:agens, "~> 0.1.2"}
+  {:agens, "~> 0.1.3"}
   # {:agens, path: Path.expand("../agens")}
 ])
 
