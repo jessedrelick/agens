@@ -14,7 +14,7 @@ defmodule Agens.MessageTest do
     %Agens.Serving.Config{
       name: :text_generation,
       serving: Test.Support.Serving.Stub,
-      finalize: {__MODULE__, :wrap_prompt}
+      finalize: &wrap_prompt/1
     }
     |> Agens.Serving.start()
 

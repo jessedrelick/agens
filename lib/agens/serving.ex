@@ -26,7 +26,7 @@ defmodule Agens.Serving do
             serving: Nx.Serving.t() | module(),
             args: keyword(),
             prefixes: Agens.Prefixes.t() | nil,
-            finalize: {module(), atom()} | nil
+            finalize: (String.t() -> String.t()) | nil
           }
 
     @enforce_keys [:name, :serving]
@@ -177,7 +177,7 @@ defmodule Agens.Serving do
   def handle_call({:finalize, prompt}, _, %State{config: %Config{finalize: finalize}} = state) do
     final =
       case finalize do
-        {module, function} -> apply(module, function, [prompt])
+        fun when is_function(fun, 1) -> fun.(prompt)
         _ -> prompt
       end
 
