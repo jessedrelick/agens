@@ -1,4 +1,4 @@
 defmodule Agens.AgensTest do
-  use Test.Support.AgentCase, async: false
+  use ExUnit.Case, async: false
   # doctest Agens
 end
