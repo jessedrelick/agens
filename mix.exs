@@ -16,15 +16,7 @@ defmodule Agens.MixProject do
       package: package(),
       docs: docs(),
       aliases: aliases(),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        "test.all": :test,
-        "test.lm": :test,
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test
-      ]
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -35,13 +27,24 @@ defmodule Agens.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        coverage: :test,
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
+      ]
+    ]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:nx, "~> 0.7.3"},
-      {:bumblebee, "~> 0.5.3", only: :test},
-      {:exla, "~> 0.7.0", only: :test},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:jason, "~> 1.4"},
+      {:telemetry_metrics, "~> 1.0"},
+      {:dialyxir, "~> 1.4.7", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.17.1", only: :test}
     ]
