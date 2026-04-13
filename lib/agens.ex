@@ -51,11 +51,30 @@ defmodule Agens do
   end
 
   @doc false
-  @spec name_to_pid(atom(), {:error, term()}, (pid() -> any())) :: any()
-  def name_to_pid(name, err, cb) do
+  @spec serving_pid(atom(), {:error, term()}, (pid() -> any())) :: any()
+  def serving_pid(name, err, cb) do
     case Process.whereis(name) do
       nil -> err
       pid when is_pid(pid) -> cb.(pid)
     end
+  end
+
+  @doc false
+  @spec job_pid(binary(), {:error, term()}, (pid() -> any())) :: any()
+  def job_pid(job_id, err, cb) do
+    case Registry.lookup(Agens.Registry, job_id) do
+      [] -> err
+      [_, _ | _] -> err
+      [{pid, _}] when is_pid(pid) -> cb.(pid)
+    end
+  end
+
+  def backends(fun, args) when is_atom(fun) and is_list(args) do
+    backends()
+    |> Enum.map(&apply(&1, fun, args))
+  end
+
+  def backends() do
+    Application.get_env(:agens, :backends, [Agens.Backend.Emit, Agens.Backend.Log])
   end
 end
