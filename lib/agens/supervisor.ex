@@ -54,6 +54,8 @@ defmodule Agens.Supervisor do
           | :ignore
   def init(opts) do
     children = [
+      {Registry, keys: :unique, name: Agens.Registry},
+      {Task.Supervisor, name: Agens.JobSupervisor},
       {Agens, name: Agens, opts: opts}
     ]
 
