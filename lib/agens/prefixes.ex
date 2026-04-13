@@ -21,64 +21,76 @@ defmodule Agens.Prefixes do
 
   @type pair :: {heading :: String.t(), detail :: String.t()}
   @type t :: %__MODULE__{
-          prompt: pair(),
-          identity: pair(),
           context: pair(),
-          constraints: pair(),
-          examples: pair(),
-          reflection: pair(),
-          instructions: pair(),
           objective: pair(),
           description: pair(),
-          input: pair()
+          input: pair(),
+          previous_result: pair(),
+          schema: pair(),
+          retry: pair(),
+          tool_defs: pair(),
+          tool_calls: pair(),
+          tool_results: pair(),
+          resources: pair()
         }
 
   @enforce_keys [
-    :prompt,
-    :identity,
     :context,
-    :constraints,
-    :examples,
-    :reflection,
-    :instructions,
     :objective,
     :description,
-    :input
+    :input,
+    :previous_result,
+    :schema,
+    :retry,
+    :tool_defs,
+    :tool_calls,
+    :tool_results,
+    :resources
   ]
   defstruct [
-    :prompt,
-    :identity,
     :context,
-    :constraints,
-    :examples,
-    :reflection,
-    :instructions,
     :objective,
     :description,
-    :input
+    :input,
+    :previous_result,
+    :schema,
+    :retry,
+    :tool_defs,
+    :tool_calls,
+    :tool_results,
+    :resources
   ]
+
+  @tool_defs """
+  You have access to the following MCP tools. If you need to call one or more tools to complete \
+  the task, populate the `tool_calls` field in your structured response. If tool results have \
+  already been provided, use them to generate your response in `body` and `outputs` instead of \
+  making additional tool calls. The available tools are:
+  """
 
   @doc false
   @spec default() :: t
   def default() do
     %__MODULE__{
-      prompt:
-        {"Agent", "You are a specialized agent with the following capabilities and expertise"},
-      identity:
-        {"Identity", "You are a specialized agent with the following capabilities and expertise"},
-      context: {"Context", "The purpose or goal behind your tasks are to"},
-      constraints:
-        {"Constraints", "You must operate with the following constraints or limitations"},
-      examples:
-        {"Examples", "You should consider the following examples before returning results"},
-      reflection:
-        {"Reflection", "You should reflect on the following factors before returning results"},
-      instructions:
-        {"Tool Instructions",
-         "You should provide structured output for function calling based on the following instructions"},
-      objective: {"Step Objective", "The objective of this step is to"},
-      description: {"Job Description", "This is part of multi-step job to achieve the following"},
-      input: {"Input", "The following is the actual input from the user, system or another agent"}
+      context: {"Context", "The following is critical context relevant to this task"},
+      objective: {"Node Objective", "The objective of this node is to"},
+      description:
+        {"Job Description", "This is part of a multi-node job to achieve the following"},
+      input: {"Input", "The following is the original input from the user"},
+      previous_result:
+        {"Previous Result", "The following is the result from the previous node in this job"},
+      schema:
+        {"Schema",
+         "It is critical to only return a JSON object matching the exact specification below"},
+      retry:
+        {"Retry",
+         "The response did not pass validation. Please try again and fix the following validation errors"},
+      tool_defs: {"Tool Definitions", @tool_defs},
+      tool_calls: {"Tool Calls", "The following MCP tool calls were made by this node"},
+      tool_results:
+        {"Tool Results",
+         "The following are the results of MCP tool calls for this node. Use these results to formulate your response in `body` and `outputs`"},
+      resources: {"Resources", "The following resources are provided as context for this node"}
     }
   end
 end
