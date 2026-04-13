@@ -1,45 +1,186 @@
 defmodule Test.Support.Serving do
-  defmodule LLM do
-    def get() do
-      IO.puts("Enabling EXLA Backend")
-      Application.put_env(:nx, :default_backend, EXLA.Backend)
-      auth_token = System.get_env("HF_AUTH_TOKEN")
-      repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
+  use Agens.Serving
 
-      IO.puts("Loading Model")
-      {:ok, model} = Bumblebee.load_model(repo, type: :bf16)
-      {:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
-      {:ok, generation_config} = Bumblebee.load_generation_config(repo)
+  alias Agens.{Message, Resource}
+  alias Test.Support.{Resources, Tools}
 
-      IO.puts("Starting LLM")
-      serving = Bumblebee.Text.generation(model, tokenizer, generation_config)
-      IO.puts("LLM Ready")
-
-      serving
-    end
+  @impl true
+  def start(state) do
+    {:ok, state}
   end
 
-  defmodule Stub do
-    use GenServer
+  @impl true
+  def load_resource(_state, %Resource{uri: uri} = resource, _message) do
+    %Resource{resource | content: Resources.resource_content(uri)}
+  end
 
-    def get() do
-      __MODULE__
-    end
+  @impl true
+  def tool_call(_state, tool_call, _message), do: Tools.tool_exec(tool_call)
 
-    def start_link(opts) do
-      GenServer.start_link(__MODULE__, opts, opts)
-    end
+  @impl true
+  def handle_message(_state, %Message{} = message, _schema) do
+    Process.sleep(10)
+    {:ok, map_input(message.agent_name, message.previous_result || message.input)}
+  end
 
-    def init(opts) do
-      {:ok, opts}
-    end
+  @impl true
+  def handle_result({:ok, {:error, err}}, _state, _msg) do
+    {:error, err}
+  end
 
-    # Normally a Serving would use `message.prompt` rather than `message.input`
-    # The Job or Agent would use config and `message.input` to build `message.prompt`
-    # In this case, using `message.input` instead to map to a result simplifies testing
-    def handle_call({:run, %Agens.Message{} = message}, _, state) do
-      result = Test.Support.Helpers.map_input(message.agent_name, message.input)
-      {:reply, result, state}
-    end
+  @impl true
+  def handle_result({:ok, {:retry, reason}}, _state, _msg) do
+    {:retry, reason}
+  end
+
+  @impl true
+  def handle_result({:ok, %Result{} = result}, _state, _msg) do
+    {:ok, result}
+  end
+
+  # ===========================================================================
+  # Private
+  # ===========================================================================
+
+  defp map_input(:first_agent, "invalid next") do
+    %Result{
+      body: "invalid next test",
+      next: "invalid next node"
+    }
+  end
+
+  defp map_input(:first_agent, input) do
+    body =
+      %{
+        "D" => "C",
+        "E" => "D",
+        "F" => "E"
+      }
+      |> Map.get(input, "ERROR")
+
+    %Result{
+      body: body,
+      next: [{:route, "node_10", 1}]
+    }
+  end
+
+  defp map_input(:second_agent, input) do
+    body =
+      %{
+        "C" => "E",
+        "D" => "F",
+        "E" => "G"
+      }
+      |> Map.get(input, "ERROR")
+
+    %Result{
+      body: body,
+      next: [{:route, "node_20", 1}]
+    }
+  end
+
+  defp map_input(:verifier_agent, "G") do
+    %Result{
+      body: "TRUE",
+      next: [:end]
+    }
+  end
+
+  defp map_input(:verifier_agent, input) do
+    %Result{
+      body: input,
+      next: [{:route, "node_0", 1}]
+    }
+  end
+
+  defp map_input(:parallel_agent, input) do
+    %Result{
+      body: input,
+      next: [{:route, "node_10", 4}]
+    }
+  end
+
+  defp map_input(:retry_agent, "error") do
+    {:retry, "validation error"}
+  end
+
+  defp map_input(:retry_agent, "explicit") do
+    %Result{
+      body: "explicit retry",
+      next: [:retry]
+    }
+  end
+
+  defp map_input(:retry_agent, "explicit_with_reason") do
+    %Result{
+      body: "explicit retry with reason",
+      next: [{:retry, "LLM provided reason"}]
+    }
+  end
+
+  defp map_input(:retry_agent, "fatal") do
+    {:error, :fatal_error}
+  end
+
+  defp map_input(:resource_agent, _input) do
+    %Result{
+      body: "resource agent result",
+      next: [:end]
+    }
+  end
+
+  defp map_input(:tool_agent, input) do
+    tool_call = Tools.tool_call("tool_call_id")
+
+    %Result{
+      body: input,
+      next: [],
+      tool_calls: [tool_call]
+    }
+  end
+
+  defp map_input(:error_agent, _input) do
+    raise "unexpected error test"
+  end
+
+  defp map_input(:end_agent, _input) do
+    %Result{
+      body: "end",
+      next: [:end]
+    }
+  end
+
+  defp map_input(:split_agent, input) do
+    %Result{
+      body: input,
+      next: [{:route, "node_10", 4}]
+    }
+  end
+
+  defp map_input(:concurrent_agent, input) do
+    %Result{
+      body: input,
+      next: [{:yield, "node_20"}]
+    }
+  end
+
+  defp map_input(:yield_agent, input) do
+    %Result{
+      body: input
+    }
+  end
+
+  defp map_input(:sub_agent, input) do
+    %Result{
+      body: input,
+      next: [{:sub, "sub_job"}]
+    }
+  end
+
+  defp map_input(agent, input) do
+    %Result{
+      body: "sent '#{input}' to: #{agent}",
+      next: []
+    }
   end
 end
