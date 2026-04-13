@@ -1,4 +1,4 @@
-  defmodule Prompt do
+  defmodule Agens.Prompt do
     alias Agens.{Message, Prefixes}
 
     @system_keys ~w(description objective context tool_defs resources)a
