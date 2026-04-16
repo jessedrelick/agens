@@ -8,7 +8,7 @@ defmodule Agens.Message do
     * `:input` - The input string for the message. Required.
     * `:prompt` - The final prompt string constructed for `Agens.Serving.run/1`.
     * `:result` - The result string for the message.
-    * `:agent_name` - The name of the `Agens.Agent`.
+    * `:agent_id` - The identifier of the `Agens.Agent`.
     * `:serving_name` - The name of the `Agens.Serving`.
     * `:job_name` - The name of the `Agens.Job`.
     * `:job_description` - The description of the `Agens.Job` to be added to the LM prompt.
@@ -25,7 +25,7 @@ defmodule Agens.Message do
           user: String.t() | nil,
           result: String.t() | nil,
           previous_result: String.t() | nil,
-          agent_name: atom() | nil,
+          agent_id: any() | nil,
           serving_name: atom() | nil,
           job_id: binary() | nil,
           job_description: String.t() | nil,
@@ -52,7 +52,7 @@ defmodule Agens.Message do
     :user,
     :result,
     :previous_result,
-    :agent_name,
+    :agent_id,
     :serving_name,
     :job_id,
     :job_description,
@@ -79,7 +79,7 @@ defmodule Agens.Message do
     {:error, :input_required}
   end
 
-  def send(%__MODULE__{agent_name: nil, serving_name: nil}) do
+  def send(%__MODULE__{agent_id: nil, serving_name: nil}) do
     {:error, :no_agent_or_serving_name}
   end
 

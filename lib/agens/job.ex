@@ -79,7 +79,7 @@ defmodule Agens.Job do
 
     @type t :: %__MODULE__{
             serving: atom(),
-            agent: atom(),
+            agent_id: any() | nil,
             sub: binary() | nil,
             objective: String.t() | nil,
             tools: list(schema()) | nil,
@@ -87,7 +87,7 @@ defmodule Agens.Job do
           }
 
     @enforce_keys []
-    defstruct [:serving, :agent, :sub, :objective, :tools, :resources]
+    defstruct [:serving, :agent_id, :sub, :objective, :tools, :resources]
   end
 
   defmodule Sub do
@@ -601,7 +601,7 @@ defmodule Agens.Job do
           parent_run_id: state.parent_run_id,
           job_id: job_config.id,
           job_description: job_config.description,
-          agent_name: node.agent,
+          agent_id: node.agent_id,
           node_id: message.node_id,
           input: message.input,
           previous_result: message.previous_result,
@@ -623,7 +623,7 @@ defmodule Agens.Job do
           job_id: job_config.id,
           job_description: job_config.description,
           serving_name: node.serving,
-          agent_name: node.agent,
+          agent_id: node.agent_id,
           node_objective: node.objective,
           tool_defs: node.tools,
           resources: node.resources,

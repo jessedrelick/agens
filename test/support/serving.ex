@@ -20,7 +20,7 @@ defmodule Test.Support.Serving do
   @impl true
   def handle_message(_state, %Message{} = message, _schema) do
     Process.sleep(10)
-    {:ok, map_input(message.agent_name, message.previous_result || message.input)}
+    {:ok, map_input(message.agent_id, message.previous_result || message.input)}
   end
 
   @impl true

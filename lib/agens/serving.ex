@@ -353,7 +353,7 @@ defmodule Agens.Serving do
       def handle_call({:run, msg}, from, state) do
         queue = :queue.in({msg, from}, state.queue)
         state = Map.put(state, :queue, queue)
-        :telemetry.execute([:agens, :serving, :enqueue], %{}, %{name: msg.agent_name})
+        :telemetry.execute([:agens, :serving, :enqueue], %{}, %{name: msg.agent_id})
 
         maybe_execute(state)
       end

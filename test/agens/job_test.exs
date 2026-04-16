@@ -26,16 +26,16 @@ defmodule Agens.JobTest do
       nodes: %{
         "node_0" => %Job.Node{
           serving: :test_serving,
-          agent: :first_agent,
+          agent_id: :first_agent,
           objective: "test node objective"
         },
         "node_10" => %Job.Node{
           serving: :test_serving,
-          agent: :second_agent
+          agent_id: :second_agent
         },
         "node_20" => %Job.Node{
           serving: :test_serving,
-          agent: :verifier_agent
+          agent_id: :verifier_agent
         }
       }
     }
@@ -111,7 +111,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -121,7 +121,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: "invalid next test",
@@ -195,7 +195,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -205,7 +205,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: "C",
@@ -216,7 +216,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "C"
                       }}
@@ -226,7 +226,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "C",
                         result: "E",
@@ -237,7 +237,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "E"
                       }}
@@ -247,7 +247,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "E",
                         result: "E",
@@ -259,7 +259,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: "E"
                       }}
@@ -269,7 +269,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: "E",
                         result: "D",
@@ -280,7 +280,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "D"
                       }}
@@ -290,7 +290,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "D",
                         result: "F",
@@ -301,7 +301,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "F"
                       }}
@@ -311,7 +311,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "F",
                         result: "F",
@@ -323,7 +323,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: "F"
                       }}
@@ -333,7 +333,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: "F",
                         result: "E",
@@ -344,7 +344,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "E"
                       }}
@@ -354,7 +354,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: "E",
                         result: "G",
@@ -365,7 +365,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_started,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "G"
                       }}
@@ -375,7 +375,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: "G",
                         result: "TRUE",
@@ -413,7 +413,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -424,7 +424,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :first_agent,
+                        agent_id: :first_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: "E",
@@ -437,7 +437,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: ^input,
                         previous_result: "E"
@@ -449,7 +449,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :second_agent,
+                        agent_id: :second_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: "G",
@@ -462,7 +462,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: ^input,
                         previous_result: "G"
@@ -474,7 +474,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :verifier_agent,
+                        agent_id: :verifier_agent,
                         node_id: "node_20",
                         input: ^input,
                         result: "TRUE",
@@ -503,12 +503,12 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :parallel_agent,
+            agent_id: :parallel_agent,
             objective: "test fan out"
           },
           "node_10" => %Job.Node{
             serving: :test_serving,
-            agent: :default_agent,
+            agent_id: :default_agent,
             objective: "test parallel execution"
           }
         }
@@ -525,7 +525,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :parallel_agent,
+                        agent_id: :parallel_agent,
                         node_id: ^first_node_id,
                         input: "H"
                       }}
@@ -535,7 +535,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :parallel_agent,
+                        agent_id: :parallel_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: ^input,
@@ -550,7 +550,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: "H",
                         thread_id: thread_id_1
@@ -560,7 +560,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: "H",
                         thread_id: thread_id_2
@@ -570,7 +570,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: "H",
                         thread_id: thread_id_3
@@ -580,7 +580,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: "H",
                         thread_id: thread_id_4
@@ -601,7 +601,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: "sent 'H' to: default_agent",
@@ -614,7 +614,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: "sent 'H' to: default_agent",
@@ -627,7 +627,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: "sent 'H' to: default_agent",
@@ -640,7 +640,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :default_agent,
+                        agent_id: :default_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: "sent 'H' to: default_agent",
@@ -663,7 +663,7 @@ defmodule Agens.JobTest do
       first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retries_run_id"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
       {_, retry_prefix} = Prefixes.default() |> Map.get(:retry)
 
       job = %Job.Config{
@@ -672,7 +672,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test retry node"
           }
         }
@@ -690,7 +690,7 @@ defmodule Agens.JobTest do
                         retries: 0,
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -703,7 +703,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 1,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -718,7 +718,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 2,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -731,7 +731,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 3,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -742,7 +742,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 3,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -756,7 +756,7 @@ defmodule Agens.JobTest do
       id = "retries_job"
       run_id = "test_explicit_retry_run_id"
       result = "explicit retry"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
       {_, retry_prefix} = Prefixes.default() |> Map.get(:retry)
 
       job = %Job.Config{
@@ -765,7 +765,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test explicit retry node"
           }
         }
@@ -783,7 +783,7 @@ defmodule Agens.JobTest do
                         retries: 0,
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -800,7 +800,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         retry_reason: nil,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: ^result
@@ -818,7 +818,7 @@ defmodule Agens.JobTest do
       #                 %Message{
       #                   retries: 2,
       #                   job_id: ^name,
-      #                   agent_name: ^agent_name,
+      #                   agent_id: ^agent_id,
       #                   node_id: ^first_node_id,
       #                   input: ^input,
       #                   result: nil,
@@ -831,7 +831,7 @@ defmodule Agens.JobTest do
       #                 %Message{
       #                   retries: 3,
       #                   job_id: ^name,
-      #                   agent_name: ^agent_name,
+      #                   agent_id: ^agent_id,
       #                   node_id: ^first_node_id,
       #                   input: ^input,
       #                   result: nil,
@@ -842,7 +842,7 @@ defmodule Agens.JobTest do
       #                 %Message{
       #                   retries: 3,
       #                   job_id: ^name,
-      #                   agent_name: ^agent_name,
+      #                   agent_id: ^agent_id,
       #                   node_id: ^first_node_id,
       #                   input: ^input,
       #                   result: nil,
@@ -855,7 +855,7 @@ defmodule Agens.JobTest do
       first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retries_config_run_id"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
       {_, retry_prefix} = Prefixes.default() |> Map.get(:retry)
 
       job = %Job.Config{
@@ -865,7 +865,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test retry node"
           }
         }
@@ -883,7 +883,7 @@ defmodule Agens.JobTest do
                         retries: 0,
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -896,7 +896,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 1,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -911,7 +911,7 @@ defmodule Agens.JobTest do
                       %Message{
                         retries: 1,
                         job_id: ^id,
-                        agent_name: ^agent_name,
+                        agent_id: ^agent_id,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: nil,
@@ -924,7 +924,7 @@ defmodule Agens.JobTest do
       first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retry_reason_run_id"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
       retry_reason = "validation error"
       {_, retry_prefix} = Prefixes.default() |> Map.get(:retry)
 
@@ -935,7 +935,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test retry reason node"
           }
         }
@@ -972,7 +972,7 @@ defmodule Agens.JobTest do
       first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retry_reason_next_run_id"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
       retry_reason = "LLM provided reason"
       {_, retry_prefix} = Prefixes.default() |> Map.get(:retry)
 
@@ -983,7 +983,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test retry reason from next node"
           }
         }
@@ -1022,7 +1022,7 @@ defmodule Agens.JobTest do
       first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_error_terminates_run_id"
-      agent_name = :retry_agent
+      agent_id = :retry_agent
 
       job = %Job.Config{
         id: id,
@@ -1030,7 +1030,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: agent_name,
+            agent_id: agent_id,
             objective: "test error terminates node"
           }
         }
@@ -1064,12 +1064,12 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :end_agent,
+            agent_id: :end_agent,
             objective: "test end node"
           },
           "node_10" => %Job.Node{
             serving: :test_serving,
-            agent: :first_agent,
+            agent_id: :first_agent,
             objective: "noop"
           }
         }
@@ -1105,7 +1105,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :error_agent
+            agent_id: :error_agent
           }
         }
       }
@@ -1162,7 +1162,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :tool_agent,
+            agent_id: :tool_agent,
             objective: "agent for testing tools",
             tools: [
               Tools.tool_def()
@@ -1209,7 +1209,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :resource_agent,
+            agent_id: :resource_agent,
             objective: "agent for testing resources",
             resources: [resource]
           }
@@ -1240,7 +1240,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :resource_agent,
+            agent_id: :resource_agent,
             resources: [resource]
           }
         }
@@ -1267,7 +1267,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :resource_agent,
+            agent_id: :resource_agent,
             resources: [resource, resource]
           }
         }
@@ -1293,7 +1293,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :resource_agent
+            agent_id: :resource_agent
           }
         }
       }
@@ -1313,7 +1313,7 @@ defmodule Agens.JobTest do
 
     test "standard prompt" do
       job_id = "test_prompt_job"
-      agent_name = :test_prompt_agent
+      agent_id = :test_prompt_agent
       input = "test input"
       first_node_id = "node_0"
       job_description = "test job description"
@@ -1341,7 +1341,7 @@ defmodule Agens.JobTest do
           nodes: %{
             "node_0" => %Job.Node{
               serving: :test_serving,
-              agent: agent_name,
+              agent_id: agent_id,
               objective: node_objective
             }
           }
@@ -1378,17 +1378,17 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :split_agent,
+            agent_id: :split_agent,
             objective: "test split node objective"
           },
           "node_10" => %Job.Node{
             serving: :test_serving,
-            agent: :concurrent_agent,
+            agent_id: :concurrent_agent,
             objective: "test concurrent node objective"
           },
           "node_20" => %Job.Node{
             serving: :test_serving,
-            agent: :yield_agent,
+            agent_id: :yield_agent,
             objective: "test yield node objective"
           }
         }
@@ -1405,7 +1405,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :split_agent,
+                        agent_id: :split_agent,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -1416,7 +1416,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :split_agent,
+                        agent_id: :split_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: ^input,
@@ -1433,7 +1433,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         thread_id: thread_id_1
@@ -1443,7 +1443,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         thread_id: thread_id_2
@@ -1453,7 +1453,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         thread_id: thread_id_3
@@ -1463,7 +1463,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         thread_id: thread_id_4
@@ -1479,7 +1479,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: ^input,
@@ -1492,7 +1492,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: ^input,
@@ -1505,7 +1505,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: ^input,
@@ -1518,7 +1518,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :concurrent_agent,
+                        agent_id: :concurrent_agent,
                         node_id: "node_10",
                         input: ^input,
                         result: ^input,
@@ -1536,7 +1536,7 @@ defmodule Agens.JobTest do
 
       assert_receive {:node_started,
                       %Message{
-                        agent_name: :yield_agent,
+                        agent_id: :yield_agent,
                         node_id: "node_20",
                         input: ^input
                       }}
@@ -1546,7 +1546,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :yield_agent,
+                        agent_id: :yield_agent,
                         node_id: "node_20",
                         input: ^input,
                         result: ^input,
@@ -1577,7 +1577,7 @@ defmodule Agens.JobTest do
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
-            agent: :sub_agent,
+            agent_id: :sub_agent,
             objective: "test sub job"
           }
         }
@@ -1595,7 +1595,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        agent_name: :sub_agent,
+                        agent_id: :sub_agent,
                         node_id: ^first_node_id,
                         input: ^input
                       }}
@@ -1603,7 +1603,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^id,
-                        agent_name: :sub_agent,
+                        agent_id: :sub_agent,
                         node_id: ^first_node_id,
                         input: ^input,
                         result: ^input,
@@ -1620,7 +1620,7 @@ defmodule Agens.JobTest do
                         job_id: ^sub_id,
                         run_id: ^sub_run_id,
                         parent_run_id: ^run_id,
-                        agent_name: ^sub_final_agent,
+                        agent_id: ^sub_final_agent,
                         node_id: ^sub_first_node_id,
                         input: ^input
                       }}
@@ -1628,7 +1628,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^sub_id,
-                        agent_name: ^sub_final_agent,
+                        agent_id: ^sub_final_agent,
                         node_id: ^sub_first_node_id,
                         input: ^input,
                         result: ^sub_result,
@@ -1686,7 +1686,7 @@ defmodule Agens.JobTest do
                         job_id: ^sub_id,
                         run_id: ^sub_run_id,
                         parent_run_id: ^run_id,
-                        agent_name: ^sub_final_agent,
+                        agent_id: ^sub_final_agent,
                         node_id: ^sub_first_node_id,
                         input: ^input
                       }}
@@ -1694,7 +1694,7 @@ defmodule Agens.JobTest do
       assert_receive {:node_result,
                       %Message{
                         job_id: ^sub_id,
-                        agent_name: ^sub_final_agent,
+                        agent_id: ^sub_final_agent,
                         node_id: ^sub_first_node_id,
                         input: ^input,
                         result: ^sub_result,
@@ -1707,7 +1707,7 @@ defmodule Agens.JobTest do
       # assert_receive {:node_result,
       #                 %Message{
       #                   job_id: ^name,
-      #                   agent_name: nil,
+      #                   agent_id: nil,
       #                   node_id: ^first_node_id,
       #                   input: ^input,
       #                   result: ^sub_result,
