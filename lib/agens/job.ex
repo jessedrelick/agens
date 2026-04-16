@@ -71,7 +71,7 @@ defmodule Agens.Job do
     The Node struct defines a single node within a Job.
 
     ## Fields
-    - `agent` - The name of the agent to be used in the Node.
+    - `agent_id` - The identifier of the agent to be used in the Node.
     - `objective` - An optional string to be added to the LM prompt explaining the purpose of the Node.
     """
 
