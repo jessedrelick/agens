@@ -234,8 +234,8 @@ defmodule Agens.Job do
 
   `start/1` does not run the Job, only starts the supervised process. See `run/2` for running the Job.
   """
-  @spec start(Config.t(), binary() | nil) :: {:ok, pid} | {:error, term}
-  def start(config, run_id \\ nil) do
+  @spec start(Config.t(), binary()) :: {:ok, pid} | {:error, term}
+  def start(config, run_id) do
     :telemetry.execute([:agens, :job, :start], %{}, %{job_id: config.id, run_id: run_id})
     DynamicSupervisor.start_child(Agens, {__MODULE__, {config, run_id}})
   end
@@ -257,20 +257,11 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | binary(), String.t(), String.t(), keyword()) :: :ok | {:error, :job_not_found}
-  def run(job_id, input, first_node_id, opts) when is_binary(job_id) do
-    run_id = Keyword.get(opts, :run_id, nil)
-    :telemetry.execute([:agens, :job, :run], %{}, %{job_id: job_id, run_id: run_id})
-
-    if run_id do
-      run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
-        run(pid, input, first_node_id, opts)
-      end)
-    else
-      Agens.job_pid(job_id, {:error, :job_not_found}, fn pid ->
-        run(pid, input, first_node_id, opts)
-      end)
-    end
+  @spec run(pid | binary(), String.t(), String.t(), keyword()) :: :ok | {:error, :run_not_found}
+  def run(run_id, input, first_node_id, opts) when is_binary(run_id) do
+    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
+      run(pid, input, first_node_id, opts)
+    end)
   end
 
   def run(pid, input, first_node_id, opts) when is_pid(pid) do
@@ -299,7 +290,7 @@ defmodule Agens.Job do
   # ===========================================================================
 
   @doc false
-  @spec child_spec({Config.t(), binary() | nil}) :: Supervisor.child_spec()
+  @spec child_spec({Config.t(), binary()}) :: Supervisor.child_spec()
   def child_spec({%Config{} = config, run_id}) do
     %{
       id: config.id,
@@ -309,14 +300,14 @@ defmodule Agens.Job do
   end
 
   @doc false
-  @spec start_link(keyword(), {Config.t(), binary() | nil}) :: GenServer.on_start()
+  @spec start_link(keyword(), {Config.t(), binary()}) :: GenServer.on_start()
   def start_link(extra, {config, run_id}) do
     opts =
       extra
       |> Keyword.put(:config, config)
       |> Keyword.put(:run_id, run_id)
 
-    GenServer.start_link(__MODULE__, opts, name: via(config.id, run_id))
+    GenServer.start_link(__MODULE__, opts, name: via(run_id))
   end
 
   @doc false
@@ -352,6 +343,8 @@ defmodule Agens.Job do
   end
 
   def handle_call({:run, input, first_node_id, opts}, {pid, _}, %State{} = state) do
+    :telemetry.execute([:agens, :job, :run], %{}, %{job_id: state.config.id, run_id: state.run_id})
+
     caller = Keyword.get(opts, :caller, pid)
     new_state = %State{state | status: :running, caller: caller}
     parent_run_id = Keyword.get(opts, :parent_run_id, nil)
@@ -806,8 +799,7 @@ defmodule Agens.Job do
 
       start(config, run_id)
 
-      run(config.id, message.input, first_node_id,
-        run_id: run_id,
+      run(run_id, message.input, first_node_id,
         parent_run_id: state.run_id,
         caller: state.caller
         # parent_node_message: message
@@ -871,7 +863,7 @@ defmodule Agens.Job do
 
   @spec run_id_to_pid(any(), any(), (pid() -> any())) :: any()
   defp run_id_to_pid(run_id, err, cb) do
-    name = via(nil, run_id)
+    name = via(run_id)
 
     case GenServer.whereis(name) do
       nil -> err
@@ -879,11 +871,7 @@ defmodule Agens.Job do
     end
   end
 
-  defp via(_, run_id) when not is_nil(run_id) do
+  defp via(run_id) do
     {:via, Registry, {Agens.Registry, String.to_atom(run_id)}}
-  end
-
-  defp via(job_id, nil) do
-    {:via, Registry, {Agens.Registry, job_id}}
   end
 end
