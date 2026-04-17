@@ -50,12 +50,12 @@ defmodule Agens.Serving do
     @type t :: %__MODULE__{
             body: String.t(),
             outputs: map(),
-            tool_calls: map(),
+            tool_calls: list(),
             next: list(next())
           }
 
     @enforce_keys [:body]
-    defstruct [:body, next: [], outputs: %{}, tool_calls: %{}]
+    defstruct [:body, next: [], outputs: %{}, tool_calls: []]
   end
 
   defmodule State do
@@ -73,7 +73,7 @@ defmodule Agens.Serving do
   @callback handle_message(State.t(), Agens.Message.t(), map()) ::
               {:ok, term()} | {:error, term()}
   @callback handle_result({:ok, term()} | {:error, any()}, State.t(), Agens.Message.t()) ::
-              {binary(), map()} | {:error, any()} | {:retry, String.t()}
+              {:ok, Result.t()} | {:error, any()} | {:retry, String.t()}
 
   @callback load_context(State.t(), Message.t()) :: String.t() | nil
   @callback load_resource(State.t(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
@@ -366,18 +366,18 @@ defmodule Agens.Serving do
     end)
   end
 
-  @spec load_resource(atom(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
+  @spec load_resource(atom(), Agens.Resource.t(), Message.t()) ::
+          {:ok, Agens.Resource.t()} | {:error, term()}
   def load_resource(serving_name, resource, message) when is_atom(serving_name) do
-    serving_name
-    |> Agens.serving_pid(resource, fn pid ->
-      GenServer.call(pid, {:load_resource, resource, message}, get_timeout(pid))
+    Agens.serving_pid(serving_name, {:error, :serving_not_found}, fn pid ->
+      {:ok, GenServer.call(pid, {:load_resource, resource, message}, get_timeout(pid))}
     end)
   end
 
   @doc """
   Executes an `Agens.Message` against an `Agens.Serving`
   """
-  @spec run(Message.t()) :: {:ok, Result.t()} | {:error, term()}
+  @spec run(Message.t()) :: {:ok, Result.t()} | {:error, term()} | {:retry, String.t()}
   def run(%Message{serving_name: name} = message) when is_atom(name) do
     name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->

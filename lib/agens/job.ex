@@ -459,10 +459,7 @@ defmodule Agens.Job do
   end
 
   def handle_cast({{:retry, reason}, %Message{} = message}, %State{} = state) do
-    message =
-      message
-      |> Map.update(:retries, 1, &(&1 + 1))
-      |> Map.put(:retry_reason, reason)
+    message = %Message{message | retries: message.retries + 1, retry_reason: reason}
 
     :telemetry.execute([:agens, :job, :retry], %{}, %{
       run_id: state.run_id,
@@ -470,8 +467,7 @@ defmodule Agens.Job do
     })
 
     Agens.backends(:node_retry, [state.caller, message])
-
-    message = Map.put(message, :result, nil)
+    message = %Message{message | result: nil}
     GenServer.cast(self(), {{:route, message.node_id}, message})
 
     {:noreply, state}
@@ -510,6 +506,7 @@ defmodule Agens.Job do
     :telemetry.execute([:agens, :job, :end], %{}, %{run_id: state.run_id})
 
     state = change_status(state, :ended)
+    Agens.backends(:complete, [state.caller, state.run_id])
 
     {:stop, :normal, state}
   end
@@ -545,6 +542,9 @@ defmodule Agens.Job do
   # ===========================================================================
   # Info
   # ===========================================================================
+
+  # OTP message pattern matching yields reference() not the opaque Task.ref()
+  @dialyzer {:no_opaque, handle_info: 2}
 
   @doc false
   @impl true
@@ -656,6 +656,12 @@ defmodule Agens.Job do
     end
   end
 
+  @spec handle_result(
+          Message.t() | {:error, atom()} | {:retry, String.t()},
+          Message.t(),
+          pid(),
+          State.t()
+        ) :: any()
   defp handle_result({:retry, reason}, %Message{} = message, server_pid, %State{}) do
     GenServer.cast(server_pid, {{:retry, reason}, message})
   end
@@ -708,20 +714,20 @@ defmodule Agens.Job do
         |> Enum.map(fn {:ok, result} -> result end)
         |> Enum.into(%{})
 
-      message
-      |> Map.update!(:tool_results, fn existing_results ->
-        Map.merge(existing_results || %{}, new_results)
-      end)
+      merged = Map.merge(message.tool_results || %{}, new_results)
+
+      %Message{message | tool_results: merged}
       |> do_node(server_pid, state)
     end
   end
 
   defp handle_result(%Message{} = message, original, server_pid, %State{} = state) do
     Agens.backends(:node_result, [state.caller, message])
-    message = Map.put(message, :retry_reason, nil)
+    message = %Message{message | retry_reason: nil}
     do_next(message, original, server_pid, state)
   end
 
+  @dialyzer {:no_match, do_next: 4}
   defp do_next(%Message{next: next} = message, _, server_pid, %State{}) when is_list(next) do
     if n = end_or_retry?(next) do
       GenServer.cast(server_pid, {n, message})
@@ -740,7 +746,7 @@ defmodule Agens.Job do
               else
                 thread_id = generate_thread_id()
                 GenServer.cast(server_pid, {:thread, thread_id})
-                Map.put(message, :thread_id, thread_id)
+                %Message{message | thread_id: thread_id}
               end
 
             GenServer.cast(server_pid, {instruction, msg})
@@ -822,6 +828,7 @@ defmodule Agens.Job do
     end)
   end
 
+  @spec load_resources(Message.t(), State.t()) :: Message.t()
   defp load_resources(%Message{resources: resources} = message, _state)
        when is_nil(resources) or resources == [],
        do: message
@@ -837,7 +844,10 @@ defmodule Agens.Job do
             name: resource.name
           })
 
-          Agens.Serving.load_resource(message.serving_name, resource, message)
+          case Agens.Serving.load_resource(message.serving_name, resource, message) do
+            {:ok, loaded} -> loaded
+            {:error, _} -> resource
+          end
         end,
         ordered: true,
         timeout: :infinity

@@ -31,7 +31,7 @@ defmodule Agens.Message do
           job_description: String.t() | nil,
           node_id: any(),
           node_objective: String.t() | nil,
-          outputs: map(),
+          outputs: map() | nil,
           retry_reason: String.t() | nil,
           retries: non_neg_integer(),
           thread_id: binary() | nil,
@@ -74,7 +74,7 @@ defmodule Agens.Message do
   @doc """
   Sends an `Agens.Message` to an `Agens.Agent` or `Agens.Serving`.
   """
-  @spec send(t()) :: t() | {:error, atom()}
+  @spec send(t()) :: t() | {:error, atom()} | {:retry, String.t()}
   def send(%__MODULE__{input: input}) when input in ["", nil] do
     {:error, :input_required}
   end
@@ -92,11 +92,7 @@ defmodule Agens.Message do
         {:retry, reason}
 
       {:ok, %Serving.Result{body: body, outputs: outputs, tool_calls: tool_calls, next: next}} ->
-        message
-        |> Map.put(:result, body)
-        |> Map.put(:outputs, outputs)
-        |> Map.put(:tool_calls, tool_calls)
-        |> Map.put(:next, next)
+        %__MODULE__{message | result: body, outputs: outputs, tool_calls: tool_calls, next: next}
     end
   end
 end

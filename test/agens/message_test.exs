@@ -62,7 +62,7 @@ defmodule Agens.MessageTest do
                serving_name: serving_name,
                result: "sent '#{input}' to: ",
                caller: pid,
-               tool_calls: %{},
+               tool_calls: [],
                outputs: %{},
                node_objective: node_objective
              } ==
