@@ -698,7 +698,8 @@ defmodule Agens.Job do
 
             Agens.Serving.call_tool(message.serving_name, args, message)
           end,
-          ordered: false
+          ordered: false,
+          timeout: :infinity
         )
         |> Enum.map(fn {:ok, result} -> result end)
         |> Enum.into(%{})
@@ -834,7 +835,8 @@ defmodule Agens.Job do
 
           Agens.Serving.load_resource(message.serving_name, resource, message)
         end,
-        ordered: true
+        ordered: true,
+        timeout: :infinity
       )
       |> Enum.map(fn {:ok, resource} -> resource end)
 

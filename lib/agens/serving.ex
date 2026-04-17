@@ -21,17 +21,19 @@ defmodule Agens.Serving do
     - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
     - `:finalize` - A function that accepts the prepared prompt (including any applied prefixes) and returns a modified version of the prompt. Useful for wrapping the prompt or applying final processing before sending to the LM for inference. If `nil`, the prepared prompt will be used as-is.
     - `:args` - Additional arguments to be passed to the `Nx.Serving` or `GenServer` module. See the [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html) or [GenServer](https://hexdocs.pm/elixir/GenServer.html) documentation for more information.
+    - `:timeout` - Timeout in milliseconds for serving calls. Applies to inference, tool calls, and resource loading. Defaults to `60_000`.
     """
 
     @type t :: %__MODULE__{
             name: atom(),
             serving: module(),
             args: keyword(),
-            prefixes: Agens.Prefixes.t() | nil
+            prefixes: Agens.Prefixes.t() | nil,
+            timeout: non_neg_integer()
           }
 
     @enforce_keys [:name, :serving]
-    defstruct [:name, :serving, :prefixes, args: []]
+    defstruct [:name, :serving, :prefixes, args: [], timeout: 60_000]
   end
 
   defmodule Result do
@@ -224,13 +226,21 @@ defmodule Agens.Serving do
       end
 
       @impl GenServer
-      def handle_call({:load_resource, resource, message}, _from, state) do
-        {:reply, load_resource(state, resource, message), state}
+      def handle_call({:load_resource, resource, message}, from, state) do
+        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
+          GenServer.reply(from, load_resource(state, resource, message))
+        end)
+
+        {:noreply, state}
       end
 
       @impl GenServer
-      def handle_call({:tool_call, args, message}, _from, state) do
-        {:reply, tool_call(state, args, message), state}
+      def handle_call({:tool_call, args, message}, from, state) do
+        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
+          GenServer.reply(from, tool_call(state, args, message))
+        end)
+
+        {:noreply, state}
       end
 
       @impl GenServer
@@ -352,7 +362,7 @@ defmodule Agens.Serving do
   def call_tool(serving_name, args, message) when is_atom(serving_name) do
     serving_name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
-      GenServer.call(pid, {:tool_call, args, message}, :infinity)
+      GenServer.call(pid, {:tool_call, args, message}, get_timeout(pid))
     end)
   end
 
@@ -360,7 +370,7 @@ defmodule Agens.Serving do
   def load_resource(serving_name, resource, message) when is_atom(serving_name) do
     serving_name
     |> Agens.serving_pid(resource, fn pid ->
-      GenServer.call(pid, {:load_resource, resource, message}, :infinity)
+      GenServer.call(pid, {:load_resource, resource, message}, get_timeout(pid))
     end)
   end
 
@@ -371,7 +381,12 @@ defmodule Agens.Serving do
   def run(%Message{serving_name: name} = message) when is_atom(name) do
     name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
-      GenServer.call(pid, {:run, message}, :infinity)
+      GenServer.call(pid, {:run, message}, get_timeout(pid))
     end)
+  end
+
+  defp get_timeout(pid) do
+    {:ok, %Config{timeout: timeout}} = get_config(pid)
+    timeout
   end
 end
