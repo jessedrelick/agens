@@ -693,7 +693,7 @@ defmodule Agens.Job do
             :telemetry.execute([:agens, :tool, :call], %{}, %{
               job_id: job_id,
               run_id: run_id,
-              tool: tool_name
+              name: tool_name
             })
 
             Agens.Serving.call_tool(message.serving_name, args, message)
@@ -787,6 +787,12 @@ defmodule Agens.Job do
     else
       %{config: config, run_id: run_id, first_node_id: first_node_id} = spec
 
+      :telemetry.execute([:agens, :job, :sub], %{}, %{
+        job_id: config.id,
+        run_id: run_id,
+        parent_run_id: state.run_id
+      })
+
       start(config, run_id)
 
       run(config.id, message.input, first_node_id,
@@ -820,6 +826,12 @@ defmodule Agens.Job do
       resources
       |> Task.async_stream(
         fn resource ->
+          :telemetry.execute([:agens, :resource, :load], %{}, %{
+            run_id: message.run_id,
+            job_id: message.job_id,
+            name: resource.name
+          })
+
           Agens.Serving.load_resource(message.serving_name, resource, message)
         end,
         ordered: true

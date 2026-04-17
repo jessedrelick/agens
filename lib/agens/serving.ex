@@ -167,7 +167,6 @@ defmodule Agens.Serving do
           |> Map.put("required", Map.keys(properties))
         end
       end
-
     end
   end
 
@@ -332,6 +331,7 @@ defmodule Agens.Serving do
     name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
       :ok = DynamicSupervisor.terminate_child(Agens, pid)
+      :telemetry.execute([:agens, :serving, :stop], %{}, %{name: name})
     end)
   end
 
