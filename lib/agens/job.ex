@@ -64,7 +64,7 @@ defmodule Agens.Job do
   """
 
   defguard is_status(status)
-           when status in [:init, :running, :error, :complete, :paused, :waiting, :stopped]
+           when status in [:running, :error, :complete, :ended, :stopped]
 
   defmodule Node do
     @moduledoc """
@@ -167,7 +167,7 @@ defmodule Agens.Job do
     end
 
     @type t :: %__MODULE__{
-            status: :init | :running | :error | :completed,
+            status: :init | :running | :error | :complete | :ended | :stopped,
             config: Config.t(),
             caller: pid() | nil,
             run_id: String.t() | nil,
@@ -212,6 +212,11 @@ defmodule Agens.Job do
     @spec get_node(State.t(), any()) :: Node.t() | nil
     def get_node(%State{config: job_config}, node_id) do
       Map.get(job_config.nodes, node_id)
+    end
+
+    @spec change_status(State.t(), atom()) :: State.t()
+    def change_status(%State{} = state, status) when is_atom(status) do
+      %State{state | status: status}
     end
   end
 
@@ -276,17 +281,17 @@ defmodule Agens.Job do
     :telemetry.execute([:agens, :job, :stop], %{}, %{run_id: run_id})
 
     run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
-      change_status(run_id, :stopped)
+      :telemetry.execute([:agens, :job, :status], %{}, %{status: :stopped, run_id: run_id})
+      GenServer.cast(pid, {:change_status, :stopped})
       GenServer.stop(pid, :normal)
     end)
   end
 
-  defp change_status(run_id, status) when is_status(status) do
-    :telemetry.execute([:agens, :job, :status], %{}, %{status: status, run_id: run_id})
-
-    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
-      GenServer.cast(pid, {:change_status, status})
-    end)
+  @spec change_status(State.t(), atom()) :: State.t()
+  defp change_status(%State{} = state, status) when is_status(status) do
+    :telemetry.execute([:agens, :job, :status], %{}, %{status: status, run_id: state.run_id})
+    Agens.backends(:status, [state.caller, state.run_id, status])
+    State.change_status(state, status)
   end
 
   # ===========================================================================
@@ -370,7 +375,7 @@ defmodule Agens.Job do
     server_pid = self()
     first_thread_id = generate_thread_id()
     Agens.backends(:start, [state.caller, id, state.run_id])
-    change_status(state.run_id, :running)
+    state = change_status(state, :running)
     GenServer.cast(server_pid, {:thread, first_thread_id})
 
     message = %Message{
@@ -488,7 +493,7 @@ defmodule Agens.Job do
       maybe_notify_parent(state, {:done, message})
 
       :telemetry.execute([:agens, :job, :complete], %{}, %{run_id: state.run_id})
-      change_status(state.run_id, :complete)
+      state = change_status(state, :complete)
       Agens.backends(:complete, [state.caller, state.run_id])
       {:stop, :normal, %{state | thread_count: 0}}
     else
@@ -504,8 +509,7 @@ defmodule Agens.Job do
 
     :telemetry.execute([:agens, :job, :end], %{}, %{run_id: state.run_id})
 
-    change_status(state.run_id, :complete)
-    Agens.backends(:complete, [state.caller, state.run_id])
+    state = change_status(state, :ended)
 
     {:stop, :normal, state}
   end
@@ -515,7 +519,7 @@ defmodule Agens.Job do
   @spec handle_cast({{:error, any()}, Message.t()}, State.t()) :: {:stop, :shutdown, State.t()}
   def handle_cast({{:error, reason}, message}, %State{} = state) do
     :telemetry.execute([:agens, :job, :error], %{}, %{run_id: state.run_id})
-    change_status(state.run_id, :error)
+    state = change_status(state, :error)
     Agens.backends(:error, [state.caller, message, reason])
 
     {:stop, :shutdown, state}
@@ -556,7 +560,7 @@ defmodule Agens.Job do
   def handle_info({:DOWN, ref, :process, _pid, error}, %State{} = state) do
     Process.demonitor(ref, [:flush])
     message = State.get_message(state, ref)
-    Agens.backends(:error, [state.caller, message, error])
+    GenServer.cast(self(), {{:error, error}, message})
     {:noreply, State.remove_task(state, ref)}
   end
 
@@ -568,7 +572,7 @@ defmodule Agens.Job do
   @impl true
   @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
   def terminate({exception, _}, %State{} = state) do
-    change_status(state.run_id, :error)
+    change_status(state, :error)
     message = %Message{input: "", caller: state.caller, run_id: state.run_id}
     Agens.backends(:error, [state.caller, message, exception])
 
@@ -849,19 +853,13 @@ defmodule Agens.Job do
     Enum.reject(calls, fn call -> Map.has_key?(results, call["id"]) end)
   end
 
-  defp generate_thread_id() do
-    generate_thread_id(nil)
-  end
-
-  defp generate_thread_id(nil) do
+  defp generate_thread_id do
     16
     |> :crypto.strong_rand_bytes()
     |> Base.encode16(case: :lower)
   end
 
-  defp generate_thread_id(thread_id) when is_binary(thread_id), do: thread_id
-
-  @spec run_id_to_pid(any(), {:error, term()}, (pid() -> any())) :: any()
+  @spec run_id_to_pid(any(), any(), (pid() -> any())) :: any()
   defp run_id_to_pid(run_id, err, cb) do
     name = via(nil, run_id)
 
