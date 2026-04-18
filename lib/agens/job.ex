@@ -164,6 +164,12 @@ defmodule Agens.Job do
       def thread_add(%Yield{} = yield, thread_id) do
         Map.update(yield, :threads, [thread_id], &[thread_id | &1])
       end
+
+      def thread_done(nil, _thread_id), do: %Yield{}
+
+      def thread_done(%Yield{} = yield, thread_id) do
+        Map.update(yield, :threads, [], &List.delete(&1, thread_id))
+      end
     end
 
     @type t :: %__MODULE__{
@@ -429,7 +435,8 @@ defmodule Agens.Job do
       :telemetry.execute([:agens, :job, :yield_done], %{}, %{run_id: state.run_id})
       Agens.backends(:yield_done, [state.caller, message, total_count])
       GenServer.cast(self(), {{:route, node_id}, message})
-      {:noreply, %{state | yield: Yield.new(), thread_count: new_count + 1}}
+      new_yield = Yield.thread_add(Yield.new(), message.thread_id)
+      {:noreply, %{state | yield: new_yield, thread_count: new_count + 1}}
     else
       :telemetry.execute([:agens, :job, :yield_wait], %{}, %{run_id: state.run_id})
       Agens.backends(:yield_wait, [state.caller, message, total_count, ready_count])
@@ -487,6 +494,7 @@ defmodule Agens.Job do
           {:noreply, State.t()} | {:stop, :normal, State.t()}
   def handle_cast({:done, message}, %State{} = state) do
     new_count = state.thread_count - 1
+    yield = Yield.thread_done(state.yield, message.thread_id)
 
     if new_count == 0 do
       # if state.parent_node_message do
@@ -501,7 +509,7 @@ defmodule Agens.Job do
       Agens.backends(:complete, [state.caller, state.run_id])
       {:stop, :normal, %{state | thread_count: 0}}
     else
-      {:noreply, %{state | thread_count: new_count}}
+      {:noreply, %{state | yield: yield, thread_count: new_count}}
     end
   end
 
