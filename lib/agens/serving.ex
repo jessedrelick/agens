@@ -21,7 +21,7 @@ defmodule Agens.Serving do
     - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
     - `:finalize` - A function that accepts the prepared prompt (including any applied prefixes) and returns a modified version of the prompt. Useful for wrapping the prompt or applying final processing before sending to the LM for inference. If `nil`, the prepared prompt will be used as-is.
     - `:args` - Additional arguments to be passed to the `Nx.Serving` or `GenServer` module. See the [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html) or [GenServer](https://hexdocs.pm/elixir/GenServer.html) documentation for more information.
-    - `:timeout` - Timeout in milliseconds for serving calls. Applies to inference, tool calls, and resource loading. Defaults to `60_000`.
+    - `:timeout` - Timeout in milliseconds for LM inference. Defaults to `60_000`.
     """
 
     @type t :: %__MODULE__{
@@ -208,7 +208,7 @@ defmodule Agens.Serving do
       end
 
       @impl GenServer
-      @spec init(Config.t()) :: {:ok, State.t()} | {:stop, term(), State.t()}
+      @spec init(Config.t()) :: {:ok, State.t()} | {:stop, term()}
       def init(%Config{} = config) do
         state = %{
           config: config,
@@ -259,15 +259,15 @@ defmodule Agens.Serving do
         maybe_execute(state)
       end
 
-      def maybe_execute(%{count: count, limit: limit} = state) when count < limit do
+      defp maybe_execute(%{count: count, limit: limit} = state) when count < limit do
         {:noreply, do_execute(state)}
       end
 
-      def maybe_execute(state) do
+      defp maybe_execute(state) do
         {:noreply, state}
       end
 
-      def do_execute(state) do
+      defp do_execute(state) do
         case :queue.out(state.queue) do
           {{:value, {msg, from}}, queue} ->
             state = Map.put(state, :queue, queue)
@@ -279,7 +279,7 @@ defmodule Agens.Serving do
         end
       end
 
-      def do_execute(state, message, from) do
+      defp do_execute(state, message, from) do
         pid = self()
 
         Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
@@ -293,18 +293,27 @@ defmodule Agens.Serving do
 
             schema = build_schema(msg)
 
+            task =
+              Task.Supervisor.async_nolink(Agens.JobSupervisor, fn ->
+                state
+                |> handle_message(msg, schema)
+                |> handle_result(state, msg)
+              end)
+
             result =
-              state
-              |> handle_message(msg, schema)
-              |> handle_result(state, msg)
+              case Task.yield(task, state.config.timeout) || Task.shutdown(task) do
+                {:ok, val} -> val
+                {:exit, reason} -> {:error, reason}
+                nil -> {:error, :timeout}
+              end
 
             GenServer.reply(from, result)
+            send(pid, :result)
 
             {:ok, %{name: msg.serving_name}}
           end)
         end)
 
-        send(pid, :result)
         Map.update!(state, :count, &(&1 + 1))
       end
 
@@ -362,7 +371,7 @@ defmodule Agens.Serving do
   def call_tool(serving_name, args, message) when is_atom(serving_name) do
     serving_name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
-      GenServer.call(pid, {:tool_call, args, message}, get_timeout(pid))
+      GenServer.call(pid, {:tool_call, args, message}, :infinity)
     end)
   end
 
@@ -370,7 +379,7 @@ defmodule Agens.Serving do
           {:ok, Agens.Resource.t()} | {:error, term()}
   def load_resource(serving_name, resource, message) when is_atom(serving_name) do
     Agens.serving_pid(serving_name, {:error, :serving_not_found}, fn pid ->
-      {:ok, GenServer.call(pid, {:load_resource, resource, message}, get_timeout(pid))}
+      {:ok, GenServer.call(pid, {:load_resource, resource, message}, :infinity)}
     end)
   end
 
@@ -381,12 +390,7 @@ defmodule Agens.Serving do
   def run(%Message{serving_name: name} = message) when is_atom(name) do
     name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
-      GenServer.call(pid, {:run, message}, get_timeout(pid))
+      GenServer.call(pid, {:run, message}, :infinity)
     end)
-  end
-
-  defp get_timeout(pid) do
-    {:ok, %Config{timeout: timeout}} = get_config(pid)
-    timeout
   end
 end
