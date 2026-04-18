@@ -243,13 +243,13 @@ defmodule Agens.Job do
   @doc """
   Retrieves the Job configuration by Job name or `pid`.
   """
-  @spec get_config(pid | atom | binary()) :: {:ok, Config.t()} | {:error, :job_not_found}
+  @spec get_config(pid | binary()) :: {:ok, Config.t()} | {:error, :run_not_found}
   def get_config(pid) when is_pid(pid) do
     {:ok, GenServer.call(pid, :get_config)}
   end
 
-  def get_config(job_id) when is_binary(job_id) do
-    Agens.job_pid(job_id, {:error, :job_not_found}, fn pid -> get_config(pid) end)
+  def get_config(run_id) when is_binary(run_id) do
+    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid -> get_config(pid) end)
   end
 
   @doc """
@@ -257,7 +257,8 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | binary(), String.t(), String.t(), keyword()) :: :ok | {:error, :run_not_found}
+  @spec run(pid | binary(), String.t(), String.t(), keyword()) ::
+          :ok | {:error, :run_not_found | :job_already_running | :input_required}
   def run(run_id, input, first_node_id, opts) when is_binary(run_id) do
     run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
       run(pid, input, first_node_id, opts)
@@ -268,13 +269,12 @@ defmodule Agens.Job do
     GenServer.call(pid, {:run, input, first_node_id, opts})
   end
 
+  @spec stop(binary()) :: :ok | {:error, :run_not_found}
   def stop(run_id) do
     :telemetry.execute([:agens, :job, :stop], %{}, %{run_id: run_id})
 
     run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
-      :telemetry.execute([:agens, :job, :status], %{}, %{status: :stopped, run_id: run_id})
-      GenServer.cast(pid, {:change_status, :stopped})
-      GenServer.stop(pid, :normal)
+      GenServer.call(pid, :stop)
     end)
   end
 
@@ -293,7 +293,7 @@ defmodule Agens.Job do
   @spec child_spec({Config.t(), binary()}) :: Supervisor.child_spec()
   def child_spec({%Config{} = config, run_id}) do
     %{
-      id: config.id,
+      id: run_id,
       start: {__MODULE__, :start_link, [{config, run_id}]},
       restart: :transient
     }
@@ -332,8 +332,16 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
+  @spec handle_call(:stop, {pid, term}, State.t()) :: {:stop, :normal, :ok, State.t()}
+  def handle_call(:stop, _from, %State{} = state) do
+    state = change_status(state, :stopped)
+    {:stop, :normal, :ok, state}
+  end
+
+  @doc false
+  @impl true
   @spec handle_call({:run, String.t(), any(), keyword()}, {pid, term}, State.t()) ::
-          {:reply, :ok, State.t()}
+          {:reply, :ok | {:error, :job_already_running | :input_required}, State.t()}
   def handle_call({:run, _, _, _}, _, %State{status: :running} = state) do
     {:reply, {:error, :job_already_running}, state}
   end
@@ -440,6 +448,13 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
+  @spec handle_cast({:tool_continue, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({:tool_continue, %Message{} = message}, %State{} = state) do
+    {:noreply, do_node(message, self(), state)}
+  end
+
+  @doc false
+  @impl true
   @spec handle_cast({{:retry, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast(
         {{:retry, _reason}, %Message{retries: retries} = message},
@@ -511,17 +526,9 @@ defmodule Agens.Job do
     :telemetry.execute([:agens, :job, :error], %{}, %{run_id: state.run_id})
     state = change_status(state, :error)
     Agens.backends(:error, [state.caller, message, reason])
+    maybe_notify_parent(state, {{:error, reason}, message})
 
     {:stop, :shutdown, state}
-  end
-
-  @doc false
-  @impl true
-  @spec handle_cast({:change_status, atom()}, State.t()) :: {:reply, State.t()}
-  def handle_cast({:change_status, status}, %State{} = state) do
-    new_state = %State{state | status: status}
-    Agens.backends(:status, [state.caller, state.run_id, status])
-    {:noreply, new_state}
   end
 
   @doc false
@@ -704,13 +711,16 @@ defmodule Agens.Job do
           ordered: false,
           timeout: :infinity
         )
-        |> Enum.map(fn {:ok, result} -> result end)
+        |> Enum.map(fn
+          {:ok, result} -> result
+          {:exit, reason} -> {:error, reason}
+        end)
         |> Enum.into(%{})
 
       merged = Map.merge(message.tool_results || %{}, new_results)
 
-      %Message{message | tool_results: merged}
-      |> do_node(server_pid, state)
+      updated = %Message{message | tool_results: merged}
+      GenServer.cast(server_pid, {:tool_continue, updated})
     end
   end
 
@@ -810,6 +820,15 @@ defmodule Agens.Job do
   defp maybe_notify_parent(%State{parent_run_id: nil}, _msg), do: :ok
 
   defp maybe_notify_parent(
+         %State{parent_run_id: parent_run_id},
+         {{:error, _reason}, _message} = msg
+       ) do
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, msg)
+    end)
+  end
+
+  defp maybe_notify_parent(
          %State{parent_run_id: parent_run_id} = state,
          {_, %Message{} = message} = msg
        ) do
@@ -844,7 +863,11 @@ defmodule Agens.Job do
         ordered: true,
         timeout: :infinity
       )
-      |> Enum.map(fn {:ok, resource} -> resource end)
+      |> Enum.zip(resources)
+      |> Enum.map(fn
+        {{:ok, loaded}, _original} -> loaded
+        {{:exit, _}, original} -> original
+      end)
 
     %Message{message | resources: loaded}
   end
@@ -872,6 +895,6 @@ defmodule Agens.Job do
   end
 
   defp via(run_id) do
-    {:via, Registry, {Agens.Registry, String.to_atom(run_id)}}
+    {:via, Registry, {Agens.Registry, run_id}}
   end
 end
