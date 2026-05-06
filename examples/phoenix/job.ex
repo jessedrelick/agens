@@ -55,7 +55,7 @@ defmodule AgensDemo.Job do
   defp parse_outputs(json) do
     (json["outputs"] || [])
     |> Enum.map(fn o ->
-      %AgensRouter.Output{
+      %Agens.Router.Output{
         key: o["key"],
         type: o["type"],
         description: o["description"],
@@ -87,7 +87,7 @@ defmodule AgensDemo.Job do
 
   defp parse_conditions(conditions) do
     Enum.map(conditions, fn c ->
-      %AgensRouter.Condition{key: c["key"], op: c["op"], value: c["value"]}
+      %Agens.Router.Condition{key: c["key"], op: c["op"], value: c["value"]}
     end)
   end
 end

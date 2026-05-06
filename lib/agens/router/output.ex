@@ -1,13 +1,14 @@
-defmodule AgensRouter.Output do
+defmodule Agens.Router.Output do
   @type t :: %__MODULE__{
           key: String.t(),
           type: String.t(),
           description: String.t(),
           values: list(String.t()) | nil,
-          meta: map() | nil
+          meta: map() | nil,
+          value: any()
         }
 
-  defstruct [:key, :type, :description, :values, :meta]
+  defstruct [:key, :type, :description, :values, :meta, :value]
 
   @spec to_json_schema(list(t())) :: map()
   def to_json_schema(outputs) when is_list(outputs) do
@@ -17,7 +18,11 @@ defmodule AgensRouter.Output do
   end
 
   defp to_json_field(%__MODULE__{type: "int"} = output) do
-    %{"type" => "integer", "description" => output.description, "title" => "outputs.#{output.key}"}
+    %{
+      "type" => "integer",
+      "description" => output.description,
+      "title" => "outputs.#{output.key}"
+    }
     |> maybe_put("minimum", output.meta && output.meta[:min])
     |> maybe_put("maximum", output.meta && output.meta[:max])
   end
@@ -32,7 +37,11 @@ defmodule AgensRouter.Output do
   end
 
   defp to_json_field(%__MODULE__{type: "bool"} = output) do
-    %{"type" => "boolean", "description" => output.description, "title" => "outputs.#{output.key}"}
+    %{
+      "type" => "boolean",
+      "description" => output.description,
+      "title" => "outputs.#{output.key}"
+    }
   end
 
   defp to_json_field(%__MODULE__{type: "string"} = output) do

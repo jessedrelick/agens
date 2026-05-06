@@ -10,7 +10,10 @@ defmodule AgensDemo.InstructorServing do
 
   @impl Serving
   def outputs_schema(%Message{} = message) do
-    props = AgensRouter.Output.to_json_schema(AgensDemo.AgensRouter.outputs(message))
+    props =
+      message
+      |> AgensDemo.AgensRouter.outputs()
+      |> Agens.Router.Output.to_json_schema()
 
     {"outputs",
      %{

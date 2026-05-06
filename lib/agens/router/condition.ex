@@ -1,4 +1,6 @@
-defmodule AgensRouter.Condition do
+defmodule Agens.Router.Condition do
+  alias Agens.Router.Output
+
   @type t :: %__MODULE__{
           key: String.t(),
           op: String.t(),
@@ -7,14 +9,14 @@ defmodule AgensRouter.Condition do
 
   defstruct [:key, :op, :value]
 
-  @spec apply(t(), list()) :: boolean()
-  def apply(%__MODULE__{key: key, op: op, value: condition_value}, outputs) do
-    case List.keyfind(outputs, key, 0) do
+  @spec check(t(), list(Output.t())) :: boolean()
+  def check(%__MODULE__{key: key, op: op, value: condition_value}, outputs) do
+    case Enum.find(outputs, fn %Output{key: k} -> k == key end) do
       nil ->
         false
 
-      {_, %{config: config, value: result_value}} ->
-        check(result_value, op, coerce(config.type, condition_value))
+      %Output{type: type, value: result_value} ->
+        compare(result_value, op, coerce(type, condition_value))
     end
   end
 
@@ -24,9 +26,9 @@ defmodule AgensRouter.Condition do
   defp coerce("bool", _), do: false
   defp coerce(_, v), do: v
 
-  defp check(nil, _, _), do: false
+  defp compare(nil, _, _), do: false
 
-  defp check(result, op, condition) do
+  defp compare(result, op, condition) do
     case op do
       "eq" -> result == condition
       "neq" -> result != condition
