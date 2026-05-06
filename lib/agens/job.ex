@@ -75,6 +75,8 @@ defmodule Agens.Job do
     - `objective` - An optional string to be added to the LM prompt explaining the purpose of the Node.
     """
 
+    @derive [Jason.Encoder]
+
     @type schema :: binary()
 
     @type t :: %__MODULE__{
@@ -88,6 +90,18 @@ defmodule Agens.Job do
 
     @enforce_keys []
     defstruct [:serving, :agent_id, :sub, :objective, :tools, :resources]
+
+    @spec from_map(map()) :: t()
+    def from_map(%{} = m) do
+      %__MODULE__{
+        serving: m["serving"] && String.to_existing_atom(m["serving"]),
+        agent_id: m["agent_id"],
+        sub: m["sub"],
+        objective: m["objective"],
+        tools: m["tools"],
+        resources: m["resources"] && Enum.map(m["resources"], &Agens.Resource.from_map/1)
+      }
+    end
   end
 
   defmodule Sub do
@@ -111,6 +125,8 @@ defmodule Agens.Job do
     - `nodes` - A list of `Agens.Job.Node` structs that define the sequence of agent actions to be performed.
     """
 
+    @derive [Jason.Encoder]
+
     @type t :: %__MODULE__{
             id: binary(),
             description: String.t() | nil,
@@ -123,6 +139,24 @@ defmodule Agens.Job do
 
     @enforce_keys [:id, :nodes]
     defstruct [:id, :description, :nodes, :outputs, max_retries: 3]
+
+    @spec from_json(binary()) :: t()
+    def from_json(json) when is_binary(json) do
+      json |> Jason.decode!() |> from_map()
+    end
+
+    @spec from_map(map()) :: t()
+    def from_map(%{} = m) do
+      nodes = Map.new(m["nodes"] || %{}, fn {k, v} -> {k, Node.from_map(v)} end)
+
+      %__MODULE__{
+        id: m["id"],
+        description: m["description"],
+        nodes: nodes,
+        outputs: m["outputs"],
+        max_retries: m["max_retries"] || 3
+      }
+    end
   end
 
   defmodule State do
