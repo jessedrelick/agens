@@ -1,0 +1,9 @@
+{
+  "researcher": [
+    { "to_id": "summarizer", "conditions": [{ "key": "confidence", "op": "gte", "value": "7" }] },
+    { "type": "retry", "conditions": [{ "key": "confidence", "op": "lt", "value": "7" }] }
+  ],
+  "summarizer": [
+    { "type": "end" }
+  ]
+}

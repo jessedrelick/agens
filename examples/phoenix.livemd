@@ -1,17 +1,8 @@
-Application.put_env(:agens_demo, AgensDemo.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 8080],
-  server: true,
-  live_view: [signing_salt: "agensdemo"],
-  secret_key_base: String.duplicate("a", 64)
-)
+# Agens Demo
 
-# Configure provider and model via environment variables.
-# AGENS_SOURCE: openai (default), anthropic, gemini, groq, ollama
-# AGENS_MODEL:  provider-specific model name (defaults per provider if unset)
-Application.put_env(:agens_demo, :source, System.get_env("AGENS_SOURCE", "openai") |> String.to_atom())
-Application.put_env(:agens_demo, :model, System.get_env("AGENS_MODEL"))
-Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBackend])
+## Setup
 
+```elixir
 Mix.install([
   {:plug_cowboy, "~> 2.7"},
   {:phoenix, "1.7.10"},
@@ -20,7 +11,9 @@ Mix.install([
   {:hermes_mcp, "~> 0.14.1"},
   {:agens, path: Path.expand("..", __DIR__)}
 ])
+```
 
+```elixir
 Code.require_file("servings/instructor_params.ex", __DIR__)
 Code.require_file("servings/instructor_serving.ex", __DIR__)
 Code.require_file("backends/pubsub.ex", __DIR__)
@@ -36,12 +29,33 @@ Code.require_file("router/router.ex", __DIR__)
 Code.require_file("router/agens_router.ex", __DIR__)
 Code.require_file("phoenix/job.ex", __DIR__)
 Code.require_file("phoenix/app.ex", __DIR__)
+```
 
+## Configuration
+
+Configure your LLM provider before starting. Supported providers: `openai`, `anthropic`, `gemini`, `groq`, `ollama`.
+
+```elixir
+source = System.get_env("AGENS_SOURCE", "openai") |> String.to_atom()
+model = System.get_env("AGENS_MODEL")
+
+Application.put_env(:agens_demo, AgensDemo.Endpoint,
+  http: [ip: {127, 0, 0, 1}, port: 8080],
+  server: true,
+  live_view: [signing_salt: "agensdemo"],
+  secret_key_base: String.duplicate("a", 64)
+)
+
+Application.put_env(:agens_demo, :source, source)
+Application.put_env(:agens_demo, :model, model)
+Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBackend])
+```
+
+## Start
+
+```elixir
 {job_config, first_node} = AgensDemo.Job.load("research")
 Application.put_env(:agens_demo, :job, {job_config, first_node})
-
-source = Application.get_env(:agens_demo, :source, :openai)
-model = Application.get_env(:agens_demo, :model)
 
 serving_args =
   [source: source]
@@ -70,5 +84,15 @@ serving_args =
     serving: AgensDemo.InstructorServing,
     args: serving_args
   })
+```
 
-Process.sleep(:infinity)
+Open [http://localhost:8080](http://localhost:8080) to use the demo.
+
+## Run a job directly
+
+You can also run a job from this notebook and inspect results inline.
+
+```elixir
+run_id = AgensDemo.Job.new_run_id()
+:ok = AgensDemo.Job.run(run_id, "the history of the Elixir programming language")
+```

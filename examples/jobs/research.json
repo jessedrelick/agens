@@ -2,12 +2,19 @@
   "id": "research_pipeline",
   "description": "Research a topic and produce a summary",
   "first_node": "researcher",
+  "outputs": [
+    {
+      "key": "confidence",
+      "type": "int",
+      "description": "Rate your confidence in the quality and completeness of this response from 1 to 10",
+      "meta": { "min": 1, "max": 10 }
+    }
+  ],
   "nodes": {
     "researcher": {
       "agent_id": "researcher",
       "serving": "demo_serving",
-      "objective": "Research the given topic and provide key findings",
-      "next": "summarizer"
+      "objective": "Research the given topic and provide key findings"
     },
     "summarizer": {
       "agent_id": "summarizer",
