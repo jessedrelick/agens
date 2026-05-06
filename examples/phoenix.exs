@@ -19,11 +19,16 @@ Mix.install([
   {:phoenix, "1.7.10"},
   {:phoenix_live_view, "0.20.1"},
   {:instructor, "~> 0.1.0"},
+  {:hermes_mcp, "~> 0.14.1"},
   {:agens, path: Path.expand("..", __DIR__)}
 ])
 
 Code.require_file("servings/instructor_serving.ex", __DIR__)
 Code.require_file("backends/pubsub.ex", __DIR__)
+Code.require_file("mcp/tools.ex", __DIR__)
+Code.require_file("mcp/resources.ex", __DIR__)
+Code.require_file("mcp/server.ex", __DIR__)
+Code.require_file("mcp/client.ex", __DIR__)
 
 # ===========================================================================
 # Job configuration
@@ -32,38 +37,60 @@ Code.require_file("backends/pubsub.ex", __DIR__)
 defmodule AgensDemo.Job do
   alias Agens.{Job, Message}
 
-  @job_config %Job.Config{
-    id: "research_pipeline",
-    description: "Research a topic and produce a summary",
-    nodes: %{
-      "researcher" => %Job.Node{
-        agent_id: "researcher",
-        serving: :demo_serving,
-        objective: "Research the given topic and provide key findings"
-      },
-      "summarizer" => %Job.Node{
-        agent_id: "summarizer",
-        serving: :demo_serving,
-        objective: "Summarize the research findings for a general audience"
-      }
-    }
-  }
+  @jobs_dir Path.expand("jobs", __DIR__)
 
-  def config, do: @job_config
+  def load(name) do
+    json =
+      Path.join(@jobs_dir, "#{name}.json")
+      |> File.read!()
+      |> Jason.decode!()
+
+    {to_config(json), Map.fetch!(json, "first_node"), build_router(json)}
+  end
 
   def new_run_id do
     Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
   end
 
-  def run(run_id, topic) do
-    with {:ok, _pid} <- Job.start(@job_config, run_id),
-         :ok <- Job.run(run_id, topic, "researcher", []) do
+  def run(run_id, input) do
+    {config, first_node} = Application.fetch_env!(:agens_demo, :job)
+
+    with {:ok, _pid} <- Job.start(config, run_id),
+         :ok <- Job.run(run_id, input, first_node, []) do
       :ok
     end
   end
 
-  def router(%Message{node_id: node_id}) do
-    if node_id == "researcher", do: [{:route, "summarizer", 1}], else: [:end]
+  defp to_config(%{"id" => id, "nodes" => nodes} = json) do
+    %Job.Config{
+      id: id,
+      description: Map.get(json, "description"),
+      max_retries: Map.get(json, "max_retries", 3),
+      nodes:
+        Map.new(nodes, fn {node_id, node} ->
+          {node_id,
+           %Job.Node{
+             agent_id: Map.get(node, "agent_id"),
+             serving: node |> Map.fetch!("serving") |> String.to_atom(),
+             objective: Map.get(node, "objective")
+           }}
+        end)
+    }
+  end
+
+  defp build_router(json) do
+    routes =
+      Map.new(json["nodes"], fn {id, node} ->
+        next =
+          case Map.get(node, "next") do
+            nil -> [:end]
+            next_id -> [{:route, next_id, 1}]
+          end
+
+        {id, next}
+      end)
+
+    fn %Message{node_id: node_id} -> Map.get(routes, node_id, [:end]) end
   end
 end
 
@@ -247,6 +274,8 @@ defmodule AgensDemo.Router do
     plug(:accepts, ["html"])
   end
 
+  forward("/mcp", Hermes.Server.Transport.StreamableHTTP.Plug, server: AgensDemo.MCPServer)
+
   scope "/", AgensDemo do
     pipe_through(:browser)
 
@@ -265,11 +294,14 @@ end
 # Start
 # ===========================================================================
 
+{job_config, first_node, router} = AgensDemo.Job.load("research")
+Application.put_env(:agens_demo, :job, {job_config, first_node})
+
 source = Application.get_env(:agens_demo, :source, :openai)
 model = Application.get_env(:agens_demo, :model)
 
 serving_args =
-  [source: source, router: &AgensDemo.Job.router/1]
+  [source: source, router: router]
   |> then(fn args -> if model, do: Keyword.put(args, :model, model), else: args end)
 
 serving_config = %Agens.Serving.Config{
@@ -282,10 +314,17 @@ serving_config = %Agens.Serving.Config{
   Supervisor.start_link(
     [
       {Phoenix.PubSub, name: AgensDemo.PubSub},
+      Hermes.Server.Registry,
+      {AgensDemo.MCPServer, transport: :streamable_http},
       {Agens.Supervisor, name: Agens.Supervisor},
       AgensDemo.Endpoint
     ],
     strategy: :one_for_one
+  )
+
+{:ok, _} =
+  AgensDemo.MCPClient.start_link(
+    transport: {:streamable_http, base_url: "http://localhost:8080", mcp_path: "/mcp"}
   )
 
 {:ok, _} = Agens.Serving.start(serving_config)

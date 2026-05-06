@@ -1,0 +1,18 @@
+{
+  "id": "research_pipeline",
+  "description": "Research a topic and produce a summary",
+  "first_node": "researcher",
+  "nodes": {
+    "researcher": {
+      "agent_id": "researcher",
+      "serving": "demo_serving",
+      "objective": "Research the given topic and provide key findings",
+      "next": "summarizer"
+    },
+    "summarizer": {
+      "agent_id": "summarizer",
+      "serving": "demo_serving",
+      "objective": "Summarize the research findings for a general audience"
+    }
+  }
+}
