@@ -69,7 +69,7 @@ defmodule AgensDemo.Job do
     Map.new(json, fn {node_id, node_edges} ->
       edges =
         Enum.map(node_edges, fn e ->
-          %AgensRouter.Edge{
+          %AgensDemo.AgensRouter.Edge{
             type: (e["type"] || "route") |> String.to_atom(),
             to_id: e["to_id"],
             count: e["count"] || 1,
