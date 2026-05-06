@@ -37,7 +37,7 @@ Code.require_file("router/agens_router.ex", __DIR__)
 Code.require_file("phoenix/job.ex", __DIR__)
 Code.require_file("phoenix/app.ex", __DIR__)
 
-{job_config, first_node} = AgensDemo.Job.load("research")
+{job_config, first_node} = AgensDemo.Job.load("industry_brief")
 Application.put_env(:agens_demo, :job, {job_config, first_node})
 
 source = Application.get_env(:agens_demo, :source, :openai)

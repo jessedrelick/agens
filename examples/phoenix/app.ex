@@ -41,12 +41,12 @@ defmodule AgensDemo.MainLive do
     <div class="min-h-screen bg-gray-50 flex items-start justify-center gap-6 px-10 py-10 antialiased">
       <div class="flex flex-col w-1/2 gap-4">
         <h2 class="text-xl font-semibold text-gray-700">Agens Demo</h2>
-        <form phx-submit="research" class="flex flex-col gap-2">
+        <form phx-submit="run" class="flex flex-col gap-2">
           <input
             class="block w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             type="text"
             name="topic"
-            placeholder="Enter a research topic..."
+            placeholder="Enter a topic for an industry brief..."
             value={@topic}
             disabled={@running}
           />
@@ -55,7 +55,7 @@ defmodule AgensDemo.MainLive do
             class="px-5 py-2.5 text-white bg-blue-700 font-medium rounded-lg text-sm hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400"
             disabled={@running}
           >
-            <%= if @running, do: "Researching...", else: "Research" %>
+            <%= if @running, do: "Generating...", else: "Generate Brief" %>
           </button>
         </form>
         <%= if @result do %>
@@ -82,7 +82,7 @@ defmodule AgensDemo.MainLive do
   end
 
   @impl true
-  def handle_event("research", %{"topic" => topic}, socket) when topic != "" do
+  def handle_event("run", %{"topic" => topic}, socket) when topic != "" do
     run_id = AgensDemo.Job.new_run_id()
     Phoenix.PubSub.subscribe(@pubsub, "#{@topic_prefix}:#{run_id}")
 
@@ -92,7 +92,7 @@ defmodule AgensDemo.MainLive do
     end
   end
 
-  def handle_event("research", _, socket), do: {:noreply, socket}
+  def handle_event("run", _, socket), do: {:noreply, socket}
 
   @impl true
   def handle_info({:job_started, run_id}, socket),

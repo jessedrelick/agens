@@ -1,0 +1,34 @@
+{
+  "planner": [
+    {
+      "to_id": "researcher",
+      "count": 3,
+      "conditions": [{ "key": "viable", "op": "eq", "value": "true" }]
+    },
+    {
+      "type": "end",
+      "conditions": [{ "key": "viable", "op": "eq", "value": "false" }]
+    }
+  ],
+  "researcher": [
+    {
+      "type": "yield",
+      "to_id": "writer",
+      "conditions": [{ "key": "confidence", "op": "gte", "value": "7" }]
+    },
+    {
+      "type": "retry",
+      "conditions": [{ "key": "confidence", "op": "lt", "value": "7" }]
+    }
+  ],
+  "writer": [
+    {
+      "type": "end",
+      "conditions": [{ "key": "quality", "op": "gte", "value": "8" }]
+    },
+    {
+      "type": "retry",
+      "conditions": [{ "key": "quality", "op": "lt", "value": "8" }]
+    }
+  ]
+}

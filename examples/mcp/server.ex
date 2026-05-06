@@ -5,5 +5,7 @@ defmodule AgensDemo.MCPServer do
     capabilities: [:tools, :resources]
 
   component(AgensDemo.Tools.Echo, type: :tool)
+  component(AgensDemo.Tools.WebSearch, type: :tool)
   component(AgensDemo.Resources.Agens, type: :resource)
+  component(AgensDemo.Resources.BriefGuidelines, type: :resource)
 end

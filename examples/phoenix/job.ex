@@ -44,7 +44,9 @@ defmodule AgensDemo.Job do
            %Job.Node{
              agent_id: Map.get(node, "agent_id"),
              serving: node |> Map.fetch!("serving") |> String.to_atom(),
-             objective: Map.get(node, "objective")
+             objective: Map.get(node, "objective"),
+             tools: node["tools"],
+             resources: node["resources"] && Enum.map(node["resources"], &resource_from_name/1)
            }}
         end)
     }
@@ -77,6 +79,10 @@ defmodule AgensDemo.Job do
 
       {node_id, edges}
     end)
+  end
+
+  defp resource_from_name(name) do
+    %Agens.Resource{uri: "agens://resources/#{name}", name: name}
   end
 
   defp parse_conditions(conditions) do

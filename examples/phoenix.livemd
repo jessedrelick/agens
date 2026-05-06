@@ -54,7 +54,7 @@ Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBacke
 ## Start
 
 ```elixir
-{job_config, first_node} = AgensDemo.Job.load("research")
+{job_config, first_node} = AgensDemo.Job.load("industry_brief")
 Application.put_env(:agens_demo, :job, {job_config, first_node})
 
 serving_args =
@@ -94,5 +94,5 @@ You can also run a job from this notebook and inspect results inline.
 
 ```elixir
 run_id = AgensDemo.Job.new_run_id()
-:ok = AgensDemo.Job.run(run_id, "the history of the Elixir programming language")
+:ok = AgensDemo.Job.run(run_id, "open source LLMs in enterprise")
 ```

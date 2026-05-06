@@ -45,3 +45,55 @@ defmodule AgensDemo.Resources.Agens do
     {:reply, response, frame}
   end
 end
+
+defmodule AgensDemo.Resources.BriefGuidelines do
+  use Hermes.Server.Component, type: :resource
+
+  alias Hermes.Server.Response
+
+  def uri, do: "agens://resources/brief_guidelines"
+  def name, do: "brief_guidelines"
+  def description, do: "Structure and format guidelines for writing an industry brief"
+  def mime_type, do: "text/plain"
+
+  @impl true
+  def read(_params, frame) do
+    response =
+      Response.resource()
+      |> Response.text("""
+      # Industry Brief Guidelines
+
+      ## Purpose
+      An industry brief provides a concise, authoritative overview of a topic for a professional
+      audience. Target length: 500-800 words.
+
+      ## Structure
+
+      ### 1. Executive Summary (50-75 words)
+      A high-level overview of the topic, its significance, and key takeaways.
+
+      ### 2. Background & Context (100-150 words)
+      Historical context, how the topic emerged, and why it matters today.
+
+      ### 3. Current Landscape (150-200 words)
+      Present state: key players, market dynamics, and major recent developments.
+
+      ### 4. Key Trends & Drivers (100-150 words)
+      The forces shaping the topic: technology, regulation, consumer behavior, macroeconomics.
+
+      ### 5. Challenges & Risks (75-100 words)
+      Primary obstacles, uncertainties, or risks practitioners should be aware of.
+
+      ### 6. Outlook (75-100 words)
+      Forward-looking perspective: where the topic is headed and what to watch for.
+
+      ## Style Guidelines
+      - Professional but accessible tone
+      - Use specific data points and examples where available
+      - Avoid unexplained jargon
+      - Active voice preferred
+      """)
+
+    {:reply, response, frame}
+  end
+end
