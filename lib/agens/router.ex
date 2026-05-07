@@ -57,7 +57,7 @@ defmodule Agens.Router do
 
   defp do_parse(%{"type" => "route", "value" => value}), do: {:route, value, 1}
   defp do_parse(%{"type" => "yield", "value" => value}), do: {:yield, value}
-  defp do_parse(%{"type" => "job", "value" => value}), do: {:job, value}
+  defp do_parse(%{"type" => "sub", "value" => value}), do: {:sub, value}
   defp do_parse(%{"type" => "end"}), do: :end
   defp do_parse(%{"type" => "retry"}), do: :retry
   defp do_parse(_), do: nil

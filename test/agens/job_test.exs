@@ -1497,17 +1497,16 @@ defmodule Agens.JobTest do
       assert_receive {:job_complete, ^sub_run_id}
 
       # Finish Parent
-      # assert_receive {:node_result,
-      #                 %Message{
-      #                   job_id: ^name,
-      #                   agent_id: nil,
-      #                   node_id: "node_0",
-      #                   input: ^input,
-      #                   result: ^sub_result,
-      #                   next: []
-      #                 }}
+      assert_receive {:node_result,
+                      %Message{
+                        job_id: ^id,
+                        agent_id: nil,
+                        node_id: "node_0",
+                        input: ^input,
+                        result: ^sub_result
+                      }}
 
-      # assert_receive {:job_complete, ^run_id}
+      assert_receive {:job_complete, ^run_id}
     end
   end
 

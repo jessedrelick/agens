@@ -213,7 +213,7 @@ defmodule Agens.Job do
             caller: pid() | nil,
             run_id: String.t() | nil,
             parent_run_id: String.t() | nil,
-            # parent_node_message: Message.t() | nil,
+            parent_node_message: Message.t() | nil,
             thread_count: non_neg_integer(),
             tasks: %{
               Task.ref() => Message.t()
@@ -227,7 +227,7 @@ defmodule Agens.Job do
       :caller,
       :run_id,
       :parent_run_id,
-      # :parent_node_message,
+      :parent_node_message,
       :yield,
       tasks: %{},
       thread_count: 0
@@ -529,10 +529,10 @@ defmodule Agens.Job do
     yield = Yield.thread_done(state.yield, message.thread_id)
 
     if new_count == 0 do
-      # if state.parent_node_message do
-      #   node_result = %{state.parent_node_message | result: message.result}
-      #   Agens.backends(:node_result, [state.caller, node_result])
-      # end
+      if state.parent_node_message do
+        node_result = %{state.parent_node_message | result: message.result}
+        Agens.backends(:node_result, [state.caller, node_result])
+      end
 
       maybe_notify_parent(state, {:done, message})
 
@@ -657,7 +657,7 @@ defmodule Agens.Job do
 
         run_sub(state, message, node.sub)
 
-        state
+        %{state | parent_node_message: message}
 
       true ->
         message = %Message{

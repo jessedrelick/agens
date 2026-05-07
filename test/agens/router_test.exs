@@ -42,8 +42,8 @@ defmodule Agens.RouterTest do
     end
 
     test "job" do
-      assert Router.parse_next([%{"type" => "job", "value" => "other_job"}]) ==
-               [{:job, "other_job"}]
+      assert Router.parse_next([%{"type" => "sub", "value" => "other_job"}]) ==
+               [{:sub, "other_job"}]
     end
 
     test "end" do
