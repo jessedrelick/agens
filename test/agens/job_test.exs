@@ -22,6 +22,7 @@ defmodule Agens.JobTest do
   defp start_job(_ctx) do
     job = %Job.Config{
       id: "first_job",
+      starting_node_id: "node_0",
       description: "to create a sequence of nodes",
       nodes: %{
         "node_0" => %Job.Node{
@@ -59,27 +60,39 @@ defmodule Agens.JobTest do
     end
 
     test "job not found" do
-      assert {:error, :run_not_found} == Job.run("nonexistent_run_id", "input", "node_0", [])
+      assert {:error, :run_not_found} == Job.run("nonexistent_run_id", "input", [])
     end
 
     test "job already running", %{run_id: run_id} do
       input = "input"
-      node_id = "node_0"
 
-      :ok = Job.run(run_id, input, node_id, [])
-      assert {:error, :job_already_running} == Job.run(run_id, input, node_id, [])
+      :ok = Job.run(run_id, input, [])
+      assert {:error, :job_already_running} == Job.run(run_id, input, [])
     end
 
     test "nil input", %{run_id: run_id} do
-      assert {:error, :input_required} == Job.run(run_id, nil, "node_0", [])
+      assert {:error, :input_required} == Job.run(run_id, nil, [])
     end
 
-    test "invalid node id", %{job: %{id: id, description: description}, run_id: run_id} do
+    test "invalid node id" do
       input = "input"
       node_id = "invalid_node_id"
       caller = self()
+      id = "invalid_node_job"
+      run_id = "invalid_node_run_id"
+      description = "to test invalid node"
 
-      :ok = Job.run(run_id, input, node_id, [])
+      job = %Job.Config{
+        id: id,
+        starting_node_id: node_id,
+        description: description,
+        nodes: %{
+          "node_0" => %Job.Node{serving: :test_serving, agent_id: :first_agent}
+        }
+      }
+
+      {:ok, _pid} = Job.start(job, run_id)
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -96,11 +109,10 @@ defmodule Agens.JobTest do
 
     test "invalid next value", %{job: %{id: id, description: description}, run_id: run_id} do
       input = "invalid next"
-      first_node_id = "node_0"
       caller = self()
       next = "invalid next node"
 
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -108,7 +120,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -118,7 +130,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: "invalid next test",
                         next: ^next
@@ -130,7 +142,7 @@ defmodule Agens.JobTest do
                         job_description: ^description,
                         run_id: ^run_id,
                         input: ^input,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         caller: ^caller,
                         next: ^next
                       }, :invalid_next}
@@ -143,6 +155,7 @@ defmodule Agens.JobTest do
     test "config - by job id" do
       job = %Job.Config{
         id: "job_config",
+        starting_node_id: "node_0",
         nodes: []
       }
 
@@ -159,6 +172,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: "job_config",
+        starting_node_id: "node_0",
         nodes: []
       }
 
@@ -177,12 +191,11 @@ defmodule Agens.JobTest do
     @tag :skip
     test "start", %{job: %{id: id} = job, pid: pid} do
       input = "D"
-      first_node_id = "node_0"
       run_id = "test_run_id"
 
       assert is_pid(pid)
       {:error, {:already_started, ^pid}} = Job.start(job, run_id)
-      :ok = Job.run(id, input, first_node_id, [])
+      :ok = Job.run(id, input, [])
 
       assert_receive {:job_started, ^id, nil}
 
@@ -192,7 +205,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -202,7 +215,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: "C",
                         next: [{:route, "node_10", 1}]
@@ -256,7 +269,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: "E"
                       }}
 
@@ -266,7 +279,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: "E",
                         result: "D",
                         next: [{:route, "node_10", 1}]
@@ -320,7 +333,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: "F"
                       }}
 
@@ -330,7 +343,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: "F",
                         result: "E",
                         next: [{:route, "node_10", 1}]
@@ -393,14 +406,13 @@ defmodule Agens.JobTest do
 
     test "start with run id", %{job: %{id: id} = job} do
       input = "F"
-      first_node_id = "node_0"
       run_id = "test_run_id"
 
       {:ok, pid} = Job.start(job, run_id)
 
       assert is_pid(pid)
       {:error, {:already_started, ^pid}} = Job.start(job, run_id)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -410,7 +422,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -421,7 +433,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: :first_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: "E",
                         previous_result: nil,
@@ -489,12 +501,12 @@ defmodule Agens.JobTest do
 
     test "multiple threads" do
       input = "H"
-      first_node_id = "node_0"
       id = "parallel_job"
       run_id = "test_parallel_run_id"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to execute multiple agents in parallel",
         nodes: %{
           "node_0" => %Job.Node{
@@ -512,7 +524,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -522,7 +534,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: :parallel_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: "H"
                       }}
 
@@ -532,7 +544,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :parallel_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: ^input,
                         next: [{:route, "node_10", 4}]
@@ -656,7 +668,6 @@ defmodule Agens.JobTest do
 
     test "max retries" do
       input = "error"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retries_run_id"
       agent_id = :retry_agent
@@ -664,6 +675,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test retries",
         nodes: %{
           "node_0" => %Job.Node{
@@ -676,7 +688,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -687,7 +699,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -700,7 +712,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -715,7 +727,7 @@ defmodule Agens.JobTest do
                         retries: 2,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -728,7 +740,7 @@ defmodule Agens.JobTest do
                         retries: 3,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -739,7 +751,7 @@ defmodule Agens.JobTest do
                         retries: 3,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -748,7 +760,6 @@ defmodule Agens.JobTest do
 
     test "explict retry" do
       input = "explicit"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_explicit_retry_run_id"
       result = "explicit retry"
@@ -757,6 +768,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test explicit retries",
         nodes: %{
           "node_0" => %Job.Node{
@@ -769,7 +781,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -780,7 +792,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -797,7 +809,7 @@ defmodule Agens.JobTest do
                         retry_reason: nil,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: ^result
                       }}
@@ -815,7 +827,7 @@ defmodule Agens.JobTest do
       #                   retries: 2,
       #                   job_id: ^name,
       #                   agent_id: ^agent_id,
-      #                   node_id: ^first_node_id,
+      #                   node_id: "node_0",
       #                   input: ^input,
       #                   result: nil,
       #                   next: nil
@@ -828,7 +840,7 @@ defmodule Agens.JobTest do
       #                   retries: 3,
       #                   job_id: ^name,
       #                   agent_id: ^agent_id,
-      #                   node_id: ^first_node_id,
+      #                   node_id: "node_0",
       #                   input: ^input,
       #                   result: nil,
       #                   next: nil
@@ -839,7 +851,7 @@ defmodule Agens.JobTest do
       #                   retries: 3,
       #                   job_id: ^name,
       #                   agent_id: ^agent_id,
-      #                   node_id: ^first_node_id,
+      #                   node_id: "node_0",
       #                   input: ^input,
       #                   result: nil,
       #                   next: nil
@@ -848,7 +860,6 @@ defmodule Agens.JobTest do
 
     test "config max retries" do
       input = "error"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retries_config_run_id"
       agent_id = :retry_agent
@@ -856,6 +867,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to override max retries",
         max_retries: 1,
         nodes: %{
@@ -869,7 +881,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -880,7 +892,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -893,7 +905,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -908,7 +920,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         job_id: ^id,
                         agent_id: ^agent_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: nil,
                         next: []
@@ -917,7 +929,6 @@ defmodule Agens.JobTest do
 
     test "retry with reason from serving" do
       input = "error"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retry_reason_run_id"
       agent_id = :retry_agent
@@ -926,6 +937,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test retry reason from serving",
         max_retries: 1,
         nodes: %{
@@ -938,7 +950,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -952,7 +964,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         retry_reason: ^retry_reason,
                         job_id: ^id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -965,7 +977,6 @@ defmodule Agens.JobTest do
 
     test "retry with reason from next" do
       input = "explicit_with_reason"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_retry_reason_next_run_id"
       agent_id = :retry_agent
@@ -974,6 +985,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test retry reason from next",
         max_retries: 1,
         nodes: %{
@@ -986,7 +998,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -1002,7 +1014,7 @@ defmodule Agens.JobTest do
                         retries: 1,
                         retry_reason: ^retry_reason,
                         job_id: ^id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -1015,13 +1027,13 @@ defmodule Agens.JobTest do
 
     test "error terminates immediately" do
       input = "fatal"
-      first_node_id = "node_0"
       id = "retries_job"
       run_id = "test_error_terminates_run_id"
       agent_id = :retry_agent
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test error terminates",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1033,13 +1045,13 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
       assert_receive {:node_started, %Message{retries: 0}}
 
-      assert_receive {:job_error, %Message{retries: 0, node_id: ^first_node_id}, :fatal_error}
+      assert_receive {:job_error, %Message{retries: 0, node_id: "node_0"}, :fatal_error}
 
       refute_receive {:node_retry, %Message{}}
     end
@@ -1050,12 +1062,12 @@ defmodule Agens.JobTest do
 
     test "ends job immediately" do
       input = "input"
-      first_node_id = "node_0"
       id = "end_job"
       run_id = "test_end_run_id"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to end job",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1073,7 +1085,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -1092,11 +1104,11 @@ defmodule Agens.JobTest do
     test "crash" do
       input = "unhandled exception"
       id = "crash_job"
-      first_node_id = "node_0"
       run_id = "crash_run_id"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to simulate a crash",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1108,7 +1120,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -1147,13 +1159,13 @@ defmodule Agens.JobTest do
     test "tool" do
       input = "T"
       id = "test_tool_job"
-      first_node_id = "node_0"
       run_id = "test_tool_run_id"
       tool_name = "test_tool_name"
       tool_call_id = "tool_call_id"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test tool usage",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1170,7 +1182,7 @@ defmodule Agens.JobTest do
       {:ok, pid} = Job.start(job, run_id)
 
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -1196,11 +1208,11 @@ defmodule Agens.JobTest do
     test "resource content is loaded and appears in system prompt" do
       id = "test_resource_job"
       run_id = "test_resource_run_id"
-      first_node_id = "node_0"
       resource = Resources.resource_def()
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to test resource loading",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1213,7 +1225,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, "input", first_node_id, [])
+      :ok = Job.run(run_id, "input", [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:node_started, %Message{resources: [%Resource{content: nil}]}}
@@ -1228,11 +1240,11 @@ defmodule Agens.JobTest do
     test "resource with no content is excluded from prompt" do
       id = "test_resource_no_content_job"
       run_id = "test_resource_no_content_run_id"
-      first_node_id = "node_0"
       resource = Resources.resource_def(:no_content)
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
@@ -1243,7 +1255,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, "input", first_node_id, [])
+      :ok = Job.run(run_id, "input", [])
 
       assert_receive {:node_started, %Message{}}
       assert_receive {:prompt, {system, _user}}
@@ -1255,11 +1267,11 @@ defmodule Agens.JobTest do
     test "multiple resources load in parallel and all appear in prompt" do
       id = "test_multi_resource_job"
       run_id = "test_multi_resource_run_id"
-      first_node_id = "node_0"
       resource = Resources.resource_def()
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
@@ -1270,7 +1282,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, "input", first_node_id, [])
+      :ok = Job.run(run_id, "input", [])
 
       assert_receive {:node_started, %Message{}}
       assert_receive {:prompt, {system, _user}}
@@ -1282,10 +1294,10 @@ defmodule Agens.JobTest do
     test "node without resources sends prompt with no resource section" do
       id = "test_no_resource_job"
       run_id = "test_no_resource_run_id"
-      first_node_id = "node_0"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         nodes: %{
           "node_0" => %Job.Node{
             serving: :test_serving,
@@ -1295,7 +1307,7 @@ defmodule Agens.JobTest do
       }
 
       {:ok, _pid} = Job.start(job, run_id)
-      :ok = Job.run(run_id, "input", first_node_id, [])
+      :ok = Job.run(run_id, "input", [])
 
       assert_receive {:node_started, %Message{resources: nil}}
       assert_receive {:prompt, {system, _user}}
@@ -1312,7 +1324,6 @@ defmodule Agens.JobTest do
       run_id = "test_prompt_run_id"
       agent_id = :test_prompt_agent
       input = "test input"
-      first_node_id = "node_0"
       job_description = "test job description"
       node_objective = "test node objective"
 
@@ -1334,6 +1345,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} =
         %Job.Config{
           id: job_id,
+          starting_node_id: "node_0",
           description: job_description,
           nodes: %{
             "node_0" => %Job.Node{
@@ -1345,7 +1357,7 @@ defmodule Agens.JobTest do
         }
         |> Job.start(run_id)
 
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^job_id, ^run_id}
 
@@ -1365,12 +1377,12 @@ defmodule Agens.JobTest do
 
     test "waits until all threads are ready" do
       input = "Y"
-      first_node_id = "node_0"
       id = "yield_job"
       run_id = "test_yield_run_id"
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to yield and aggregate results",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1393,7 +1405,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
 
@@ -1403,7 +1415,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: :split_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -1414,7 +1426,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :split_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: ^input,
                         next: [{:route, "node_10", 4}]
@@ -1559,7 +1571,6 @@ defmodule Agens.JobTest do
 
     test "route instruction" do
       input = "S"
-      first_node_id = "node_0"
       id = "sub_job"
       run_id = "test_sub_run_id"
       sub_id = "sub"
@@ -1570,6 +1581,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to spawn a sub job via route instruction",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1582,7 +1594,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -1593,7 +1605,7 @@ defmodule Agens.JobTest do
                         job_id: ^id,
                         run_id: ^run_id,
                         agent_id: :sub_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -1601,7 +1613,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         agent_id: :sub_agent,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input,
                         result: ^input,
                         next: [{:sub, "sub_job"}]
@@ -1638,7 +1650,6 @@ defmodule Agens.JobTest do
 
     test "node sub" do
       input = "S"
-      first_node_id = "node_0"
       id = "sub_job"
       run_id = "test_sub_run_id"
       sub_id = "sub"
@@ -1649,6 +1660,7 @@ defmodule Agens.JobTest do
 
       job = %Job.Config{
         id: id,
+        starting_node_id: "node_0",
         description: "to spawn a sub job via node sub field",
         nodes: %{
           "node_0" => %Job.Node{
@@ -1660,7 +1672,7 @@ defmodule Agens.JobTest do
 
       {:ok, pid} = Job.start(job, run_id)
       assert is_pid(pid)
-      :ok = Job.run(run_id, input, first_node_id, [])
+      :ok = Job.run(run_id, input, [])
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
@@ -1670,7 +1682,7 @@ defmodule Agens.JobTest do
                       %Message{
                         job_id: ^id,
                         run_id: ^run_id,
-                        node_id: ^first_node_id,
+                        node_id: "node_0",
                         input: ^input
                       }}
 
@@ -1705,7 +1717,7 @@ defmodule Agens.JobTest do
       #                 %Message{
       #                   job_id: ^name,
       #                   agent_id: nil,
-      #                   node_id: ^first_node_id,
+      #                   node_id: "node_0",
       #                   input: ^input,
       #                   result: ^sub_result,
       #                   next: []

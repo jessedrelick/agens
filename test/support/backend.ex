@@ -86,9 +86,8 @@ defmodule Test.Support.Backend do
     }
 
     %Agens.Job.Sub{
-      config: %Agens.Job.Config{id: "sub", nodes: nodes},
-      run_id: "sub_run_id",
-      first_node_id: "sub_node_0"
+      config: %Agens.Job.Config{id: "sub", nodes: nodes, starting_node_id: "sub_node_0"},
+      run_id: "sub_run_id"
     }
   end
 end

@@ -28,7 +28,8 @@ defmodule Agens.Router do
 
       def route(%Message{} = message, _), do: route(message)
 
-      defp prepare_outputs(%Message{outputs: outputs_result} = message) do
+      defp prepare_outputs(%Message{outputs: outputs_result} = message)
+           when is_map(outputs_result) do
         outputs_def = outputs(message)
 
         if Enum.all?(outputs_def, fn %Output{key: k} -> Map.has_key?(outputs_result, k) end) do
