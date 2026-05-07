@@ -12,7 +12,7 @@ defmodule AgensDemo.InstructorServing do
   def outputs_schema(%Message{} = message) do
     props =
       message
-      |> AgensDemo.AgensRouter.outputs()
+      |> AgensDemo.EdgeRouter.outputs()
       |> Agens.Router.Output.to_json_schema()
 
     {"outputs",
@@ -84,7 +84,7 @@ defmodule AgensDemo.InstructorServing do
   def handle_result({:ok, _response, %{"body" => body} = parsed}, _state, message) do
     outputs = Map.get(parsed, "outputs", %{})
     tool_calls = Map.get(parsed, "tool_calls", [])
-    next = AgensDemo.AgensRouter.route(%{message | outputs: outputs})
+    next = AgensDemo.EdgeRouter.route(%{message | outputs: outputs})
     {:ok, %Serving.Result{body: body, outputs: outputs, tool_calls: tool_calls, next: next}}
   end
 

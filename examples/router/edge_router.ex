@@ -1,4 +1,4 @@
-defmodule AgensDemo.AgensRouter do
+defmodule AgensDemo.EdgeRouter do
   use Agens.Router
 
   alias Agens.{Message, Router.Condition}
