@@ -20,15 +20,15 @@ defmodule AgensDemo.InstructorParams do
   @json_schema_providers [:openai, :gemini]
   @tools_providers [:anthropic, :groq, :ollama]
 
-  def call(source, model, system, user, schema) do
+  def call(source, model, system, user, history \\ [], schema) do
     model = model || Map.get(@default_models, source, "gpt-4o-mini")
 
     source
-    |> build(model, system, user, schema)
+    |> build(model, system, user, history, schema)
     |> adapter!(source).chat_completion()
   end
 
-  defp build(source, model, system, user, schema) when source in @json_schema_providers do
+  defp build(source, model, system, user, history, schema) when source in @json_schema_providers do
     [
       mode: :json_schema,
       model: model,
@@ -36,14 +36,11 @@ defmodule AgensDemo.InstructorParams do
         type: "json_schema",
         json_schema: %{name: "agens_response", schema: schema, strict: true}
       },
-      messages: [
-        %{role: "system", content: system},
-        %{role: "user", content: user}
-      ]
+      messages: base_messages(system, user, history)
     ]
   end
 
-  defp build(source, model, system, user, schema) when source in @tools_providers do
+  defp build(source, model, system, user, history, schema) when source in @tools_providers do
     [
       mode: :tools,
       model: model,
@@ -57,11 +54,17 @@ defmodule AgensDemo.InstructorParams do
           }
         }
       ],
-      messages: [
-        %{role: "system", content: system},
-        %{role: "user", content: user}
-      ]
+      messages: base_messages(system, user, history)
     ]
+  end
+
+  defp base_messages(system, user, history) do
+    assistant = Enum.map(history, fn %{node_id: node_id, result: result} ->
+      %{role: "assistant", content: "[#{node_id}]: #{result}"}
+    end)
+
+    [[%{role: "system", content: system}, %{role: "user", content: user}], assistant]
+    |> Enum.concat()
   end
 
   defp adapter!(source) do

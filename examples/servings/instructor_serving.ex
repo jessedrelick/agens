@@ -67,10 +67,11 @@ defmodule AgensDemo.InstructorServing do
   end
 
   @impl Serving
-  def handle_message(state, %Message{system: system, user: user}, schema) do
+  def handle_message(state, %Message{system: system, user: user, run_id: run_id}, schema) do
     source = Keyword.get(state.config.args, :source, :openai)
     model = Keyword.get(state.config.args, :model)
-    AgensDemo.InstructorParams.call(source, model, system, user, schema)
+    history = if is_nil(run_id), do: [], else: AgensDemo.History.load(run_id)
+    AgensDemo.InstructorParams.call(source, model, system, user, history, schema)
   end
 
   @impl Serving
