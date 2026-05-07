@@ -5,6 +5,7 @@ defmodule AgensDemo.InstructorServing do
 
   @source :openai
   @model "gpt-5"
+  @router AgensDemo.EdgeRouter
   @agents_dir Path.expand("../agents", __DIR__)
 
   @impl Serving
@@ -18,7 +19,7 @@ defmodule AgensDemo.InstructorServing do
   def outputs_schema(%Message{} = message) do
     props =
       message
-      |> AgensDemo.EdgeRouter.outputs()
+      |> @router.outputs()
       |> Agens.Router.Output.to_json_schema()
 
     {"outputs",
@@ -90,7 +91,7 @@ defmodule AgensDemo.InstructorServing do
   def handle_result({:ok, _response, %{"body" => body} = parsed}, _state, message) do
     outputs = Map.get(parsed, "outputs", %{})
     tool_calls = Map.get(parsed, "tool_calls", [])
-    next = AgensDemo.EdgeRouter.route(%{message | outputs: outputs})
+    next = @router.route(%{message | outputs: outputs})
     {:ok, %Serving.Result{body: body, outputs: outputs, tool_calls: tool_calls, next: next}}
   end
 
