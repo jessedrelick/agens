@@ -16,7 +16,7 @@ defmodule AgensDemo.EdgeRouter do
 
   @impl Agens.Router
   def outputs(%Message{job_id: job_id}) do
-    Application.get_env(:agens_demo, {:job_outputs, job_id}, [])
+    AgensDemo.Job.load_outputs(job_id)
   end
 
   @impl Agens.Router
@@ -32,11 +32,30 @@ defmodule AgensDemo.EdgeRouter do
     |> Enum.map(&to_next/1)
   end
 
-  defp edges(%Message{job_id: job_id, node_id: node_id}) do
-    :agens_demo
-    |> Application.get_env({:job_edges, job_id}, %{})
-    |> Map.get(node_id, [%Edge{type: :end}])
+  defp edges(%Message{job_id: job_id, node_id: node_id}), do: edges(job_id, node_id)
+
+  defp edges("industry_brief", "planner") do
+    [
+      %Edge{to_id: "researcher", count: 3, conditions: [%Condition{key: "viable", op: "eq", value: "true"}]},
+      %Edge{type: :end, conditions: [%Condition{key: "viable", op: "eq", value: "false"}]}
+    ]
   end
+
+  defp edges("industry_brief", "researcher") do
+    [
+      %Edge{type: :yield, to_id: "writer", conditions: [%Condition{key: "confidence", op: "gte", value: "7"}]},
+      %Edge{type: :retry, conditions: [%Condition{key: "confidence", op: "lt", value: "7"}]}
+    ]
+  end
+
+  defp edges("industry_brief", "writer") do
+    [
+      %Edge{type: :end, conditions: [%Condition{key: "quality", op: "gte", value: "8"}]},
+      %Edge{type: :retry, conditions: [%Condition{key: "quality", op: "lt", value: "8"}]}
+    ]
+  end
+
+  defp edges(_, _), do: [%Edge{type: :end}]
 
   defp maybe_fallback([], edges), do: Enum.filter(edges, &(&1.type == :fallback))
   defp maybe_fallback(matched, _), do: matched

@@ -28,9 +28,6 @@ Code.require_file("router/linear_router.ex", __DIR__)
 Code.require_file("phoenix/job.ex", __DIR__)
 Code.require_file("phoenix/app.ex", __DIR__)
 
-{job_config, first_node} = AgensDemo.Job.load("industry_brief")
-Application.put_env(:agens_demo, :job, {job_config, first_node})
-
 {:ok, _} =
   Supervisor.start_link(
     [

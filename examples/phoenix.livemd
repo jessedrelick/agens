@@ -30,9 +30,6 @@ Code.require_file("phoenix/app.ex", __DIR__)
 ## Start
 
 ```elixir
-{job_config, first_node} = AgensDemo.Job.load("industry_brief")
-Application.put_env(:agens_demo, :job, {job_config, first_node})
-
 {:ok, _} =
   Supervisor.start_link(
     [

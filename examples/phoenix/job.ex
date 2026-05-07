@@ -9,14 +9,7 @@ defmodule AgensDemo.Job do
       |> File.read!()
       |> Jason.decode!()
 
-    edges_json =
-      Path.join(@jobs_dir, "#{name}_edges.json")
-      |> File.read!()
-      |> Jason.decode!()
-
     config = to_config(json)
-    Application.put_env(:agens_demo, {:job_outputs, config.id}, parse_outputs(json))
-    Application.put_env(:agens_demo, {:job_edges, config.id}, parse_edges(edges_json))
     {config, Map.fetch!(json, "first_node")}
   end
 
@@ -25,7 +18,7 @@ defmodule AgensDemo.Job do
   end
 
   def run(run_id, input) do
-    {config, first_node} = Application.fetch_env!(:agens_demo, :job)
+    {config, first_node} = load("industry_brief")
 
     with {:ok, _pid} <- Job.start(config, run_id),
          :ok <- Job.run(run_id, input, first_node, []) do
@@ -52,6 +45,13 @@ defmodule AgensDemo.Job do
     }
   end
 
+  def load_outputs(name) do
+    Path.join(@jobs_dir, "#{name}.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> parse_outputs()
+  end
+
   defp parse_outputs(json) do
     (json["outputs"] || [])
     |> Enum.map(fn o ->
@@ -65,29 +65,8 @@ defmodule AgensDemo.Job do
     end)
   end
 
-  defp parse_edges(json) do
-    Map.new(json, fn {node_id, node_edges} ->
-      edges =
-        Enum.map(node_edges, fn e ->
-          %AgensDemo.EdgeRouter.Edge{
-            type: (e["type"] || "route") |> String.to_atom(),
-            to_id: e["to_id"],
-            count: e["count"] || 1,
-            conditions: parse_conditions(e["conditions"] || [])
-          }
-        end)
-
-      {node_id, edges}
-    end)
-  end
-
   defp resource_from_name(name) do
     %Agens.Resource{uri: "agens://resources/#{name}", name: name}
   end
 
-  defp parse_conditions(conditions) do
-    Enum.map(conditions, fn c ->
-      %Agens.Router.Condition{key: c["key"], op: c["op"], value: c["value"]}
-    end)
-  end
 end
