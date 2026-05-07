@@ -1,0 +1,34 @@
+defmodule Agens.MetricsTest do
+  use ExUnit.Case, async: true
+
+  alias Agens.Metrics
+
+  test "metrics/0 returns a non-empty list" do
+    metrics = Metrics.metrics()
+    assert is_list(metrics)
+    assert length(metrics) > 0
+  end
+
+  test "metrics/0 includes serving metrics" do
+    names = Metrics.metrics() |> Enum.map(& &1.name)
+    assert [:agens, :serving, :start] in names
+    assert [:agens, :serving, :enqueue] in names
+    assert [:agens, :serving, :stop] in names
+    assert [:agens, :serving, :result, :duration] in names
+  end
+
+  test "metrics/0 includes job metrics" do
+    names = Metrics.metrics() |> Enum.map(& &1.name)
+    assert [:agens, :job, :start] in names
+    assert [:agens, :job, :run] in names
+    assert [:agens, :job, :stop] in names
+    assert [:agens, :job, :complete] in names
+    assert [:agens, :job, :error] in names
+  end
+
+  test "metrics/0 includes tool and resource metrics" do
+    names = Metrics.metrics() |> Enum.map(& &1.name)
+    assert [:agens, :tool, :call] in names
+    assert [:agens, :resource, :load] in names
+  end
+end

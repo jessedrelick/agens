@@ -242,6 +242,18 @@ defmodule Agens.RouterTest do
       condition = %Condition{key: "score", op: "gt", value: "0"}
       refute Condition.check(condition, [])
     end
+
+    test "coerces bool false string to false" do
+      condition = %Condition{key: "pass", op: "eq", value: "false"}
+      outputs = [output("pass", "bool", false)]
+      assert Condition.check(condition, outputs)
+    end
+
+    test "condition with nil value coerces to nil" do
+      condition = %Condition{key: "status", op: "neq", value: nil}
+      outputs = [output("status", "string", "done")]
+      assert Condition.check(condition, outputs)
+    end
   end
 
   # ===========================================================================

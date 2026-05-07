@@ -130,6 +130,18 @@ defmodule Agens.ServingTest do
     ]
   end
 
+  describe "stop" do
+    setup [:start_agens, :start_serving]
+
+    test "stop/1 terminates serving by name", %{config: config} do
+      assert :ok == Serving.stop(config.name)
+    end
+
+    test "stop/1 returns error when serving not found" do
+      assert {:error, :serving_not_found} == Serving.stop(:nonexistent_serving)
+    end
+  end
+
   describe "config" do
     setup [:start_agens, :start_serving]
 
