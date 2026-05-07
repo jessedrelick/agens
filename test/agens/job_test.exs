@@ -1430,6 +1430,7 @@ defmodule Agens.JobTest do
 
       assert_receive {:job_complete, ^sub_run_id}
       assert_receive {:job_complete, ^run_id}
+      refute_receive {:node_result, %Message{job_id: ^id, node_id: "node_0", result: ^sub_result}}
     end
 
     test "node sub" do
@@ -1662,6 +1663,80 @@ defmodule Agens.JobTest do
 
       assert_receive {:job_started, ^id, ^run_id}
       assert_receive {:job_error, %Message{node_id: "node_0"}, :job_not_loaded}
+    end
+  end
+
+  # ===========================================================================
+  # Sub - error propagation
+  # ===========================================================================
+
+  describe "sub - error propagation" do
+    setup do
+      original = Application.get_env(:agens, :backends)
+      Application.put_env(:agens, :backends, [Test.Support.ErrorSubBackend])
+      on_exit(fn -> Application.put_env(:agens, :backends, original) end)
+      :ok
+    end
+
+    setup [:start_agens, :start_serving]
+
+    test "node sub error propagates to parent with parent node context" do
+      input = "S"
+      id = "sub_error_parent_job"
+      run_id = "sub_error_parent_run_id"
+      sub_id = "sub_error"
+      sub_run_id = "sub_error_run_id"
+
+      job = %Job.Config{
+        id: id,
+        starting_node_id: "node_0",
+        description: "to test sub error propagation",
+        nodes: %{
+          "node_0" => %Job.Node{
+            sub: sub_id
+          }
+        }
+      }
+
+      {:ok, _pid} = Job.start(job, run_id)
+      :ok = Job.run(run_id, input, [])
+
+      assert_receive {:job_started, ^id, ^run_id}
+
+      assert_receive {:node_started,
+                      %Message{
+                        job_id: ^id,
+                        run_id: ^run_id,
+                        node_id: "node_0",
+                        input: ^input
+                      }}
+
+      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+
+      assert_receive {:node_started,
+                      %Message{
+                        job_id: ^sub_id,
+                        run_id: ^sub_run_id,
+                        parent_run_id: ^run_id,
+                        node_id: "sub_node_0",
+                        input: ^input
+                      }}
+
+      assert_receive {:job_error,
+                      %Message{
+                        job_id: ^sub_id,
+                        run_id: ^sub_run_id,
+                        node_id: "sub_node_0",
+                        input: ^input
+                      }, :sub_fatal_error}
+
+      assert_receive {:job_error,
+                      %Message{
+                        job_id: ^id,
+                        run_id: ^run_id,
+                        node_id: "node_0",
+                        input: ^input
+                      }, :sub_fatal_error}
     end
   end
 

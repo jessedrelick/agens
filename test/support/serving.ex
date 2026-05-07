@@ -177,6 +177,10 @@ defmodule Test.Support.Serving do
     }
   end
 
+  defp map_input(:sub_error_agent, _input) do
+    {:error, :sub_fatal_error}
+  end
+
   defp map_input(agent, input) do
     %Result{
       body: "sent '#{input}' to: #{agent}",

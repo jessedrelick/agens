@@ -107,11 +107,13 @@ defmodule Agens.Job do
   defmodule Sub do
     @type t :: %__MODULE__{
             config: Agens.Job.Config.t(),
-            run_id: binary()
+            run_id: binary(),
+            parent_run_id: binary() | nil,
+            parent_node_message: Agens.Message.t() | nil
           }
 
     @enforce_keys [:config]
-    defstruct [:config, :run_id]
+    defstruct [:config, :run_id, :parent_run_id, :parent_node_message]
   end
 
   defmodule Config do
@@ -212,8 +214,7 @@ defmodule Agens.Job do
             config: Config.t(),
             caller: pid() | nil,
             run_id: String.t() | nil,
-            parent_run_id: String.t() | nil,
-            parent_node_message: Message.t() | nil,
+            sub: Sub.t() | nil,
             thread_count: non_neg_integer(),
             tasks: %{
               Task.ref() => Message.t()
@@ -226,8 +227,7 @@ defmodule Agens.Job do
       :config,
       :caller,
       :run_id,
-      :parent_run_id,
-      :parent_node_message,
+      :sub,
       :yield,
       tasks: %{},
       thread_count: 0
@@ -395,11 +395,9 @@ defmodule Agens.Job do
     :telemetry.execute([:agens, :job, :run], %{}, %{job_id: state.config.id, run_id: state.run_id})
 
     caller = Keyword.get(opts, :caller, pid)
-    new_state = %State{state | status: :running, caller: caller}
-    parent_run_id = Keyword.get(opts, :parent_run_id, nil)
+    sub = Keyword.get(opts, :sub)
 
-    new_state =
-      if parent_run_id, do: %State{new_state | parent_run_id: parent_run_id}, else: new_state
+    new_state = %State{state | status: :running, caller: caller, sub: sub}
 
     {:reply, :ok, new_state, {:continue, {:run, input}}}
   end
@@ -421,7 +419,7 @@ defmodule Agens.Job do
       job_id: state.config.id,
       job_description: state.config.description,
       run_id: state.run_id,
-      parent_run_id: state.parent_run_id,
+      parent_run_id: state.sub && state.sub.parent_run_id,
       input: input,
       node_id: first_node_id,
       caller: state.caller,
@@ -529,11 +527,6 @@ defmodule Agens.Job do
     yield = Yield.thread_done(state.yield, message.thread_id)
 
     if new_count == 0 do
-      if state.parent_node_message do
-        node_result = %{state.parent_node_message | result: message.result}
-        Agens.backends(:node_result, [state.caller, node_result])
-      end
-
       maybe_notify_parent(state, {:done, message})
 
       :telemetry.execute([:agens, :job, :complete], %{}, %{run_id: state.run_id})
@@ -642,7 +635,7 @@ defmodule Agens.Job do
         message = %Message{
           caller: state.caller,
           run_id: state.run_id,
-          parent_run_id: state.parent_run_id,
+          parent_run_id: state.sub && state.sub.parent_run_id,
           job_id: job_config.id,
           job_description: job_config.description,
           agent_id: node.agent_id,
@@ -655,15 +648,15 @@ defmodule Agens.Job do
 
         Agens.backends(:node_started, [state.caller, message])
 
-        run_sub(state, message, node.sub)
+        run_sub(state, message, node.sub, message)
 
-        %{state | parent_node_message: message}
+        state
 
       true ->
         message = %Message{
           caller: state.caller,
           run_id: state.run_id,
-          parent_run_id: state.parent_run_id,
+          parent_run_id: state.sub && state.sub.parent_run_id,
           job_id: job_config.id,
           job_description: job_config.description,
           serving_name: node.serving,
@@ -830,7 +823,7 @@ defmodule Agens.Job do
   # Utilities
   # ===========================================================================
 
-  defp run_sub(state, message, job_id) do
+  defp run_sub(state, message, job_id, parent_node_message \\ nil) do
     spec =
       :sub
       |> Agens.backends([self(), job_id])
@@ -839,43 +832,41 @@ defmodule Agens.Job do
     if !spec do
       GenServer.cast(self(), {{:error, :job_not_loaded}, message})
     else
-      %{config: config, run_id: run_id} = spec
+      spec = %{spec | parent_run_id: state.run_id, parent_node_message: parent_node_message}
 
       :telemetry.execute([:agens, :job, :sub], %{}, %{
-        job_id: config.id,
-        run_id: run_id,
+        job_id: spec.config.id,
+        run_id: spec.run_id,
         parent_run_id: state.run_id
       })
 
-      start(config, run_id)
+      start(spec.config, spec.run_id)
 
-      run(run_id, message.input,
-        parent_run_id: state.run_id,
+      run(spec.run_id, message.input,
+        sub: spec,
         caller: state.caller
       )
     end
   end
 
-  defp maybe_notify_parent(%State{parent_run_id: nil}, _msg), do: :ok
+  defp maybe_notify_parent(%State{sub: nil}, _msg), do: :ok
 
   defp maybe_notify_parent(
-         %State{parent_run_id: parent_run_id},
-         {{:error, _reason}, _message} = msg
+         %State{sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}} =
+           state,
+         {:done, %Message{result: result} = sub_message}
        ) do
-    run_id_to_pid(parent_run_id, :ok, fn pid ->
-      GenServer.cast(pid, msg)
-    end)
+    final = if parent_msg, do: %{parent_msg | result: result}, else: sub_message
+    Agens.backends(:node_result, [state.caller, final])
+    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {:done, final}) end)
   end
 
   defp maybe_notify_parent(
-         %State{parent_run_id: parent_run_id} = state,
-         {_, %Message{} = message} = msg
+         %State{sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}},
+         {{:error, reason}, message}
        ) do
-    Agens.backends(:node_result, [state.caller, message])
-
-    run_id_to_pid(parent_run_id, :ok, fn pid ->
-      GenServer.cast(pid, msg)
-    end)
+    error_message = parent_msg || message
+    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {{:error, reason}, error_message}) end)
   end
 
   @spec load_resources(Message.t(), State.t()) :: Message.t()
