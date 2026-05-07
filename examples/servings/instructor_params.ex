@@ -14,7 +14,7 @@ defmodule AgensDemo.InstructorParams do
     anthropic: "claude-haiku-4-5-20251001",
     gemini: "gemini-1.5-flash",
     groq: "llama-3.1-8b-instant",
-    ollama: "llama3.2"
+    ollama: "qwen3:8b"
   }
 
   @json_schema_providers [:openai, :gemini]

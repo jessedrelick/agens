@@ -4,13 +4,16 @@ defmodule Agens.Backend.EmitTest do
   alias Agens.{Backend.Emit, Message}
 
   defp message(overrides \\ []) do
-    struct(%Message{
-      input: "test",
-      caller: self(),
-      run_id: "run_1",
-      node_id: "node_1",
-      thread_id: "thread_1"
-    }, overrides)
+    struct(
+      %Message{
+        input: "test",
+        caller: self(),
+        run_id: "run_1",
+        node_id: "node_1",
+        thread_id: "thread_1"
+      },
+      overrides
+    )
   end
 
   test "start/3 sends {:job_started, job_id, run_id} to caller" do

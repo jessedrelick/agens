@@ -64,7 +64,6 @@ defmodule Agens do
   def job_pid(job_id, err, cb) do
     case Registry.lookup(Agens.Registry, job_id) do
       [] -> err
-      [_, _ | _] -> err
       [{pid, _}] when is_pid(pid) -> cb.(pid)
     end
   end

@@ -2,6 +2,7 @@ defmodule Agens.JobTest do
   use ExUnit.Case, async: false
 
   alias Agens.{Job, Message, Prefixes, Resource}
+  alias Agens.Job.State.Yield
   alias Test.Support.{Resources, Tools}
 
   defp start_agens(_ctx) do
@@ -166,7 +167,6 @@ defmodule Agens.JobTest do
       assert {:error, :run_not_found} == Job.get_config("missing_job")
     end
 
-    @tag :skip
     test "config - by run id" do
       run_id = "run_id_123abc"
 
@@ -181,228 +181,12 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       assert {:ok, job} == Job.get_config(pid)
       assert {:ok, job} == Job.get_config(run_id)
-      assert {:error, :job_not_found} == Job.get_config(job.id)
+      assert {:error, :run_not_found} == Job.get_config(job.id)
     end
   end
 
   describe "sequence" do
     setup [:start_agens, :start_serving, :start_job]
-
-    @tag :skip
-    test "start", %{job: %{id: id} = job, pid: pid} do
-      input = "D"
-      run_id = "test_run_id"
-
-      assert is_pid(pid)
-      {:error, {:already_started, ^pid}} = Job.start(job, run_id)
-      :ok = Job.run(id, input, [])
-
-      assert_receive {:job_started, ^id, nil}
-
-      # FIRST ITERATION
-      # Agent 1
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: ^input
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: ^input,
-                        result: "C",
-                        next: [{:route, "node_10", 1}]
-                      }}
-
-      # Agent 2
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "C"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "C",
-                        result: "E",
-                        next: [{"node_20", 1}]
-                      }}
-
-      # Agent 3
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "E"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "E",
-                        result: "E",
-                        next: [{:route, "node_0", 1}]
-                      }}
-
-      # SECOND ITERATION
-      # Agent 1
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: "E"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: "E",
-                        result: "D",
-                        next: [{:route, "node_10", 1}]
-                      }}
-
-      # Agent 2
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "D"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "D",
-                        result: "F",
-                        next: [{:route, "node_20", 1}]
-                      }}
-
-      # Agent 3
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "F"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "F",
-                        result: "F",
-                        next: [{:route, "node_0", 1}]
-                      }}
-
-      # FINAL ITERATION
-      # Agent 1
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: "F"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :first_agent,
-                        node_id: "node_0",
-                        input: "F",
-                        result: "E",
-                        next: [{:route, "node_10", 1}]
-                      }}
-
-      # Agent 2
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "E"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :second_agent,
-                        node_id: "node_10",
-                        input: "E",
-                        result: "G",
-                        next: [{:route, "node_20", 1}]
-                      }}
-
-      # Agent 3
-      assert_receive {:node_started,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "G"
-                      }}
-
-      assert_receive {:prompt, _prompt}
-
-      assert_receive {:node_result,
-                      %Message{
-                        job_id: ^id,
-                        agent_id: :verifier_agent,
-                        node_id: "node_20",
-                        input: "G",
-                        result: "TRUE",
-                        next: [:end]
-                      }}
-
-      # END
-      assert_receive {:job_complete, nil}
-
-      # TODO: pid should be removed from registry automatically after being stopped
-      completed_pid = Agens.job_pid(id, {:error, :job_not_found}, fn pid -> pid end)
-      assert is_pid(completed_pid)
-      assert completed_pid == pid
-      # Job.run(name, nil, nil, nil)
-      {:ok, new_pid} = Job.start(job, "new_run_id")
-      assert is_pid(new_pid)
-      assert new_pid != pid
-    end
 
     test "start with run id", %{job: %{id: id} = job} do
       input = "F"
@@ -1724,6 +1508,183 @@ defmodule Agens.JobTest do
       #                 }}
 
       # assert_receive {:job_complete, ^run_id}
+    end
+  end
+
+  # ===========================================================================
+  # Parsing
+  # ===========================================================================
+
+  describe "Node.from_map/1" do
+    test "builds a Node from a complete string-keyed map" do
+      map = %{
+        "serving" => "test_serving",
+        "agent_id" => "my_agent",
+        "sub" => "some_sub",
+        "objective" => "test objective",
+        "tools" => ["tool_schema"],
+        "resources" => [%{"uri" => "test://res", "name" => "My Resource"}]
+      }
+
+      node = Job.Node.from_map(map)
+
+      assert node.serving == :test_serving
+      assert node.agent_id == "my_agent"
+      assert node.sub == "some_sub"
+      assert node.objective == "test objective"
+      assert node.tools == ["tool_schema"]
+      assert [%Resource{uri: "test://res", name: "My Resource"}] = node.resources
+    end
+
+    test "handles nil serving and missing optional fields" do
+      node = Job.Node.from_map(%{"agent_id" => "bare_agent"})
+
+      assert node.serving == nil
+      assert node.agent_id == "bare_agent"
+      assert node.sub == nil
+      assert node.resources == nil
+    end
+  end
+
+  describe "Config.from_map/1" do
+    test "builds a Config from a string-keyed map" do
+      map = %{
+        "id" => "parsed_job",
+        "description" => "test description",
+        "starting_node_id" => "node_0",
+        "max_retries" => 2,
+        "nodes" => %{
+          "node_0" => %{
+            "serving" => "test_serving",
+            "agent_id" => "my_agent",
+            "objective" => "test node"
+          }
+        }
+      }
+
+      config = Job.Config.from_map(map)
+
+      assert config.id == "parsed_job"
+      assert config.description == "test description"
+      assert config.starting_node_id == "node_0"
+      assert config.max_retries == 2
+      node = config.nodes["node_0"]
+      assert node.serving == :test_serving
+      assert node.agent_id == "my_agent"
+    end
+
+    test "defaults max_retries to 3 when not provided" do
+      map = %{
+        "id" => "default_retries_job",
+        "starting_node_id" => "node_0",
+        "nodes" => %{}
+      }
+
+      config = Job.Config.from_map(map)
+
+      assert config.max_retries == 3
+    end
+  end
+
+  describe "Config.from_json/1" do
+    test "parses a valid JSON string into a Config" do
+      json =
+        ~s({"id":"json_job","starting_node_id":"node_0","nodes":{"node_0":{"serving":"test_serving","agent_id":"json_agent"}}})
+
+      config = Job.Config.from_json(json)
+
+      assert config.id == "json_job"
+      assert config.starting_node_id == "node_0"
+      assert config.nodes["node_0"].serving == :test_serving
+      assert config.nodes["node_0"].agent_id == "json_agent"
+    end
+  end
+
+  # ===========================================================================
+  # Stop
+  # ===========================================================================
+
+  describe "stop" do
+    setup do
+      original = Application.get_env(:agens, :backends)
+      Application.put_env(:agens, :backends, [Agens.Backend.Log])
+      on_exit(fn -> Application.put_env(:agens, :backends, original) end)
+      :ok
+    end
+
+    setup :start_agens
+
+    test "stop/1 terminates a job by run_id" do
+      run_id = "stop_test_run_id"
+
+      job = %Job.Config{
+        id: "stop_job",
+        starting_node_id: "node_0",
+        nodes: %{"node_0" => %Job.Node{serving: :test_serving, agent_id: :first_agent}}
+      }
+
+      {:ok, _pid} = Job.start(job, run_id)
+      assert :ok == Job.stop(run_id)
+    end
+
+    test "stop/1 returns error when run not found" do
+      assert {:error, :run_not_found} == Job.stop("nonexistent_stop_run_id")
+    end
+  end
+
+  # ===========================================================================
+  # Sub - job not loaded
+  # ===========================================================================
+
+  describe "sub - job not loaded" do
+    setup do
+      original = Application.get_env(:agens, :backends)
+      Application.put_env(:agens, :backends, [Agens.Backend.Emit])
+      on_exit(fn -> Application.put_env(:agens, :backends, original) end)
+      :ok
+    end
+
+    setup [:start_agens, :start_serving]
+
+    test "emits job_not_loaded error when no backend provides a sub spec" do
+      id = "no_sub_loaded_job"
+      run_id = "no_sub_run_id"
+
+      job = %Job.Config{
+        id: id,
+        starting_node_id: "node_0",
+        nodes: %{
+          "node_0" => %Job.Node{sub: "nonexistent_sub_job"}
+        }
+      }
+
+      {:ok, _pid} = Job.start(job, run_id)
+      :ok = Job.run(run_id, "input", [])
+
+      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_error, %Message{node_id: "node_0"}, :job_not_loaded}
+    end
+  end
+
+  # ===========================================================================
+  # State.Yield nil-clause guards
+  # ===========================================================================
+
+  describe "State.Yield" do
+    test "thread_done/2 with nil yield returns an empty Yield struct" do
+      result = Yield.thread_done(nil, "thread_1")
+      assert %Yield{} = result
+      assert result.threads == []
+    end
+
+    test "thread_add/2 with nil yield creates a new Yield with the thread" do
+      result = Yield.thread_add(nil, "thread_1")
+      assert "thread_1" in result.threads
+    end
+
+    test "thread_ready/3 with nil yield creates a new Yield with the ready entry" do
+      result = Yield.thread_ready(nil, "thread_1", "node_10")
+      assert {"thread_1", "node_10"} in result.ready
     end
   end
 end

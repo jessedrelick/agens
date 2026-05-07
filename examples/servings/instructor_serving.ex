@@ -3,8 +3,10 @@ defmodule AgensDemo.InstructorServing do
 
   alias Agens.{Message, Serving}
 
-  @source :openai
-  @model "gpt-5"
+  @source :ollama
+  @model "qwen3:8b"
+  # `qwen3:8b` for better performance
+  # `gemma4:26b` for better results
   @router AgensDemo.EdgeRouter
   @agents_dir Path.expand("../agents", __DIR__)
 

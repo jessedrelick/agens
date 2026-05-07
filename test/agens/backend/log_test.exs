@@ -6,12 +6,15 @@ defmodule Agens.Backend.LogTest do
   alias Agens.{Backend.Log, Message}
 
   defp message(overrides \\ []) do
-    struct(%Message{
-      input: "test",
-      run_id: "run_1",
-      node_id: "node_1",
-      thread_id: "thread_1"
-    }, overrides)
+    struct(
+      %Message{
+        input: "test",
+        run_id: "run_1",
+        node_id: "node_1",
+        thread_id: "thread_1"
+      },
+      overrides
+    )
   end
 
   test "start/3 logs job info and returns :ok" do
