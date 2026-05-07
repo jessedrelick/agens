@@ -107,12 +107,11 @@ defmodule Agens.Job do
   defmodule Sub do
     @type t :: %__MODULE__{
             config: Agens.Job.Config.t(),
-            run_id: binary(),
-            first_node_id: binary()
+            run_id: binary()
           }
 
-    @enforce_keys [:config, :first_node_id]
-    defstruct [:config, :run_id, :first_node_id]
+    @enforce_keys [:config]
+    defstruct [:config, :run_id]
   end
 
   defmodule Config do
@@ -133,12 +132,13 @@ defmodule Agens.Job do
             nodes: %{
               any() => Node.t()
             },
+            starting_node_id: any(),
             outputs: keyword() | nil,
             max_retries: non_neg_integer()
           }
 
-    @enforce_keys [:id, :nodes]
-    defstruct [:id, :description, :nodes, :outputs, max_retries: 3]
+    @enforce_keys [:id, :nodes, :starting_node_id]
+    defstruct [:id, :description, :nodes, :starting_node_id, :outputs, max_retries: 3]
 
     @spec from_json(binary()) :: t()
     def from_json(json) when is_binary(json) do
@@ -153,6 +153,7 @@ defmodule Agens.Job do
         id: m["id"],
         description: m["description"],
         nodes: nodes,
+        starting_node_id: m["starting_node_id"],
         outputs: m["outputs"],
         max_retries: m["max_retries"] || 3
       }
@@ -297,16 +298,16 @@ defmodule Agens.Job do
 
   A supervised process for the Job must be started first using `start/1`.
   """
-  @spec run(pid | binary(), String.t(), String.t(), keyword()) ::
+  @spec run(pid | binary(), String.t(), keyword()) ::
           :ok | {:error, :run_not_found | :job_already_running | :input_required}
-  def run(run_id, input, first_node_id, opts) when is_binary(run_id) do
+  def run(run_id, input, opts) when is_binary(run_id) do
     run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
-      run(pid, input, first_node_id, opts)
+      run(pid, input, opts)
     end)
   end
 
-  def run(pid, input, first_node_id, opts) when is_pid(pid) do
-    GenServer.call(pid, {:run, input, first_node_id, opts})
+  def run(pid, input, opts) when is_pid(pid) do
+    GenServer.call(pid, {:run, input, opts})
   end
 
   @spec stop(binary()) :: :ok | {:error, :run_not_found}
@@ -380,39 +381,36 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_call({:run, String.t(), any(), keyword()}, {pid, term}, State.t()) ::
+  @spec handle_call({:run, String.t(), keyword()}, {pid, term}, State.t()) ::
           {:reply, :ok | {:error, :job_already_running | :input_required}, State.t()}
-  def handle_call({:run, _, _, _}, _, %State{status: :running} = state) do
+  def handle_call({:run, _, _}, _, %State{status: :running} = state) do
     {:reply, {:error, :job_already_running}, state}
   end
 
-  def handle_call({:run, nil, _, _}, _, %State{} = state) do
+  def handle_call({:run, nil, _}, _, %State{} = state) do
     {:reply, {:error, :input_required}, state}
   end
 
-  def handle_call({:run, input, first_node_id, opts}, {pid, _}, %State{} = state) do
+  def handle_call({:run, input, opts}, {pid, _}, %State{} = state) do
     :telemetry.execute([:agens, :job, :run], %{}, %{job_id: state.config.id, run_id: state.run_id})
 
     caller = Keyword.get(opts, :caller, pid)
     new_state = %State{state | status: :running, caller: caller}
     parent_run_id = Keyword.get(opts, :parent_run_id, nil)
-    # parent_node_message = Keyword.get(opts, :parent_node_message, nil)
 
     new_state =
       if parent_run_id, do: %State{new_state | parent_run_id: parent_run_id}, else: new_state
 
-    # new_state =
-    #   if parent_node_message,
-    #     do: %State{new_state | parent_node_message: parent_node_message},
-    #     else: new_state
-
-    {:reply, :ok, new_state, {:continue, {:run, input, first_node_id}}}
+    {:reply, :ok, new_state, {:continue, {:run, input}}}
   end
 
   @doc false
   @impl true
-  @spec handle_continue({:run, String.t(), String.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_continue({:run, input, first_node_id}, %State{config: %{id: id}} = state) do
+  @spec handle_continue({:run, String.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_continue(
+        {:run, input},
+        %State{config: %{id: id, starting_node_id: first_node_id}} = state
+      ) do
     server_pid = self()
     first_thread_id = generate_thread_id()
     Agens.backends(:start, [state.caller, id, state.run_id])
@@ -841,7 +839,7 @@ defmodule Agens.Job do
     if !spec do
       GenServer.cast(self(), {{:error, :job_not_loaded}, message})
     else
-      %{config: config, run_id: run_id, first_node_id: first_node_id} = spec
+      %{config: config, run_id: run_id} = spec
 
       :telemetry.execute([:agens, :job, :sub], %{}, %{
         job_id: config.id,
@@ -851,10 +849,9 @@ defmodule Agens.Job do
 
       start(config, run_id)
 
-      run(run_id, message.input, first_node_id,
+      run(run_id, message.input,
         parent_run_id: state.run_id,
         caller: state.caller
-        # parent_node_message: message
       )
     end
   end
