@@ -5,11 +5,6 @@ Application.put_env(:agens_demo, AgensDemo.Endpoint,
   secret_key_base: String.duplicate("a", 64)
 )
 
-# Configure provider and model via environment variables.
-# AGENS_SOURCE: openai (default), anthropic, gemini, groq, ollama
-# AGENS_MODEL:  provider-specific model name (defaults per provider if unset)
-Application.put_env(:agens_demo, :source, System.get_env("AGENS_SOURCE", "openai") |> String.to_atom())
-Application.put_env(:agens_demo, :model, System.get_env("AGENS_MODEL"))
 Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBackend])
 
 Mix.install([
@@ -36,13 +31,6 @@ Code.require_file("phoenix/app.ex", __DIR__)
 {job_config, first_node} = AgensDemo.Job.load("industry_brief")
 Application.put_env(:agens_demo, :job, {job_config, first_node})
 
-source = Application.get_env(:agens_demo, :source, :openai)
-model = Application.get_env(:agens_demo, :model)
-
-serving_args =
-  [source: source]
-  |> then(fn args -> if model, do: Keyword.put(args, :model, model), else: args end)
-
 {:ok, _} =
   Supervisor.start_link(
     [
@@ -63,8 +51,7 @@ serving_args =
 {:ok, _} =
   Agens.Serving.start(%Agens.Serving.Config{
     name: :demo_serving,
-    serving: AgensDemo.InstructorServing,
-    args: serving_args
+    serving: AgensDemo.InstructorServing
   })
 
 Process.sleep(:infinity)

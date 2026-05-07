@@ -3,10 +3,16 @@ defmodule AgensDemo.InstructorServing do
 
   alias Agens.{Message, Serving}
 
+  @source :openai
+  @model "gpt-5"
   @agents_dir Path.expand("../agents", __DIR__)
 
   @impl Serving
-  def start(state), do: {:ok, state}
+  def start(state) do
+    args = [source: @source, model: @model]
+
+    {:ok, %{state | config: %{state.config | args: args}}}
+  end
 
   @impl Serving
   def outputs_schema(%Message{} = message) do
@@ -89,5 +95,4 @@ defmodule AgensDemo.InstructorServing do
   end
 
   def handle_result({:error, reason}, _state, _message), do: {:error, reason}
-
 end
