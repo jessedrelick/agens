@@ -1509,6 +1509,111 @@ defmodule Agens.JobTest do
 
       assert_receive {:job_complete, ^run_id}
     end
+
+    test "node sub with subsequent node" do
+      input = "S"
+      id = "sub_job"
+      run_id = "test_sub_run_id"
+      sub_id = "sub"
+      sub_run_id = "sub_run_id"
+      sub_first_node_id = "sub_node_0"
+      sub_final_agent = :sub_final_agent
+      sub_result = "sent '#{input}' to: #{sub_final_agent}"
+      next_agent = :post_sub_agent
+      next_result = "sent '#{sub_result}' to: #{next_agent}"
+
+      job = %Job.Config{
+        id: id,
+        starting_node_id: "node_0",
+        description: "to spawn a sub job and then execute a subsequent node",
+        nodes: %{
+          "node_0" => %Job.Node{
+            sub: sub_id,
+            next: [{:route, "node_1", 1}]
+          },
+          "node_1" => %Job.Node{
+            serving: :test_serving,
+            agent_id: next_agent
+          }
+        }
+      }
+
+      {:ok, pid} = Job.start(job, run_id)
+      assert is_pid(pid)
+      :ok = Job.run(run_id, input, [])
+
+      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_status, {^run_id, :running}}
+      assert_receive {:prompt, _prompt}
+
+      assert_receive {:node_started,
+                      %Message{
+                        job_id: ^id,
+                        run_id: ^run_id,
+                        node_id: "node_0",
+                        input: ^input
+                      }}
+
+      # Sub Job
+      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+      assert_receive {:job_status, {^sub_run_id, :running}}
+
+      assert_receive {:node_started,
+                      %Message{
+                        job_id: ^sub_id,
+                        run_id: ^sub_run_id,
+                        parent_run_id: ^run_id,
+                        agent_id: ^sub_final_agent,
+                        node_id: ^sub_first_node_id,
+                        input: ^input
+                      }}
+
+      assert_receive {:node_result,
+                      %Message{
+                        job_id: ^sub_id,
+                        agent_id: ^sub_final_agent,
+                        node_id: ^sub_first_node_id,
+                        input: ^input,
+                        result: ^sub_result,
+                        next: []
+                      }}
+
+      assert_receive {:job_complete, ^sub_run_id}
+
+      # Parent node_0 result with sub's output
+      assert_receive {:node_result,
+                      %Message{
+                        job_id: ^id,
+                        agent_id: nil,
+                        node_id: "node_0",
+                        input: ^input,
+                        result: ^sub_result
+                      }}
+
+      # Subsequent node_1 runs after sub completes
+      assert_receive {:prompt, _prompt}
+
+      assert_receive {:node_started,
+                      %Message{
+                        job_id: ^id,
+                        run_id: ^run_id,
+                        node_id: "node_1",
+                        agent_id: ^next_agent,
+                        input: ^input
+                      }}
+
+      assert_receive {:node_result,
+                      %Message{
+                        job_id: ^id,
+                        node_id: "node_1",
+                        agent_id: ^next_agent,
+                        result: ^next_result
+                      }}
+
+      assert_receive {:job_complete, ^run_id}
+
+      refute_receive {:job_complete, ^run_id}
+    end
   end
 
   # ===========================================================================

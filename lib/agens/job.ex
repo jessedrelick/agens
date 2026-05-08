@@ -83,13 +83,14 @@ defmodule Agens.Job do
             serving: atom(),
             agent_id: any() | nil,
             sub: binary() | nil,
+            next: list() | nil,
             objective: String.t() | nil,
             tools: list(schema()) | nil,
             resources: list(Agens.Resource.t()) | nil
           }
 
     @enforce_keys []
-    defstruct [:serving, :agent_id, :sub, :objective, :tools, :resources]
+    defstruct [:serving, :agent_id, :sub, :next, :objective, :tools, :resources]
 
     @spec from_map(map()) :: t()
     def from_map(%{} = m) do
@@ -97,6 +98,7 @@ defmodule Agens.Job do
         serving: m["serving"] && String.to_existing_atom(m["serving"]),
         agent_id: m["agent_id"],
         sub: m["sub"],
+        next: m["next"],
         objective: m["objective"],
         tools: m["tools"],
         resources: m["resources"] && Enum.map(m["resources"], &Agens.Resource.from_map/1)
@@ -540,6 +542,14 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
+  @spec handle_cast({:sub_done, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({:sub_done, %Message{} = message}, %State{} = state) do
+    do_next(message, message, self(), state)
+    {:noreply, state}
+  end
+
+  @doc false
+  @impl true
   @spec handle_cast({:end, Message.t()}, State.t()) :: {:stop, :normal, State.t()}
   def handle_cast({:end, message}, %State{} = state) do
     maybe_notify_parent(state, {:done, message})
@@ -643,7 +653,8 @@ defmodule Agens.Job do
           input: message.input,
           previous_result: message.previous_result,
           result: message.input,
-          thread_id: message.thread_id
+          thread_id: message.thread_id,
+          next: node.next || []
         }
 
         Agens.backends(:node_started, [state.caller, message])
@@ -852,21 +863,28 @@ defmodule Agens.Job do
   defp maybe_notify_parent(%State{sub: nil}, _msg), do: :ok
 
   defp maybe_notify_parent(
-         %State{sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}} =
+         %State{
+           sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+         } =
            state,
          {:done, %Message{result: result} = sub_message}
        ) do
     final = if parent_msg, do: %{parent_msg | result: result}, else: sub_message
     Agens.backends(:node_result, [state.caller, final])
-    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {:done, final}) end)
+    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {:sub_done, final}) end)
   end
 
   defp maybe_notify_parent(
-         %State{sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}},
+         %State{
+           sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+         },
          {{:error, reason}, message}
        ) do
     error_message = parent_msg || message
-    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {{:error, reason}, error_message}) end)
+
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, {{:error, reason}, error_message})
+    end)
   end
 
   @spec load_resources(Message.t(), State.t()) :: Message.t()
