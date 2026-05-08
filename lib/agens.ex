@@ -26,6 +26,8 @@ defmodule Agens do
 
   use DynamicSupervisor
 
+  alias Agens.{Job, Serving}
+
   @doc false
   @spec child_spec(keyword()) :: Supervisor.child_spec()
   def child_spec(args) do
@@ -66,6 +68,26 @@ defmodule Agens do
       [] -> err
       [{pid, _}] when is_pid(pid) -> cb.(pid)
     end
+  end
+
+  def active_processes() do
+    Agens
+    |> DynamicSupervisor.which_children()
+    |> Enum.map(fn {_id, pid, _type, [mod]} ->
+      get_process_info(pid, mod)
+    end)
+  end
+
+  def get_process_info(pid, Job) do
+    {:ok, config} = Job.get_config(pid)
+
+    %{pid: pid, type: :job, name: config.id, config: config}
+  end
+
+  def get_process_info(pid, _) do
+    {:ok, config} = Serving.get_config(pid)
+
+    %{pid: pid, type: :serving, name: Atom.to_string(config.name), config: config}
   end
 
   def backends(fun, args) when is_atom(fun) and is_list(args) do
