@@ -27,12 +27,26 @@ defmodule AgensDemo.MainLive do
 
   alias Agens.Message
 
+  on_mount {AgensDemo.LogHook, :default}
+
   @pubsub AgensDemo.PubSub
   @topic_prefix "agens"
 
+  @serving_config %Agens.Serving.Config{name: :demo_serving, serving: AgensDemo.InstructorServing}
+
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, topic: "", running: false, logs: [], result: nil)}
+    ready =
+      if connected?(socket) do
+        case Agens.Serving.start(@serving_config) do
+          {:ok, _} -> true
+          {:error, {:already_started, _}} -> true
+        end
+      else
+        false
+      end
+
+    {:ok, assign(socket, topic: "", running: false, result: nil, ready: ready)}
   end
 
   @impl true
@@ -48,14 +62,18 @@ defmodule AgensDemo.MainLive do
             name="topic"
             placeholder="Enter a topic for an industry brief..."
             value={@topic}
-            disabled={@running}
+            disabled={not @ready or @running}
           />
           <button
             type="submit"
             class="px-5 py-2.5 text-white bg-blue-700 font-medium rounded-lg text-sm hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400"
-            disabled={@running}
+            disabled={not @ready or @running}
           >
-            <%= if @running, do: "Generating...", else: "Generate Brief" %>
+            <%= cond do %>
+              <% not @ready -> %>Loading...
+              <% @running -> %>Generating...
+              <% true -> %>Generate Brief
+            <% end %>
           </button>
         </form>
         <%= if @result do %>
@@ -88,56 +106,28 @@ defmodule AgensDemo.MainLive do
 
     case AgensDemo.Job.run(run_id, topic) do
       :ok -> {:noreply, assign(socket, topic: topic, running: true, logs: [], result: nil)}
-      {:error, reason} -> {:noreply, add_log(socket, "Error: #{inspect(reason)}")}
+      {:error, _reason} -> {:noreply, socket}
     end
   end
 
   def handle_event("run", _, socket), do: {:noreply, socket}
 
   @impl true
-  def handle_info({:job_started, run_id}, socket),
-    do: {:noreply, add_log(socket, "Job started (#{run_id})")}
-
-  @impl true
-  def handle_info({:job_status, _run_id, status}, socket),
-    do: {:noreply, add_log(socket, "Status: #{status}")}
-
-  @impl true
-  def handle_info({:node_started, %Message{agent_id: agent_id}}, socket),
-    do: {:noreply, add_log(socket, "Agent started: #{agent_id}")}
-
-  @impl true
-  def handle_info({:node_retry, %Message{agent_id: agent_id}}, socket),
-    do: {:noreply, add_log(socket, "Agent retrying: #{agent_id}")}
-
-  @impl true
-  def handle_info({:node_result, %Message{agent_id: agent_id, result: result}}, socket) do
-    preview = result |> String.slice(0, 80) |> then(&if String.length(result) > 80, do: &1 <> "…", else: &1)
-    {:noreply, socket |> add_log("Agent result: #{agent_id}: #{preview}") |> assign(result: result)}
+  def handle_info({:node_result, %Message{result: result}}, socket) do
+    {:noreply, assign(socket, result: result)}
   end
 
   @impl true
-  def handle_info({:job_complete, _run_id}, socket),
-    do: {:noreply, socket |> add_log("Job complete") |> assign(running: false)}
-
-  @impl true
-  def handle_info({:tool_call, _job_id, _run_id, tool_name}, socket),
-    do: {:noreply, add_log(socket, "Tool call: #{tool_name}")}
-
-  @impl true
-  def handle_info({:yield_wait, %Message{agent_id: agent_id}, total, ready}, socket),
-    do: {:noreply, add_log(socket, "Yield waiting (#{agent_id}): #{ready}/#{total}")}
-
-  @impl true
-  def handle_info({:yield_done, %Message{agent_id: agent_id}, total}, socket),
-    do: {:noreply, add_log(socket, "Yield done (#{agent_id}): #{total}")}
-
-  @impl true
-  def handle_info({:job_error, %Message{} = message, error}, socket) do
-    {:noreply, socket |> add_log("Error on #{message.agent_id}: #{inspect(error)}") |> assign(running: false)}
+  def handle_info({:job_complete, _run_id}, socket) do
+    {:noreply, assign(socket, running: false)}
   end
 
-  defp add_log(socket, msg), do: update(socket, :logs, &[msg | &1])
+  @impl true
+  def handle_info({:job_error, %Message{}, _error}, socket) do
+    {:noreply, assign(socket, running: false)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
 end
 
 defmodule AgensDemo.Router do

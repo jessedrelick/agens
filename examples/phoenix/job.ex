@@ -4,13 +4,10 @@ defmodule AgensDemo.Job do
   @jobs_dir Path.expand("../jobs", __DIR__)
 
   def load(name) do
-    json =
-      Path.join(@jobs_dir, "#{name}.json")
-      |> File.read!()
-      |> Jason.decode!()
-
-    config = to_config(json)
-    {config, Map.fetch!(json, "first_node")}
+    Path.join(@jobs_dir, "#{name}.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> to_config()
   end
 
   def new_run_id do
@@ -18,10 +15,10 @@ defmodule AgensDemo.Job do
   end
 
   def run(run_id, input) do
-    {config, first_node} = load("industry_brief")
+    config = load("industry_brief")
 
     with {:ok, _pid} <- Job.start(config, run_id),
-         :ok <- Job.run(run_id, input, first_node, []) do
+         :ok <- Job.run(run_id, input, []) do
       :ok
     end
   end
@@ -29,6 +26,7 @@ defmodule AgensDemo.Job do
   defp to_config(%{"id" => id, "nodes" => nodes} = json) do
     %Job.Config{
       id: id,
+      starting_node_id: Map.get(json, "first_node"),
       description: Map.get(json, "description"),
       max_retries: Map.get(json, "max_retries", 3),
       nodes:

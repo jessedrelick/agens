@@ -17,15 +17,17 @@ Mix.install([
 ])
 
 Code.require_file("servings/instructor_params.ex", __DIR__)
-Code.require_file("servings/instructor_serving.ex", __DIR__)
 Code.require_file("backends/pubsub.ex", __DIR__)
 Code.require_file("mcp/tools.ex", __DIR__)
 Code.require_file("mcp/resources.ex", __DIR__)
 Code.require_file("mcp/server.ex", __DIR__)
 Code.require_file("mcp/client.ex", __DIR__)
+Code.require_file("history.ex", __DIR__)
+Code.require_file("phoenix/job.ex", __DIR__)
+Code.require_file("phoenix/log_hook.ex", __DIR__)
 Code.require_file("router/edge_router.ex", __DIR__)
 Code.require_file("router/linear_router.ex", __DIR__)
-Code.require_file("phoenix/job.ex", __DIR__)
+Code.require_file("servings/instructor_serving.ex", __DIR__)
 Code.require_file("phoenix/app.ex", __DIR__)
 
 {:ok, _} =
@@ -33,22 +35,12 @@ Code.require_file("phoenix/app.ex", __DIR__)
     [
       {Phoenix.PubSub, name: AgensDemo.PubSub},
       Hermes.Server.Registry,
-      {AgensDemo.MCPServer, transport: :streamable_http},
+      {AgensDemo.MCPServer, transport: {:streamable_http, start: true}},
       {Agens.Supervisor, name: Agens.Supervisor},
-      AgensDemo.Endpoint
+      AgensDemo.Endpoint,
+      {AgensDemo.MCPClient, transport: {:streamable_http, base_url: "http://localhost:8080", mcp_path: "/mcp"}}
     ],
     strategy: :one_for_one
   )
-
-{:ok, _} =
-  AgensDemo.MCPClient.start_link(
-    transport: {:streamable_http, base_url: "http://localhost:8080", mcp_path: "/mcp"}
-  )
-
-{:ok, _} =
-  Agens.Serving.start(%Agens.Serving.Config{
-    name: :demo_serving,
-    serving: AgensDemo.InstructorServing
-  })
 
 Process.sleep(:infinity)

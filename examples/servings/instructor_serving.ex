@@ -38,7 +38,7 @@ defmodule AgensDemo.InstructorServing do
     schema = Agens.Schema.tools()
 
     with names when is_list(names) and names != [] <- tool_defs,
-         {:ok, %{"tools" => mcp_tools}} <- Hermes.Client.list_tools(AgensDemo.MCPClient) do
+         {:ok, %{"tools" => mcp_tools}} <- AgensDemo.MCPClient.list_tools() do
       available = MapSet.new(mcp_tools, & &1["name"])
       valid_names = Enum.filter(names, &MapSet.member?(available, &1))
       items = put_in(schema["items"]["properties"]["name"]["enum"], valid_names)
@@ -62,7 +62,7 @@ defmodule AgensDemo.InstructorServing do
 
   @impl Serving
   def load_resource(_state, %Agens.Resource{uri: uri} = resource, _message) do
-    case Hermes.Client.read_resource(AgensDemo.MCPClient, uri) do
+    case AgensDemo.MCPClient.read_resource(uri) do
       {:ok, %{"contents" => [%{"text" => content} | _]}} -> %{resource | content: content}
       _ -> resource
     end
@@ -81,7 +81,7 @@ defmodule AgensDemo.InstructorServing do
     input = Map.new(args, fn %{"key" => k, "value" => v} -> {k, v} end)
 
     result =
-      case Hermes.Client.call_tool(AgensDemo.MCPClient, name, input) do
+      case AgensDemo.MCPClient.call_tool(name, input) do
         {:ok, %{"content" => [%{"text" => text} | _]}} -> text
         {:ok, result} -> inspect(result)
         {:error, reason} -> "Error: #{inspect(reason)}"
