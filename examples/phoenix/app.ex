@@ -52,6 +52,7 @@ defmodule AgensDemo.MainLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <div :if={not @ready} class="fixed inset-0 bg-black/50 z-50"></div>
     <div class="min-h-screen bg-gray-50 flex items-start justify-center gap-6 px-10 py-10 antialiased">
       <div class="flex flex-col w-1/2 gap-4">
         <h2 class="text-xl font-semibold text-gray-700">Agens Demo</h2>
@@ -62,18 +63,14 @@ defmodule AgensDemo.MainLive do
             name="topic"
             placeholder="Enter a topic for an industry brief..."
             value={@topic}
-            disabled={not @ready or @running}
+            disabled={@running}
           />
           <button
             type="submit"
             class="px-5 py-2.5 text-white bg-blue-700 font-medium rounded-lg text-sm hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400"
-            disabled={not @ready or @running}
+            disabled={@running}
           >
-            <%= cond do %>
-              <% not @ready -> %>Loading...
-              <% @running -> %>Generating...
-              <% true -> %>Generate Brief
-            <% end %>
+            <%= if @running, do: "Generating...", else: "Generate Brief" %>
           </button>
         </form>
         <%= if @result do %>
