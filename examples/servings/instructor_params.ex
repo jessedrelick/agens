@@ -5,20 +5,18 @@ defmodule AgensDemo.InstructorParams do
     openai: Adapters.OpenAI,
     anthropic: Adapters.Anthropic,
     gemini: Adapters.Gemini,
-    groq: Adapters.Groq,
-    ollama: Adapters.Ollama
+    groq: Adapters.Groq
   }
 
   @default_models %{
     openai: "gpt-4o-mini",
     anthropic: "claude-haiku-4-5-20251001",
     gemini: "gemini-1.5-flash",
-    groq: "llama-3.1-8b-instant",
-    ollama: "qwen3:8b"
+    groq: "llama-3.1-8b-instant"
   }
 
   @json_schema_providers [:openai, :gemini]
-  @tools_providers [:anthropic, :groq, :ollama]
+  @tools_providers [:anthropic, :groq]
 
   def call(source, model, system, user, history \\ [], schema) do
     model = model || Map.get(@default_models, source, "gpt-4o-mini")

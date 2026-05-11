@@ -21,13 +21,13 @@ defmodule AgensDemo.FileBackend do
 
   @impl true
   def node_retry(_caller, %Message{} = message) do
-    History.write(message)
+    History.write(message, :retry)
     :ok
   end
 
   @impl true
   def node_result(_caller, %Message{} = message) do
-    History.write(message)
+    History.write(message, :result)
     :ok
   end
 

@@ -3,17 +3,20 @@ defmodule AgensDemo.InstructorServing do
 
   alias Agens.{Message, Serving}
 
-  @source :ollama
-  @model "qwen3:8b"
-  # `qwen3:8b` for better performance
-  # `gemma4:26b` for better results
+  @source :openai
+  @model "gpt-5.5"
   @router AgensDemo.EdgeRouter
   @agents_dir Path.expand("../agents", __DIR__)
 
   @impl Serving
   def start(state) do
-    args = [source: @source, model: @model]
+    if @source == :ollama do
+      raise ArgumentError,
+            "AgensDemo.InstructorServing does not support :ollama. " <>
+              "Use AgensDemo.OllamaServing for local Ollama models."
+    end
 
+    args = [source: @source, model: @model]
     {:ok, %{state | config: %{state.config | args: args}}}
   end
 

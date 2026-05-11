@@ -1,7 +1,7 @@
 defmodule AgensDemo.History do
   @base_dir "examples/tmp"
 
-  def write(%Agens.Message{} = message) do
+  def write(%Agens.Message{} = message, kind \\ :result) do
     dir = run_dir(message.run_id)
     File.mkdir_p!(dir)
 
@@ -13,6 +13,7 @@ defmodule AgensDemo.History do
       run_id: message.run_id,
       node_id: node_id,
       thread_id: message.thread_id,
+      kind: to_string(kind),
       input: message.input,
       result: message.result,
       outputs: message.outputs,
@@ -25,6 +26,12 @@ defmodule AgensDemo.History do
   end
 
   def load(run_id) do
+    run_id
+    |> load_all()
+    |> Enum.filter(&(Map.get(&1, :kind, "result") == "result"))
+  end
+
+  def load_all(run_id) do
     dir = run_dir(run_id)
 
     case File.ls(dir) do
