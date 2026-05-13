@@ -53,8 +53,15 @@ defmodule Test.Support.Backend do
   end
 
   @impl true
-  def tool_call(caller, job_id, run_id, tool_name) do
-    send(caller, {:tool_call, {job_id, run_id, tool_name}})
+  def tool_call(caller, %Message{} = message, %{} = tool_call) do
+    send(caller, {:tool_call, message, tool_call})
+
+    :ok
+  end
+
+  @impl true
+  def resource_load(caller, %Message{} = message, resource) do
+    send(caller, {:resource_load, message, resource})
 
     :ok
   end

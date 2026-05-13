@@ -66,11 +66,22 @@ defmodule Agens.Backend.LogTest do
     assert log =~ "node_1"
   end
 
-  test "tool_call/4 logs tool invocation and returns :ok" do
-    log = capture_log(fn -> assert :ok == Log.tool_call(nil, "job_1", "run_1", "my_tool") end)
+  test "tool_call/3 logs tool invocation and returns :ok" do
+    msg = message()
+    tc = %{name: "my_tool", arguments: %{}, result: "ok", error: nil}
+    log = capture_log(fn -> assert :ok == Log.tool_call(nil, msg, tc) end)
     assert log =~ "Tool call"
     assert log =~ "my_tool"
-    assert log =~ "job_1"
+    assert log =~ "run_1"
+  end
+
+  test "resource_load/3 logs resource load and returns :ok" do
+    msg = message()
+    resource = %Agens.Resource{uri: "file://test", name: "my_resource", description: "test"}
+    log = capture_log(fn -> assert :ok == Log.resource_load(nil, msg, resource) end)
+    assert log =~ "Resource load"
+    assert log =~ "my_resource"
+    assert log =~ "run_1"
   end
 
   test "prompt/1 returns :ok without logging" do

@@ -1,7 +1,7 @@
 defmodule Agens.Backend.EmitTest do
   use ExUnit.Case, async: true
 
-  alias Agens.{Backend.Emit, Message}
+  alias Agens.{Backend.Emit, Message, Resource}
 
   defp message(overrides \\ []) do
     struct(
@@ -55,9 +55,18 @@ defmodule Agens.Backend.EmitTest do
     assert_received {:node_result, ^msg}
   end
 
-  test "tool_call/4 sends {:tool_call, {job_id, run_id, tool_name}} to caller" do
-    assert :ok == Emit.tool_call(self(), "job_1", "run_1", "my_tool")
-    assert_received {:tool_call, {"job_1", "run_1", "my_tool"}}
+  test "tool_call/3 sends {:tool_call, message, tool_call} to caller" do
+    msg = message()
+    tc = %{name: "my_tool", arguments: %{"foo" => "bar"}, result: "ok", error: nil}
+    assert :ok == Emit.tool_call(self(), msg, tc)
+    assert_received {:tool_call, ^msg, ^tc}
+  end
+
+  test "resource_load/3 sends {:resource_load, message, resource} to caller" do
+    msg = message()
+    resource = %Resource{uri: "file://test", name: "test", description: "test"}
+    assert :ok == Emit.resource_load(self(), msg, resource)
+    assert_received {:resource_load, ^msg, ^resource}
   end
 
   test "prompt/1 sends {:prompt, {system, user}} to message.caller" do

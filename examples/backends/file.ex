@@ -32,7 +32,10 @@ defmodule AgensDemo.FileBackend do
   end
 
   @impl true
-  def tool_call(_caller, _job_id, _run_id, _tool_name), do: :ok
+  def tool_call(_caller, %Message{}, %{}), do: :ok
+
+  @impl true
+  def resource_load(_caller, %Message{}, _resource), do: :ok
 
   @impl true
   def prompt(%Message{}), do: :ok

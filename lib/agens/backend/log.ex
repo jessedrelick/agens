@@ -65,8 +65,19 @@ defmodule Agens.Backend.Log do
   end
 
   @impl true
-  def tool_call(_caller, job_id, run_id, tool_name) do
-    Logger.info("[Agens: #{@name}] Tool call: #{tool_name} job_id: #{job_id} run_id: #{run_id}")
+  def tool_call(_caller, %Message{} = message, %{name: tool_name, error: error}) do
+    Logger.info(
+      "[Agens: #{@name}] Tool call: #{tool_name} run_id: #{message.run_id} node: #{message.node_id} error: #{inspect(error)}"
+    )
+
+    :ok
+  end
+
+  @impl true
+  def resource_load(_caller, %Message{} = message, resource) do
+    Logger.info(
+      "[Agens: #{@name}] Resource load: #{resource.name} run_id: #{message.run_id} node: #{message.node_id}"
+    )
 
     :ok
   end

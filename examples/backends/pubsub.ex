@@ -42,8 +42,13 @@ defmodule AgensDemo.PubSubBackend do
   end
 
   @impl true
-  def tool_call(_caller, job_id, run_id, tool_name) do
-    broadcast(run_id, {:tool_call, job_id, run_id, tool_name})
+  def tool_call(_caller, %Message{run_id: run_id} = message, %{} = tool_call) do
+    broadcast(run_id, {:tool_call, message, tool_call})
+  end
+
+  @impl true
+  def resource_load(_caller, %Message{run_id: run_id} = message, resource) do
+    broadcast(run_id, {:resource_load, message, resource})
   end
 
   @impl true

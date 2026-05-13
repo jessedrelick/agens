@@ -25,8 +25,12 @@ defmodule Test.Support.ErrorSubBackend do
   def node_result(caller, message), do: Backend.node_result(caller, message)
 
   @impl true
-  def tool_call(caller, job_id, run_id, tool_name),
-    do: Backend.tool_call(caller, job_id, run_id, tool_name)
+  def tool_call(caller, message, tool_call),
+    do: Backend.tool_call(caller, message, tool_call)
+
+  @impl true
+  def resource_load(caller, message, resource),
+    do: Backend.resource_load(caller, message, resource)
 
   @impl true
   def prompt(message), do: Backend.prompt(message)

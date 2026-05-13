@@ -973,7 +973,10 @@ defmodule Agens.JobTest do
 
       assert_receive {:node_started, %Message{}}
       assert_receive {:prompt, _prompt}
-      assert_receive {:tool_call, {^id, ^run_id, ^tool_name}}
+
+      assert_receive {:tool_call, %Message{run_id: ^run_id},
+                      %{name: ^tool_name, arguments: _, result: _, error: _}}
+
       assert_receive {:node_result, %Message{tool_results: tool_results}}
       result = Map.get(tool_results, tool_call_id)
 

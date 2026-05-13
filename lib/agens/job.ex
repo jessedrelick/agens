@@ -744,7 +744,6 @@ defmodule Agens.Job do
         |> Task.async_stream(
           fn args ->
             tool_name = args["name"]
-            Agens.backends(:tool_call, [state.caller, job_id, run_id, tool_name])
 
             :telemetry.execute([:agens, :tool, :call], %{}, %{
               job_id: job_id,
@@ -752,7 +751,26 @@ defmodule Agens.Job do
               name: tool_name
             })
 
-            Agens.Serving.call_tool(message.serving_name, args, message)
+            {tool_id, result} = Agens.Serving.call_tool(message.serving_name, args, message)
+
+            {error, normalized_result} =
+              case result do
+                {:error, reason} -> {inspect(reason), nil}
+                other -> {nil, other}
+              end
+
+            Agens.backends(:tool_call, [
+              state.caller,
+              message,
+              %{
+                name: tool_name,
+                arguments: args["input"] || %{},
+                result: normalized_result,
+                error: error
+              }
+            ])
+
+            {tool_id, result}
           end,
           ordered: false,
           timeout: :infinity
@@ -894,7 +912,7 @@ defmodule Agens.Job do
        when is_nil(resources) or resources == [],
        do: message
 
-  defp load_resources(%Message{resources: resources} = message, _state) do
+  defp load_resources(%Message{resources: resources} = message, state) do
     loaded =
       resources
       |> Task.async_stream(
@@ -905,10 +923,15 @@ defmodule Agens.Job do
             name: resource.name
           })
 
-          case Agens.Serving.load_resource(message.serving_name, resource, message) do
-            {:ok, loaded} -> loaded
-            {:error, _} -> resource
-          end
+          loaded =
+            case Agens.Serving.load_resource(message.serving_name, resource, message) do
+              {:ok, loaded} -> loaded
+              {:error, _} -> resource
+            end
+
+          Agens.backends(:resource_load, [state.caller, message, loaded])
+
+          loaded
         end,
         ordered: true,
         timeout: :infinity
