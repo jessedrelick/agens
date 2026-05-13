@@ -18,6 +18,7 @@ defmodule Agens.Message do
 
   @type t :: %__MODULE__{
           caller: pid() | nil,
+          id: binary() | nil,
           run_id: binary() | nil,
           parent_run_id: binary() | nil,
           input: String.t(),
@@ -45,6 +46,7 @@ defmodule Agens.Message do
   @enforce_keys [:input]
   defstruct [
     :caller,
+    :id,
     :run_id,
     :parent_run_id,
     :input,

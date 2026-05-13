@@ -644,6 +644,7 @@ defmodule Agens.Job do
       not is_nil(node.sub) ->
         message = %Message{
           caller: state.caller,
+          id: message.id || generate_message_id(),
           run_id: state.run_id,
           parent_run_id: state.sub && state.sub.parent_run_id,
           job_id: job_config.id,
@@ -666,6 +667,7 @@ defmodule Agens.Job do
       true ->
         message = %Message{
           caller: state.caller,
+          id: message.id || generate_message_id(),
           run_id: state.run_id,
           parent_run_id: state.sub && state.sub.parent_run_id,
           job_id: job_config.id,
@@ -770,7 +772,7 @@ defmodule Agens.Job do
 
   defp handle_result(%Message{} = message, original, server_pid, %State{} = state) do
     Agens.backends(:node_result, [state.caller, message])
-    message = %Message{message | retry_reason: nil}
+    message = %Message{message | retry_reason: nil, id: nil}
     do_next(message, original, server_pid, state)
   end
 
@@ -927,6 +929,12 @@ defmodule Agens.Job do
   end
 
   defp generate_thread_id do
+    16
+    |> :crypto.strong_rand_bytes()
+    |> Base.encode16(case: :lower)
+  end
+
+  defp generate_message_id do
     16
     |> :crypto.strong_rand_bytes()
     |> Base.encode16(case: :lower)
