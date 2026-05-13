@@ -13,6 +13,7 @@ Mix.install([
   {:phoenix_live_view, "0.20.1"},
   {:instructor, "~> 0.1.0"},
   {:hermes_mcp, "~> 0.14.1"},
+  {:finch, "~> 0.19.0"},
   {:agens, path: Path.expand("..", __DIR__)}
 ])
 
