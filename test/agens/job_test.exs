@@ -2,7 +2,7 @@ defmodule Agens.JobTest do
   use ExUnit.Case, async: false
 
   alias Agens.{Job, Message, Prefixes, Resource}
-  alias Agens.Job.State.Yield
+  alias Agens.Job.Yield
   alias Test.Support.{Resources, Tools}
 
   defp start_agens(_ctx) do

@@ -70,6 +70,16 @@ defmodule Agens do
     end
   end
 
+  @doc """
+  Generates a random hex-encoded identifier for use as a run, thread, or message id.
+  """
+  @spec generate_uid() :: binary()
+  def generate_uid do
+    16
+    |> :crypto.strong_rand_bytes()
+    |> Base.encode16(case: :lower)
+  end
+
   def active_processes() do
     Agens
     |> DynamicSupervisor.which_children()

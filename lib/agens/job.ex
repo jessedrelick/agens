@@ -66,207 +66,11 @@ defmodule Agens.Job do
   defguard is_status(status)
            when status in [:running, :error, :complete, :ended, :stopped]
 
-  defmodule Node do
-    @moduledoc """
-    The Node struct defines a single node within a Job.
-
-    ## Fields
-    - `agent_id` - The identifier of the agent to be used in the Node.
-    - `objective` - An optional string to be added to the LM prompt explaining the purpose of the Node.
-    """
-
-    @derive [Jason.Encoder]
-
-    @type schema :: binary()
-
-    @type t :: %__MODULE__{
-            serving: atom(),
-            agent_id: any() | nil,
-            sub: binary() | nil,
-            next: list() | nil,
-            objective: String.t() | nil,
-            tools: list(schema()) | nil,
-            resources: list(Agens.Resource.t()) | nil
-          }
-
-    @enforce_keys []
-    defstruct [:serving, :agent_id, :sub, :next, :objective, :tools, :resources]
-
-    @spec from_map(map()) :: t()
-    def from_map(%{} = m) do
-      %__MODULE__{
-        serving: m["serving"] && String.to_existing_atom(m["serving"]),
-        agent_id: m["agent_id"],
-        sub: m["sub"],
-        next: m["next"],
-        objective: m["objective"],
-        tools: m["tools"],
-        resources: m["resources"] && Enum.map(m["resources"], &Agens.Resource.from_map/1)
-      }
-    end
-  end
-
-  defmodule Sub do
-    @type t :: %__MODULE__{
-            config: Agens.Job.Config.t(),
-            run_id: binary(),
-            parent_run_id: binary() | nil,
-            parent_node_message: Agens.Message.t() | nil
-          }
-
-    @enforce_keys [:config]
-    defstruct [:config, :run_id, :parent_run_id, :parent_node_message]
-  end
-
-  defmodule Config do
-    @moduledoc """
-    The Config struct defines the details of a Job.
-
-    ## Fields
-    - `id` - The unique id used to identify the Job.
-    - `description` - An optional string to be added to the LM prompt that describes the basic goal of the Job.
-    - `nodes` - A list of `Agens.Job.Node` structs that define the sequence of agent actions to be performed.
-    """
-
-    @derive [Jason.Encoder]
-
-    @type t :: %__MODULE__{
-            id: binary(),
-            description: String.t() | nil,
-            nodes: %{
-              any() => Node.t()
-            },
-            starting_node_id: any(),
-            outputs: keyword() | nil,
-            max_retries: non_neg_integer()
-          }
-
-    @enforce_keys [:id, :nodes, :starting_node_id]
-    defstruct [:id, :description, :nodes, :starting_node_id, :outputs, max_retries: 3]
-
-    @spec from_json(binary()) :: t()
-    def from_json(json) when is_binary(json) do
-      json |> Jason.decode!() |> from_map()
-    end
-
-    @spec from_map(map()) :: t()
-    def from_map(%{} = m) do
-      nodes = Map.new(m["nodes"] || %{}, fn {k, v} -> {k, Node.from_map(v)} end)
-
-      %__MODULE__{
-        id: m["id"],
-        description: m["description"],
-        nodes: nodes,
-        starting_node_id: m["starting_node_id"],
-        outputs: m["outputs"],
-        max_retries: m["max_retries"] || 3
-      }
-    end
-  end
-
-  defmodule State do
-    @moduledoc false
-
-    alias Agens.Message
-
-    defmodule Yield do
-      @moduledoc false
-
-      @type thread_id :: binary()
-      @type next_node_id :: any()
-      @type thread :: {thread_id(), next_node_id()}
-
-      @type t :: %__MODULE__{
-              threads: list(thread_id()),
-              ready: list(thread())
-            }
-
-      @enforce_keys []
-      defstruct threads: [], ready: []
-
-      def new(), do: %Yield{}
-
-      def ready?(%Yield{threads: threads, ready: ready}) do
-        ready_map = Enum.into(ready, %{})
-        Enum.all?(threads, &Map.has_key?(ready_map, &1))
-      end
-
-      def thread_ready(nil, thread_id, next_node_id),
-        do: thread_ready(%Yield{}, thread_id, next_node_id)
-
-      def thread_ready(%Yield{} = yield, thread_id, next_node_id) do
-        Map.update(yield, :ready, [], &[{thread_id, next_node_id} | &1])
-      end
-
-      def thread_add(nil, thread_id), do: thread_add(%Yield{}, thread_id)
-
-      def thread_add(%Yield{} = yield, thread_id) do
-        Map.update(yield, :threads, [thread_id], &[thread_id | &1])
-      end
-
-      def thread_done(nil, _thread_id), do: %Yield{}
-
-      def thread_done(%Yield{} = yield, thread_id) do
-        Map.update(yield, :threads, [], &List.delete(&1, thread_id))
-      end
-    end
-
-    @type t :: %__MODULE__{
-            status: :init | :running | :error | :complete | :ended | :stopped,
-            config: Config.t(),
-            caller: pid() | nil,
-            run_id: String.t() | nil,
-            sub: Sub.t() | nil,
-            thread_count: non_neg_integer(),
-            tasks: %{
-              Task.ref() => Message.t()
-            }
-          }
-
-    @enforce_keys [:status, :config]
-    defstruct [
-      :status,
-      :config,
-      :caller,
-      :run_id,
-      :sub,
-      :yield,
-      tasks: %{},
-      thread_count: 0
-    ]
-
-    @spec get_message(State.t(), Task.ref()) :: Message.t() | nil
-    def get_message(%State{} = state, ref) do
-      state
-      |> Map.get(:tasks)
-      |> Map.get(ref)
-    end
-
-    @spec add_task(State.t(), Task.ref(), Message.t()) :: State.t()
-    def add_task(%State{} = state, ref, %Message{} = message) do
-      Map.update!(state, :tasks, fn val -> Map.put(val, ref, message) end)
-    end
-
-    @spec remove_task(State.t(), Task.ref()) :: State.t()
-    def remove_task(%State{} = state, ref) do
-      Map.update!(state, :tasks, fn val -> Map.delete(val, ref) end)
-    end
-
-    @spec get_node(State.t(), any()) :: Node.t() | nil
-    def get_node(%State{config: job_config}, node_id) do
-      Map.get(job_config.nodes, node_id)
-    end
-
-    @spec change_status(State.t(), atom()) :: State.t()
-    def change_status(%State{} = state, status) when is_atom(status) do
-      %State{state | status: status}
-    end
-  end
-
   use GenServer
 
+  alias Agens.Job.{Config, State, Sub, Yield}
+  alias Agens.Job.Node, as: JobNode
   alias Agens.Message
-  alias __MODULE__.State.Yield
 
   # ===========================================================================
   # Public API
@@ -319,13 +123,6 @@ defmodule Agens.Job do
     run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
       GenServer.call(pid, :stop)
     end)
-  end
-
-  @spec change_status(State.t(), atom()) :: State.t()
-  defp change_status(%State{} = state, status) when is_status(status) do
-    :telemetry.execute([:agens, :job, :status], %{}, %{status: status, run_id: state.run_id})
-    Agens.backends(:status, [state.caller, state.run_id, status])
-    State.change_status(state, status)
   end
 
   # ===========================================================================
@@ -412,7 +209,7 @@ defmodule Agens.Job do
         %State{config: %{id: id, starting_node_id: first_node_id}} = state
       ) do
     server_pid = self()
-    first_thread_id = generate_thread_id()
+    first_thread_id = Agens.generate_uid()
     Agens.backends(:start, [state.caller, id, state.run_id])
     state = change_status(state, :running)
     GenServer.cast(server_pid, {:thread, first_thread_id})
@@ -616,8 +413,7 @@ defmodule Agens.Job do
   @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
   def terminate({exception, _}, %State{} = state) do
     change_status(state, :error)
-    message = %Message{input: "", caller: state.caller, run_id: state.run_id}
-    Agens.backends(:error, [state.caller, message, exception])
+    Agens.backends(:error, [state.caller, terminate_message(state), exception])
 
     :ok
   end
@@ -626,13 +422,30 @@ defmodule Agens.Job do
     :ok
   end
 
+  @spec terminate_message(State.t()) :: Message.t()
+  defp terminate_message(%State{tasks: tasks} = state) do
+    case Map.values(tasks) do
+      [%Message{} = msg | _] ->
+        msg
+
+      _ ->
+        %Message{
+          input: "",
+          caller: state.caller,
+          run_id: state.run_id,
+          job_id: state.config.id,
+          job_description: state.config.description
+        }
+    end
+  end
+
   # ===========================================================================
-  # Private
+  # Orchestration
   # ===========================================================================
 
   @doc false
   @spec do_node(Message.t(), pid(), State.t()) :: State.t()
-  defp do_node(message, server_pid, %State{config: job_config} = state) do
+  defp do_node(message, server_pid, %State{} = state) do
     node = State.get_node(state, message.node_id)
 
     cond do
@@ -643,19 +456,9 @@ defmodule Agens.Job do
 
       not is_nil(node.sub) ->
         message = %Message{
-          caller: state.caller,
-          id: message.id || generate_message_id(),
-          run_id: state.run_id,
-          parent_run_id: state.sub && state.sub.parent_run_id,
-          job_id: job_config.id,
-          job_description: job_config.description,
-          agent_id: node.agent_id,
-          node_id: message.node_id,
-          input: message.input,
-          previous_result: message.previous_result,
-          result: message.input,
-          thread_id: message.thread_id,
-          next: node.next || []
+          build_message(message, node, state)
+          | result: message.input,
+            next: node.next || []
         }
 
         Agens.backends(:node_started, [state.caller, message])
@@ -666,25 +469,15 @@ defmodule Agens.Job do
 
       true ->
         message = %Message{
-          caller: state.caller,
-          id: message.id || generate_message_id(),
-          run_id: state.run_id,
-          parent_run_id: state.sub && state.sub.parent_run_id,
-          job_id: job_config.id,
-          job_description: job_config.description,
-          serving_name: node.serving,
-          agent_id: node.agent_id,
-          node_objective: node.objective,
-          tool_defs: node.tools,
-          resources: node.resources,
-          node_id: message.node_id,
-          input: message.input,
-          previous_result: message.previous_result,
-          retries: message.retries,
-          retry_reason: message.retry_reason,
-          tool_calls: message.tool_calls,
-          tool_results: message.tool_results,
-          thread_id: message.thread_id
+          build_message(message, node, state)
+          | serving_name: node.serving,
+            node_objective: node.objective,
+            tool_defs: node.tools,
+            resources: node.resources,
+            retries: message.retries,
+            retry_reason: message.retry_reason,
+            tool_calls: message.tool_calls,
+            tool_results: message.tool_results
         }
 
         Agens.backends(:node_started, [state.caller, message])
@@ -731,9 +524,10 @@ defmodule Agens.Job do
       message = %Message{message | tool_calls: nil}
       handle_result(message, original, server_pid, state)
     else
-      new_results =
-        incomplete_calls
-        |> Enum.map(fn %{"arguments" => arguments} = tool_call ->
+      timeout = serving_timeout(message.serving_name)
+
+      prepared_calls =
+        Enum.map(incomplete_calls, fn %{"arguments" => arguments} = tool_call ->
           input =
             arguments
             |> Enum.map(fn %{"key" => k, "value" => v} -> {k, v} end)
@@ -741,6 +535,9 @@ defmodule Agens.Job do
 
           Map.put(tool_call, "input", input)
         end)
+
+      new_results =
+        prepared_calls
         |> Task.async_stream(
           fn args ->
             tool_name = args["name"]
@@ -751,33 +548,50 @@ defmodule Agens.Job do
               name: tool_name
             })
 
-            {tool_id, result} = Agens.Serving.call_tool(message.serving_name, args, message)
+            case Agens.Serving.call_tool(message.serving_name, args, message) do
+              {:error, reason} ->
+                Agens.backends(:tool_call, [
+                  state.caller,
+                  message,
+                  %{
+                    name: tool_name,
+                    arguments: args["input"] || %{},
+                    result: nil,
+                    error: inspect(reason)
+                  }
+                ])
 
-            {error, normalized_result} =
-              case result do
-                {:error, reason} -> {inspect(reason), nil}
-                other -> {nil, other}
-              end
+                {args["id"], {:error, reason}}
 
-            Agens.backends(:tool_call, [
-              state.caller,
-              message,
-              %{
-                name: tool_name,
-                arguments: args["input"] || %{},
-                result: normalized_result,
-                error: error
-              }
-            ])
+              {tool_id, result} ->
+                {error, normalized_result} =
+                  case result do
+                    {:error, reason} -> {inspect(reason), nil}
+                    other -> {nil, other}
+                  end
 
-            {tool_id, result}
+                Agens.backends(:tool_call, [
+                  state.caller,
+                  message,
+                  %{
+                    name: tool_name,
+                    arguments: args["input"] || %{},
+                    result: normalized_result,
+                    error: error
+                  }
+                ])
+
+                {tool_id, result}
+            end
           end,
-          ordered: false,
-          timeout: :infinity
+          ordered: true,
+          timeout: timeout,
+          on_timeout: :kill_task
         )
+        |> Enum.zip(prepared_calls)
         |> Enum.map(fn
-          {:ok, result} -> result
-          {:exit, reason} -> {:error, reason}
+          {{:ok, {tool_id, result}}, _call} -> {tool_id, result}
+          {{:exit, reason}, call} -> {call["id"], {:error, reason}}
         end)
         |> Enum.into(%{})
 
@@ -811,7 +625,7 @@ defmodule Agens.Job do
               if index == 0 do
                 message
               else
-                thread_id = generate_thread_id()
+                thread_id = Agens.generate_uid()
                 GenServer.cast(server_pid, {:thread, thread_id})
                 %Message{message | thread_id: thread_id}
               end
@@ -851,14 +665,21 @@ defmodule Agens.Job do
   end
 
   # ===========================================================================
-  # Utilities
+  # Helpers
   # ===========================================================================
+
+  @spec change_status(State.t(), atom()) :: State.t()
+  defp change_status(%State{} = state, status) when is_status(status) do
+    :telemetry.execute([:agens, :job, :status], %{}, %{status: status, run_id: state.run_id})
+    Agens.backends(:status, [state.caller, state.run_id, status])
+    State.change_status(state, status)
+  end
 
   defp run_sub(state, message, job_id, parent_node_message \\ nil) do
     spec =
       :sub
       |> Agens.backends([self(), job_id])
-      |> Enum.find(&match?(%Agens.Job.Sub{}, &1))
+      |> Enum.find(&match?(%Sub{}, &1))
 
     if !spec do
       GenServer.cast(self(), {{:error, :job_not_loaded}, message})
@@ -884,7 +705,7 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
-           sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
          } =
            state,
          {:done, %Message{result: result} = sub_message}
@@ -896,7 +717,7 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
-           sub: %Agens.Job.Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
          },
          {{:error, reason}, message}
        ) do
@@ -913,6 +734,8 @@ defmodule Agens.Job do
        do: message
 
   defp load_resources(%Message{resources: resources} = message, state) do
+    timeout = serving_timeout(message.serving_name)
+
     loaded =
       resources
       |> Task.async_stream(
@@ -934,7 +757,8 @@ defmodule Agens.Job do
           loaded
         end,
         ordered: true,
-        timeout: :infinity
+        timeout: timeout,
+        on_timeout: :kill_task
       )
       |> Enum.zip(resources)
       |> Enum.map(fn
@@ -945,22 +769,35 @@ defmodule Agens.Job do
     %Message{message | resources: loaded}
   end
 
+  @spec serving_timeout(atom()) :: timeout()
+  defp serving_timeout(serving_name) when is_atom(serving_name) do
+    case Agens.Serving.get_config(serving_name) do
+      {:ok, %Agens.Serving.Config{timeout: t}} -> t
+      _ -> :infinity
+    end
+  end
+
   defp incomplete_tool_calls(calls, nil), do: calls
 
   defp incomplete_tool_calls(calls, results) do
     Enum.reject(calls, fn call -> Map.has_key?(results, call["id"]) end)
   end
 
-  defp generate_thread_id do
-    16
-    |> :crypto.strong_rand_bytes()
-    |> Base.encode16(case: :lower)
-  end
-
-  defp generate_message_id do
-    16
-    |> :crypto.strong_rand_bytes()
-    |> Base.encode16(case: :lower)
+  @spec build_message(Message.t(), JobNode.t(), State.t()) :: Message.t()
+  defp build_message(%Message{} = message, %JobNode{} = node, %State{} = state) do
+    %Message{
+      caller: state.caller,
+      id: message.id || Agens.generate_uid(),
+      run_id: state.run_id,
+      parent_run_id: state.sub && state.sub.parent_run_id,
+      job_id: state.config.id,
+      job_description: state.config.description,
+      agent_id: node.agent_id,
+      node_id: message.node_id,
+      input: message.input,
+      previous_result: message.previous_result,
+      thread_id: message.thread_id
+    }
   end
 
   @spec run_id_to_pid(any(), any(), (pid() -> any())) :: any()
