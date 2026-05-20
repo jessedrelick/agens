@@ -2,7 +2,7 @@ defmodule Agens.Supervisor do
   @moduledoc """
   The Supervisor module for the Agens application.
 
-  `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Agent`, `Agens.Serving`, and `Agens.Job` processes.
+  `Agens.Supervisor` starts a `DynamicSupervisor` for managing `Agens.Serving` and `Agens.Job` processes.
 
   In order to use `Agens` simply add `Agens.Supervisor` to your application supervision tree:
 

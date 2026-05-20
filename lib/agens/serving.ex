@@ -4,7 +4,7 @@ defmodule Agens.Serving do
 
   `Agens.Serving` accepts a `GenServer` module or `Nx.Serving` struct for processing messages.
 
-  `Agens.Serving` is decoupled from `Agens.Agent` in order to reuse a single LM across multiple agents. In most cases, however, you will only need to start one text generation serving to be used by most, if not all, agents.
+  A single `Agens.Serving` process can be reused across many `Agens.Job.Node`s and Jobs. In most cases you will only need to start one text generation Serving to be used by most, if not all, of your Nodes.
 
   In some cases, you may have additional servings for more specific use cases such as image generation, speech recognition, etc.
 

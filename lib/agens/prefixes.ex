@@ -2,7 +2,7 @@ defmodule Agens.Prefixes do
   @moduledoc """
   The Prefixes struct is used to configure prompt prefixes for building advanced prompts.
 
-  For each field used in the prompt (based on the configuration of Agents, Servings, and Jobs), a `heading` will be added, as well as some additional `detail`.
+  For each field used in the prompt (based on the configuration of Servings, Jobs, and their Nodes), a `heading` will be added, as well as some additional `detail`.
 
   For example, if you are running an `Agens.Job` and have defined an `objective` for the current `Agens.Job.Step`, the following will be added to the prompt:
 

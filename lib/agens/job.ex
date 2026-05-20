@@ -42,7 +42,7 @@ defmodule Agens.Job do
   Emitted when a result has been returned from the Serving. Includes the Serving result, which will be passed to the Tool (if applicable), conditions (if applicable), or the next step of the job.
 
   #### Tool
-  The following events are emitted only if the Agent has a Tool specified in `Agens.Agent.Config`:
+  The following events are emitted only if the `Agens.Job.Node` has tools defined via its `:tools` field:
 
   ```
   {:tool_started, {job.name, step_index}, message.result}

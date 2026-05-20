@@ -19,9 +19,8 @@ defmodule Agens do
   It is made up of the following core entities:
 
   - `Agens.Serving` - used to interact with language models
-  - `Agens.Agent` - used to interact with servings in a specialized manner
   - `Agens.Job` - used to define multi-agent workflows
-  - `Agens.Message` - used to facilitate communication between agents, jobs, and servings
+  - `Agens.Message` - used to facilitate communication between Jobs and Servings
   """
 
   use DynamicSupervisor

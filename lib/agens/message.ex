@@ -1,6 +1,6 @@
 defmodule Agens.Message do
   @moduledoc """
-  The Message struct defines the details of a message passed between Agents, Jobs and Servings.
+  The Message struct defines the details of a message passed between Jobs and Servings.
 
   ## Fields
 
@@ -8,7 +8,7 @@ defmodule Agens.Message do
     * `:input` - The input string for the message. Required.
     * `:prompt` - The final prompt string constructed for `Agens.Serving.run/1`.
     * `:result` - The result string for the message.
-    * `:agent_id` - The identifier of the `Agens.Agent`.
+    * `:agent_id` - An identifier passed to `c:Agens.Serving.load_context/2` so the Serving can resolve agent-specific context for the message. Not a process or first-class entity - just an opaque identifier interpreted by the Serving.
     * `:serving_name` - The name of the `Agens.Serving`.
     * `:job_name` - The name of the `Agens.Job`.
     * `:job_description` - The description of the `Agens.Job` to be added to the LM prompt.
@@ -74,7 +74,7 @@ defmodule Agens.Message do
   alias Agens.Serving
 
   @doc """
-  Sends an `Agens.Message` to an `Agens.Agent` or `Agens.Serving`.
+  Sends an `Agens.Message` to an `Agens.Serving`.
   """
   @spec send(t()) :: t() | {:error, atom()} | {:retry, String.t()}
   def send(%__MODULE__{input: input}) when input in ["", nil] do
