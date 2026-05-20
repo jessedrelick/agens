@@ -1,8 +1,30 @@
 defmodule Agens.Metrics do
+  @moduledoc """
+  `Telemetry.Metrics` definitions for the events emitted by Agens.
+
+  The list returned by `metrics/0` is intended to be supplied to a
+  `Telemetry.Metrics.Reporter` (for example `TelemetryMetricsPrometheus`,
+  `TelemetryMetricsStatsd`, or your own reporter) in your application's
+  supervision tree.
+
+  ## Event coverage
+
+  Metrics are emitted for the following event prefixes:
+
+    * `[:agens, :serving, ...]` - Serving lifecycle, enqueue, and result duration.
+    * `[:agens, :job, ...]` - Job lifecycle, status changes, retries, yields, sub-jobs and errors.
+    * `[:agens, :tool, :call]` - Tool calls performed by a Serving.
+    * `[:agens, :resource, :load]` - Resource loads performed by a Serving.
+  """
+
   import Telemetry.Metrics
 
   @durations [[0, 50, 100, 200, 500] | Enum.to_list(1000..10000//1000)] |> :lists.flatten()
 
+  @doc """
+  Returns the list of `Telemetry.Metrics` definitions for all Agens events.
+  """
+  @spec metrics() :: [Telemetry.Metrics.t()]
   def metrics() do
     [
       counter("agens.serving.start", event_name: [:agens, :serving, :start], tags: []),

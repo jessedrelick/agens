@@ -1,4 +1,6 @@
 defmodule Agens.Backend.Log do
+  @moduledoc false
+
   require Logger
 
   alias Agens.Message

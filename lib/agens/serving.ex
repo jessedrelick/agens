@@ -70,9 +70,34 @@ defmodule Agens.Serving do
   end
 
   defmodule Result do
+    @moduledoc """
+    The structured result returned from a Serving's `c:Agens.Serving.handle_result/3`
+    (or `c:Agens.Serving.handle_sub/3`) callback.
+
+    A `Result` describes the LM-facing response body, the parsed structured outputs,
+    any tool calls requested by the LM, and the list of routing instructions for the
+    next step(s).
+
+    ## Fields
+
+      * `:body` - The main response body string. Required.
+      * `:outputs` - Map of structured output values keyed by `Agens.Router.Output.key`.
+      * `:tool_calls` - List of tool call requests emitted by the LM.
+      * `:next` - List of route instructions (`{:route, node_id, count}`, `{:yield, node_id}`,
+        `{:sub, job_id}`, `:end`, `:retry`, or `{:retry, reason}`). When empty, the parent
+        Serving's Router runs `route/1` against the outputs to produce a fallback list.
+    """
+
+    @typedoc "Identifier of a target Node for `:route` / `:yield` instructions."
     @type node_id :: any()
+
+    @typedoc "Identifier of a target Sub-Job for `:sub` instructions."
     @type job_id :: any()
+
+    @typedoc "Repetition count for a `:route` instruction (used to fan out to multiple threads)."
     @type count :: integer()
+
+    @typedoc "A single routing instruction."
     @type next ::
             {:route, node_id(), count()}
             | {:yield, node_id()}
@@ -460,6 +485,13 @@ defmodule Agens.Serving do
     {:ok, GenServer.call(pid, :get_config)}
   end
 
+  @doc """
+  Invokes the `c:tool_call/3` callback on the given Serving with `args` and `message`.
+
+  The Serving executes the tool synchronously on a supervised task. Returns the
+  Serving-specific `{tool_id, result}` tuple, or `{:error, term()}` if the Serving
+  is not running or the tool implementation errors.
+  """
   @spec call_tool(atom(), map(), Message.t()) :: {binary() | integer(), any()} | {:error, term()}
   def call_tool(serving_name, args, message) when is_atom(serving_name) do
     serving_name
@@ -468,6 +500,13 @@ defmodule Agens.Serving do
     end)
   end
 
+  @doc """
+  Invokes the `c:load_resource/3` callback on the given Serving to resolve a `Agens.Resource`.
+
+  The Serving runs the resolution on a supervised task and returns the loaded resource
+  (typically with `:content` populated). Returns `{:error, :serving_not_found}` if the
+  Serving is not running.
+  """
   @spec load_resource(atom(), Agens.Resource.t(), Message.t()) ::
           {:ok, Agens.Resource.t()} | {:error, term()}
   def load_resource(serving_name, resource, message) when is_atom(serving_name) do

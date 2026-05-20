@@ -128,6 +128,12 @@ defmodule Agens.Job do
     GenServer.call(pid, {:run, input, opts})
   end
 
+  @doc """
+  Stops a running Job by `run_id`.
+
+  Returns `:ok` when the Job process is found and stopped, or
+  `{:error, :run_not_found}` if no Job is running under the given `run_id`.
+  """
   @spec stop(binary()) :: :ok | {:error, :run_not_found}
   def stop(run_id) do
     :telemetry.execute([:agens, :job, :stop], %{}, %{run_id: run_id})

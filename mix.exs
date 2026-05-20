@@ -82,23 +82,30 @@ defmodule Agens.MixProject do
       extras: [{"README.md", [title: "Agens"]}, {"CHANGELOG.md", [title: "Changelog"]}, "LICENSE"],
       source_url: "https://github.com/jessedrelick/agens",
       groups_for_modules: [
-        Agent: [
-          Agens.Agent,
-          Agens.Agent.Config,
-          Agens.Agent.Prompt
-        ],
         Job: [
           Agens.Job,
-          Agens.Job.State,
           Agens.Job.Config,
-          Agens.Job.Step
+          Agens.Job.Node,
+          Agens.Job.Sub
+        ],
+        Router: [
+          Agens.Router,
+          Agens.Router.Condition,
+          Agens.Router.Output
         ],
         Serving: [
           Agens.Serving,
-          Agens.Serving.Config
+          Agens.Serving.Config,
+          Agens.Serving.Result
         ],
-        Tool: [
-          Agens.Tool
+        Misc: [
+          Agens.Backend,
+          Agens.Metrics,
+          Agens.Prefixes,
+          Agens.Prompt,
+          Agens.Resource,
+          Agens.Schema,
+          Agens.Supervisor
         ]
       ]
     ]

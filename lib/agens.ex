@@ -80,6 +80,19 @@ defmodule Agens do
     |> Base.encode16(case: :lower)
   end
 
+  @typedoc "Summary of a supervised Agens child process."
+  @type process_info :: %{
+          pid: pid(),
+          type: :job | :serving,
+          name: binary(),
+          config: Job.Config.t() | Serving.Config.t()
+        }
+
+  @doc """
+  Returns a list of all supervised Agens child processes (Jobs and Servings)
+  with their `pid`, `type`, `name`, and configuration.
+  """
+  @spec active_processes() :: [process_info()]
   def active_processes() do
     Agens
     |> DynamicSupervisor.which_children()
@@ -88,6 +101,12 @@ defmodule Agens do
     end)
   end
 
+  @doc """
+  Returns process information for a supervised Agens child given its `pid` and module.
+
+  When the module is `Agens.Job`, the result describes a Job. Otherwise it is treated as a Serving.
+  """
+  @spec get_process_info(pid(), module()) :: process_info()
   def get_process_info(pid, Job) do
     {:ok, config} = Job.get_config(pid)
 
@@ -100,11 +119,25 @@ defmodule Agens do
     %{pid: pid, type: :serving, name: Atom.to_string(config.name), config: config}
   end
 
+  @doc """
+  Invokes `fun` with `args` on every configured backend module.
+
+  Returns the list of per-backend results in declaration order. See `backends/0`
+  for how the backend list is resolved.
+  """
+  @spec backends(atom(), list()) :: list()
   def backends(fun, args) when is_atom(fun) and is_list(args) do
     backends()
     |> Enum.map(&apply(&1, fun, args))
   end
 
+  @doc """
+  Returns the configured list of `Agens.Backend` implementations.
+
+  Reads `:agens` application env key `:backends`, defaulting to
+  `[Agens.Backend.Emit, Agens.Backend.Log]`.
+  """
+  @spec backends() :: [module()]
   def backends() do
     Application.get_env(:agens, :backends, [Agens.Backend.Emit, Agens.Backend.Log])
   end

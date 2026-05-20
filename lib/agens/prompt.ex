@@ -1,4 +1,19 @@
 defmodule Agens.Prompt do
+  @moduledoc """
+  Builds the system/user prompt pairs for a `Agens.Message` prior to LM inference.
+
+  `build/3` assembles the structured fields of a `Agens.Message` (objective, description, input,
+  previous result, resources, tool definitions/calls/results, retry reason, optional context)
+  into two lists of `{prefix, value}` pairs - one for the system prompt and one for the user prompt.
+  Each pair pairs a header/detail tuple from `Agens.Prefixes` with the corresponding value.
+
+  Empty values are filtered out so that omitted fields produce no prompt section. Servings can
+  override the default prefixes via `Agens.Serving.Config` or `Agens.Supervisor` options.
+
+  This module is part of the internal prompt pipeline; servings normally call it indirectly through
+  the default `build_prompt/3` implementation injected by `use Agens.Serving`.
+  """
+
   alias Agens.{Message, Prefixes}
 
   @system_keys ~w(description objective context tool_defs resources)a

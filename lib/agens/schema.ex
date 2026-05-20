@@ -1,4 +1,25 @@
 defmodule Agens.Schema do
+  @moduledoc """
+  JSON Schema fragments used to constrain structured LM responses.
+
+  Servings using structured outputs combine these fragments via
+  `c:Agens.Serving.build_schema/1` into a single JSON Schema describing the
+  expected response shape: a `body` string, a `next` list of routing instructions,
+  an `outputs` map, and a `tool_calls` array modeled after MCP tool calls.
+
+  The default `Agens.Serving` implementation wires each fragment in through
+  the `c:Agens.Serving.response_schema/1`, `c:Agens.Serving.outputs_schema/1` and
+  `c:Agens.Serving.tools_schema/1` callbacks - override those callbacks in a Serving
+  to supply a different schema (for example, to declare a Router-specific `outputs` schema).
+  """
+
+  @doc """
+  Returns the base response schema (`body` + `next`).
+
+  Used by `c:Agens.Serving.response_schema/1` as the foundation that `outputs` and
+  `tool_calls` properties are added onto.
+  """
+  @spec response() :: map()
   def response() do
     %{
       "title" => "Agens.StructuredOutput",
@@ -40,6 +61,13 @@ defmodule Agens.Schema do
     }
   end
 
+  @doc """
+  Returns the default `outputs` schema fragment.
+
+  Servings declaring structured outputs typically override `c:Agens.Serving.outputs_schema/1`
+  to return a Router-specific schema derived from `Agens.Router.Output.to_json_schema/1`.
+  """
+  @spec outputs() :: map()
   def outputs() do
     %{
       "title" => "outputs",
@@ -51,6 +79,10 @@ defmodule Agens.Schema do
     }
   end
 
+  @doc """
+  Returns the `tool_calls` schema fragment modeled after the MCP Tool Calls shape.
+  """
+  @spec tools() :: map()
   def tools() do
     %{
       "title" => "MCP Tool Calls list",

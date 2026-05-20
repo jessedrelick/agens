@@ -1,4 +1,6 @@
 defmodule Agens.Backend.Emit do
+  @moduledoc false
+
   alias Agens.Message
 
   @behaviour Agens.Backend
