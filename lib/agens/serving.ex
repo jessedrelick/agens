@@ -76,7 +76,7 @@ defmodule Agens.Serving do
 
     A `Result` describes the LM-facing response body, the parsed structured outputs,
     any tool calls requested by the LM, and the list of routing instructions for the
-    next step(s).
+    next Node(s).
 
     ## Fields
 

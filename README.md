@@ -5,17 +5,17 @@
 
 __Agens__ is an Elixir application designed to build multi-agent workflows with language models.
 
-Drawing inspiration from popular tools in the Python ecosystem, such as [LangChain](https://www.langchain.com/)/[LangGraph](https://www.langchain.com/langgraph) and [CrewAI](https://www.crewai.com/), __Agens__ showcases Elixir’s unique strengths in multi-agent workflows. While the ML/AI landscape is dominated by Python, Elixir’s use of the BEAM virtual machine and OTP (Open Telecom Platform), specifically GenServers and Supervisors, makes it particularly well-suited for these tasks. Agens aims to demonstrate how these inherent design features can be leveraged effectively.
+Drawing inspiration from popular tools in the Python ecosystem, such as [LangChain](https://www.langchain.com/)/[LangGraph](https://www.langchain.com/langgraph) and [CrewAI](https://www.crewai.com/), __Agens__ showcases Elixir's unique strengths in multi-agent workflows. While the ML/AI landscape is dominated by Python, Elixir's use of the BEAM virtual machine and OTP (Open Telecom Platform), specifically GenServers and Supervisors, makes it particularly well-suited for these tasks. Agens aims to demonstrate how these inherent design features can be leveraged effectively.
 
-By combining Agens with powerful Elixir libraries like [Bumblebee](https://github.com/elixir-nx/bumblebee) and [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html), along with [structured outputs in the OpenAI API](https://openai.com/index/introducing-structured-outputs-in-the-api/) and the continuous improvement of open-source language models, the reliance on Python for multi-agent workflows is significantly reduced. This shift allows Elixir’s concurrency model to truly shine.
-
-> **⚠️ Experimental:** v0.1  
->  
-> Agens is currently an experimental project. As of version 0.1, it is primarily a proof-of-concept and learning tool. 
->  
-> The next phase of the project focuses on developing real-world examples to uncover potential issues or gaps that the current test suite may not address.  
->  
-> These examples are designed to not only help you get started but also to advance Agens towards becoming a production-ready tool, suitable for integration into new or existing Elixir applications.
+> **⚠️ Breaking Changes:** v0.2
+>
+> Agens has changed significantly since the original 0.1 release (August 2024). The 0.2 line is a substantial redesign:
+>
+> - The `Agens.Agent` module has been removed. `agent_id` survives as an opaque identifier used by a Serving's `c:Agens.Serving.load_context/2` callback.
+> - `Agens.Job.Step` has been replaced by `Agens.Job.Node`. Jobs are now graphs of Nodes, not sequences of Steps.
+> - Routing is dynamic and lives on the Serving (via `Agens.Router`), not on static step configuration.
+> - Observability moved to the `Agens.Backend` behaviour (default backends emit messages to the caller and write structured logs).
+> - Tool calls are configured per-Node via the `:tools` field and executed by the Serving's `c:Agens.Serving.tool_call/3` callback (modeled after MCP tool calls).
 
 ## Installation
 Add `agens` to your list of dependencies in `mix.exs`:
@@ -29,12 +29,10 @@ end
 ```
 
 ## Usage
-Building a multi-agent workflow with Agens involves a few different steps and core entities:
+A multi-agent workflow with Agens has four moving parts: a **Serving** (the LM interface), a **Router** (routing logic on top of structured outputs), a **Job** (a graph of `Node`s), and optional **Backends** (observability/persistence). Most workflows only need one Serving and one Router.
 
 ---
-**1. Add the Agens Supervisor to your Supervision tree**
-
-This will start Agens as a supervised process inside your application:
+**1. Add the Agens Supervisor to your supervision tree**
 
 ```elixir
 children = [
@@ -44,101 +42,168 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-See `Agens.Supervisor` for more information
+See `Agens.Supervisor` for more information.
 
 ---
-**2. Start one or more Servings**
+**2. Define and start a Serving**
 
-A **Serving** is essentially a wrapper for language model inference. It can be an `Nx.Serving` struct, either returned by `Bumblebee` or manually created, or a `GenServer` that interfaces with the OpenAI API or other language model APIs. Technically, due to `GenServer` support, a Serving doesn't need to be limited to language models or machine learning—it can also handle regular API calls.
+A **Serving** wraps language model inference. It can be a `Bumblebee`/`Nx.Serving` or a `GenServer` calling an external LM API. Implement the `Agens.Serving` behaviour and `use Agens.Serving` to opt into the framework.
 
 ```elixir
-Application.put_env(:nx, :default_backend, EXLA.Backend)
-auth_token = System.get_env("HF_AUTH_TOKEN")
+defmodule MyApp.Serving do
+  use Agens.Serving
+  use Agens.Router
 
-repo = {:hf, "mistralai/Mistral-7B-Instruct-v0.2", auth_token: auth_token}
+  alias Agens.{Message, Serving}
 
-{:ok, model} = Bumblebee.load_model(repo, type: :bf16)
-{:ok, tokenizer} = Bumblebee.load_tokenizer(repo)
-{:ok, generation_config} = Bumblebee.load_generation_config(repo)
+  @impl Serving
+  def start(state), do: {:ok, state}
 
-serving = Bumblebee.Text.generation(model, tokenizer, generation_config)
+  @impl Serving
+  def handle_message(_state, %Message{system: system, user: user}, schema) do
+    # Call your LM with the prepared system/user prompts + JSON schema, return
+    # `{:ok, parsed}` or `{:error, reason}`.
+  end
 
-serving_config = %Agens.Serving.Config{
-  name: :my_serving,
-  serving: serving
-}
+  @impl Serving
+  def handle_result({:ok, %{"body" => body} = parsed}, _state, _msg) do
+    {:ok, %Serving.Result{body: body, outputs: Map.get(parsed, "outputs", %{})}}
+  end
 
-{:ok, pid} = Agens.Serving.start(serving_config)
+  def handle_result({:error, reason}, _state, _msg), do: {:error, reason}
+
+  # Router callbacks (see step 3)
+  @impl Agens.Router
+  def outputs(%Message{}), do: []
+
+  @impl Agens.Router
+  def resolve(%Message{}, _outputs), do: [:end]
+end
+
+{:ok, _pid} =
+  Agens.Serving.start(%Agens.Serving.Config{
+    name: :my_serving,
+    serving: MyApp.Serving
+  })
 ```
 
-See `Agens.Serving` for more information
+See `Agens.Serving` and `examples/servings/` for reference Serving implementations.
 
 ---
-**3. Create and start one or more Agents**
+**3. Define a Router**
 
-An **Agent** in the context of Agens is responsible for communicating with Servings and can provide additional context during these interactions.
+A **Router** maps a Serving's structured outputs to a list of routing instructions (`{:route, node_id, count}`, `{:yield, node_id}`, `{:sub, job_id}`, `:end`, `:retry`).
 
-In practice, Agents typically have their own specialized tasks or capabilities while communicating with the same Serving. Many projects may use a single Serving, such as a language model (LM) or an LM API, but employ multiple Agents to perform different tasks using that Serving. 
-
-Additionally, Agents can use modules implementing the `Agens.Tool` behaviour to extend their capabilities beyond standard LM inference, enabling function-calling and other advanced operations.
+A Router can live in the Serving module itself (the "merged" pattern shown above) or in a dedicated module passed via `use Agens.Serving, router: MyRouter` (the "split" pattern — useful when many Servings share the same routing logic).
 
 ```elixir
-agent_config = %Agens.Agent.Config{
-  name: :my_agent,
-  serving: :my_serving
-}
-{:ok, pid} = Agens.Agent.start(agent_config)
+defmodule MyApp.LinearRouter do
+  use Agens.Router
+
+  alias Agens.Message
+
+  @impl Agens.Router
+  def outputs(%Message{}), do: []
+
+  @impl Agens.Router
+  def resolve(%Message{node_id: "summarize"}, _), do: [{:route, "critique", 1}]
+  def resolve(%Message{node_id: "critique"}, _), do: [:end]
+end
 ```
 
-See `Agens.Agent` for more information
-
----
-**4. Create and start one or more Jobs**
-
-While Agens is designed to be flexible enough to allow direct communication with an `Agens.Serving` or `Agens.Agent`, its primary goal is to facilitate a multi-agent workflow that uses various steps to achieve a final result. Each step (`Agens.Job.Step`) employs an Agent to accomplish its objective, and the results are then passed to the next step in the **Job**. Conditions can also be used to determine the routing between steps or to conclude the job.
+For routing decisions that depend on the LM's structured response, declare an `Agens.Router.Output` schema and use `Agens.Router.Condition` to branch:
 
 ```elixir
-job_config = %Agens.Job.Config{
-  name: :my_job,
-  description: "an example job",
-  steps: [
-    %Agens.Job.Step{
-      agent: :my_agent,
-      objective: "first step objective"
-    },
-    %Agens.Job.Step{
-      agent: :my_agent,
-      conditions: %{
-        "__DEFAULT__" => :end
-      }
-    }
+def outputs(%Message{}) do
+  [
+    %Output{key: "viable", type: "bool", description: "Is the topic researchable?"},
+    %Output{key: "confidence", type: "int", description: "1-10 confidence in the result"}
   ]
-}
-{:ok, pid} = Agens.Job.start(job_config)
-Agens.Job.run(:my_job, "user input")
+end
+
+def resolve(_msg, outputs) do
+  cond do
+    Condition.check(%Condition{key: "viable", op: "eq", value: "false"}, outputs) -> [:end]
+    Condition.check(%Condition{key: "confidence", op: "lt", value: "7"}, outputs) -> [:retry]
+    true -> [{:route, "writer", 1}]
+  end
+end
 ```
 
-See `Agens.Job` for more information
+See `Agens.Router`, `Agens.Router.Output`, `Agens.Router.Condition`, and `examples/router/` for more.
 
 ---
+**4. Define and run a Job**
+
+A **Job** is a graph of `Agens.Job.Node`s with a designated `:starting_node_id`. Each Node declares a Serving and, optionally, an `agent_id`, `objective`, `tools`, `resources`, or a `sub` Job. Routing between Nodes is decided at runtime by the Serving's Router — there is no static `next` field on a Node.
+
+```elixir
+config = %Agens.Job.Config{
+  id: "summarize_critique",
+  description: "Summarize a topic in three sentences, then critique the summary.",
+  starting_node_id: "summarize",
+  nodes: %{
+    "summarize" => %Agens.Job.Node{
+      serving: :my_serving,
+      agent_id: "summarizer",
+      objective: "Write a tight three-sentence summary of the topic."
+    },
+    "critique" => %Agens.Job.Node{
+      serving: :my_serving,
+      agent_id: "critic",
+      objective: "Identify one weakness or omission in the summary."
+    }
+  }
+}
+
+run_id = Agens.generate_uid()
+
+{:ok, _pid} = Agens.Job.start(config, run_id)
+:ok = Agens.Job.run(run_id, "the rise of small open-weight LLMs", [])
+```
+
+Jobs are addressed by `run_id` (not name) so the same `Job.Config` can be executed in parallel. See `Agens.Job`, `Agens.Job.Config`, and `Agens.Job.Node`.
+
+---
+**5. Observe via Backends (optional)**
+
+The `Agens.Backend` behaviour fans out lifecycle and Node activity to one or more backends. Defaults are configured via the `:backends` application key:
+
+```elixir
+config :agens, backends: [Agens.Backend.Emit, Agens.Backend.Log, MyApp.PubSubBackend]
+```
+
+The default emit backend sends `{:job_started, _, _}`, `{:node_started, msg}`, `{:node_result, msg}`, `{:tool_call, msg, call}`, `{:resource_load, msg, resource}`, `{:job_complete, _}` and more to the caller process — handle them with `handle_info/2` in a LiveView or any GenServer. See `Agens.Backend` for the full list of callbacks.
+
+---
+**Sub-Jobs**
+
+A Node can run an entire Sub-Job in place of inference by setting `:sub` to a Job id. When the Sub completes, the parent invokes the Node's Serving `c:Agens.Serving.handle_sub/3` callback to map the Sub's final `Agens.Message` into the parent Node's `outputs` and routing decision. A Serving can also emit `{:sub, job_id}` in its `next` list to chain a Sub-Job *after* its own inference. See the "Routing and Sub-Jobs" section in `Agens.Job` for details.
 
 ## Examples
-The `examples` directory includes a [single-file Phoenix LiveView application](examples/phoenix.exs) showcasing the basic usage of Agens.
+The `examples/` directory contains:
 
-To run the example, use the following command in your terminal:
+- A single-file Phoenix LiveView app — see [`phoenix.exs`](examples/phoenix.exs) — wiring up `Instructor`, MCP tools, a PubSub backend, and a multi-node routed Job.
+- Reference Serving implementations under `examples/servings/` (e.g. `Instructor` for structured outputs).
+- A linear router and a condition-driven edge router under `examples/router/`.
+- PubSub and file backends under `examples/backends/`.
+- An MCP client/server pair under `examples/mcp/` using `hermes_mcp` for tools and resources.
+- JSON-defined Jobs under `examples/jobs/`, loaded via `Agens.Job.Config.from_json/1`.
+
+Run the Phoenix example with:
 
 ```bash
 elixir examples/phoenix.exs
 ```
 
-This will start a local Phoenix server, accessible at [http://localhost:8080](http://localhost:8080).
+It will be available at [http://localhost:8080](http://localhost:8080).
 
 ## Configuration
-Additional options can be passed to `Agens.Supervisor` in order to override the default values:
+`Agens.Supervisor` accepts an `opts` keyword list:
 
 ```elixir
 opts = [
-  prefixes: custom_prompt_prefixes
+  prefixes: my_custom_prefixes  # %Agens.Prefixes{}
 ]
 
 children = [
@@ -148,88 +213,84 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-The following default prompt prefixes can be copied, customized and used for the `prefixes` option above:
+The current `Agens.Prefixes` struct (default values shown):
 
 ```elixir
 %Agens.Prefixes{
-  prompt:
-    {"Agent",
-      "You are a specialized agent with the following capabilities and expertise"},
-  identity:
-    {"Identity",
-      "You are a specialized agent with the following capabilities and expertise"},
-  context: {"Context", "The purpose or goal behind your tasks are to"},
-  constraints:
-    {"Constraints", "You must operate with the following constraints or limitations"},
-  examples:
-    {"Examples",
-      "You should consider the following examples before returning results"},
-  reflection:
-    {"Reflection",
-      "You should reflect on the following factors before returning results"},
-  instructions:
-    {"Tool Instructions",
-      "You should provide structured output for function calling based on the following instructions"},
-  objective: {"Step Objective", "The objective of this step is to"},
+  context:
+    {"Context", "The following is critical context relevant to this task"},
+  objective:
+    {"Node Objective", "The objective of this node is to"},
   description:
-    {"Job Description", "This is part of multi-step job to achieve the following"},
+    {"Job Description", "This is part of a multi-node job to achieve the following"},
   input:
-    {"Input",
-      "The following is the actual input from the user, system or another agent"}
+    {"Input", "The following is the original input from the user"},
+  previous_result:
+    {"Previous Result", "The following is the result from the previous node in this job"},
+  schema:
+    {"Schema",
+     "It is critical to only return a JSON object matching the exact specification below"},
+  retry:
+    {"Retry",
+     "The response did not pass validation. Please try again and fix the following validation errors"},
+  tool_defs: {"Tool Definitions", "..."},
+  tool_calls: {"Tool Calls", "The following MCP tool calls were made by this node"},
+  tool_results:
+    {"Tool Results",
+     "The following are the results of MCP tool calls for this node. Use these results to formulate your response in `body` and `outputs`"},
+  resources:
+    {"Resources", "The following resources are provided as context for this node"}
 }
 ```
 
-See the [Prompting](#prompting) section below or `Agens.Prefixes` for more information on prompt prefixes. 
+Per-Serving overrides go on `Agens.Serving.Config` via the `:prefixes` field. See `Agens.Prefixes` for more.
 
-You can also see `Agens.Supervisor` for more information on configuration options.
+Backends are configured via the `:agens` application env:
+
+```elixir
+config :agens, backends: [Agens.Backend.Emit, Agens.Backend.Log]
+```
 
 ## Prompting
-Agens provides a variety of different ways to customize the final prompt sent to the language model (LM) or Serving. A natural language string can be assigned to the entity's specialized field (see below), while `nil` values will omit that field from the final prompt. This approach allows for precise control over the prompt content.
+Agens builds the final system/user prompt sent to the LM by stitching together fields from the running `Agens.Message`. Each field with a value gets its own headed section in the prompt; `nil` values are omitted entirely. The goal is to balance detail with token usage by populating only the fields that matter for a given Node.
 
-All fields with values, in addition to user input, will be included in the final prompt. The goal should be to balance detailed prompts with efficient token usage by focusing on relevant fields and using concise language. This approach will yield the best results with minimal token usage, keeping costs low and performance high.
-
-### User/Agent
-The `input` value is the only required field for building prompts. This value can be the initial value provided to `Agens.Job.run/2`, or the final result of a previous step (`Agens.Job.Step`). Both the `input` and `result` are stored in `Agens.Message`, which can also be used to send messages directly to `Agens.Agent` or `Agens.Serving` without being part of an `Agens.Job`. 
+### Input
+The `input` value is the only required field for building prompts. It is the value passed to `Agens.Job.run/3`, or the `result` of the previous Node, propagated as `previous_result` on the next Node's message.
 
 ### Job
-`Agens.Job.Config` uses the `description` field to configure the prompt for all messages within the Job. This field should be used carefully as it will be sent to the Serving with every prompt.
+`Agens.Job.Config.description` is sent with every Node's prompt in the Job. Use this for goals or constraints that apply to the whole workflow; keep it concise.
 
-### Step
-`Agens.Job.Step` uses the `objective` field to customize the final prompt sent to the Serving. This can provide more specific information in the final prompt than the Job `description` or Agent `prompt`.
+### Node
+`Agens.Job.Node.objective` is sent only when the corresponding Node is running. This is the right place for Node-specific instructions.
 
-### Agent
-`Agens.Agent` provides the most advanced prompt capabilities. The `prompt` field of `Agens.Agent.Config` accepts either a simple string value, or an `Agens.Agent.Prompt` struct. The following fields, which are all optional, can be used with the struct approach:
+`Agens.Job.Node.agent_id` is an opaque identifier handed to the Serving's `c:Agens.Serving.load_context/2` callback. Use it to load agent-specific context (e.g. a per-persona system prompt, a history loader, retrieval results) into the message before the prompt is built.
 
-- `:identity` - a string representing the purpose and capabilities of the agent
-- `:context` - a string representing the goal or purpose of the agent's actions
-- `:constraints` - a string listing any constraints or limitations on the agent's actions
-- `:examples` - a list of maps representing example inputs and outputs for the agent
-- `:reflection` - a string representing any additional considerations or reflection the agent should make before returning results
+### Tools
+Tools attached to a Node via `:tools` are surfaced to the LM under the `Tool Definitions` prefix as MCP-style tool schemas. When the LM emits `tool_calls`, Agens invokes the Serving's `c:Agens.Serving.tool_call/3` callback for each one and merges results back into the next prompt under `Tool Results`.
 
-Keep in mind that a single agent can be used across multiple jobs, so it is best to restrict the agent prompt to specific capabilities and use `objective` on `Agens.Job.Step` or `description` on `Agens.Job.Config` for Job or Step-specific prompting.
+### Resources
+`Agens.Resource` entries on a Node are resolved (via the Serving's `c:Agens.Serving.load_resource/3` callback) before inference and inlined under the `Resources` prefix.
 
-### Tool
-When creating Tools with the `Agens.Tool` behaviour, the `c:Agens.Tool.instructions/0` callback can be used to include specific instructions in the final prompt. These instructions may also include examples, especially for structured output, which can be crucial for designing a Tool that delivers predictable results.
+### Structured Outputs
+When a Router declares `outputs/1`, Agens builds a JSON Schema constraining the LM's response and surfaces it under the `Schema` prefix. The parsed outputs are then handed to the Router's `resolve/2` for routing.
 
-It is important to note that these instructions are provided to the Serving **before** the Tool is used, ensuring that the language model (LM) supplies the correct inputs to the Tool. After receiving these inputs, the Tool should be able to generate the relevant arguments to make the function call, and finally provide the expected output for the next step of the job.
-
-See `Agens.Tool` for more information on using Tools.
+### Retries
+If validation or routing fails, the next prompt includes the `Retry` prefix with a reason. Use `Agens.Job.Config.max_retries` to cap the number of attempts per Node.
 
 ### Summary
-- **User/Agent**: `input`/`result`
-- **Job**: `description`
-- **Agent**: `prompt` (`string` or `Agens.Agent.Prompt`)
-- **Step**: `objective`
-- **Tool**: `instructions`
+| Source                  | Field                                                          |
+| ----------------------- | -------------------------------------------------------------- |
+| User / previous Node    | `input` / `previous_result`                                    |
+| `Agens.Job.Config`      | `description`                                                  |
+| `Agens.Job.Node`        | `objective`, `tools`, `resources`, `agent_id` (loaded context) |
+| `Agens.Router`          | `outputs` (drives the response schema)                         |
 
-> **Note:** 
+> **Note:**
 >
-> Depending on your use case, some fields may be more relevant than others.
->
-> It’s often beneficial to be more descriptive at granular levels, such as the `objective` of `Agens.Job.Step` or the `instructions` for `Agens.Tool`, while taking a more minimal approach with higher-level fields, such as the `description` of `Agens.Job.Config` or the `prompt` of `Agens.Agent.Config`.
+> Depending on your use case, some fields may be more relevant than others. It's often beneficial to be more descriptive at granular levels (Node `objective`, Router `outputs`) while taking a more minimal approach at higher levels (Job `description`).
 
 ## Name
-The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind’s ability to actively process and abstract information. This reflects the goal of the Agens project: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.
+The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind's ability to actively process and abstract information. This reflects the goal of the Agens project: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.
 
 ## License
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for more details.

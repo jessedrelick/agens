@@ -12,8 +12,8 @@ defmodule Agens.Message do
     * `:serving_name` - The name of the `Agens.Serving`.
     * `:job_name` - The name of the `Agens.Job`.
     * `:job_description` - The description of the `Agens.Job` to be added to the LM prompt.
-    * `:step_index` - The index of the `Agens.Job.Step`.
-    * `:step_objective` - The objective of the `Agens.Job.Step` to be added to the LM prompt.
+    * `:node_id` - The identifier of the `Agens.Job.Node` currently being processed.
+    * `:node_objective` - The objective of the `Agens.Job.Node` to be added to the LM prompt.
   """
 
   @type t :: %__MODULE__{

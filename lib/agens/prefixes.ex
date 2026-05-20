@@ -4,15 +4,15 @@ defmodule Agens.Prefixes do
 
   For each field used in the prompt (based on the configuration of Servings, Jobs, and their Nodes), a `heading` will be added, as well as some additional `detail`.
 
-  For example, if you are running an `Agens.Job` and have defined an `objective` for the current `Agens.Job.Step`, the following will be added to the prompt:
+  For example, if you are running an `Agens.Job` and have defined an `objective` for the current `Agens.Job.Node`, the following will be added to the prompt:
 
   ```markdown
-  ## Step Objective
+  ## Node Objective
 
-  The objective of this step is to {{step.objective}}
+  The objective of this node is to {{node.objective}}
   ```
 
-  However, if you have not defined an `objective` for the current `Agens.Job.Step`, the `heading` and `detail` will also be omitted.
+  However, if you have not defined an `objective` for the current `Agens.Job.Node`, the `heading` and `detail` will also be omitted.
 
   Default prompt prefixes can be overridden globally with the `prefixes` option in `Agens.Supervisor`, or for individual servings with `Agens.Serving.Config`.
 

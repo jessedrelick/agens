@@ -20,7 +20,6 @@ defmodule Agens.Prompt do
   @user_keys ~w(input previous_result tool_calls tool_results retry)a
   @default_retry_reason "The previous response did not pass validation. Please review and try again."
 
-  @doc false
   @spec build(Message.t(), Prefixes.t(), binary() | nil) :: {list(), list()}
   def build(%Message{} = message, prefixes, context) do
     pairs =

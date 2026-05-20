@@ -1,66 +1,52 @@
 defmodule Agens.Job do
   @moduledoc """
-  A Job defines a multi-agent workflow through a sequence of steps.
+  A Job defines a multi-agent workflow as a graph of `Agens.Job.Node`s.
 
-  An `Agens.Job` is mainly a sequence of steps, defined with the `Agens.Job.Step` struct, used to create advanced multi-agent workflows.
-
-  Conditions can be used in order to route to different steps based on a result, or can be used to end the Job.
+  A Job is a map of `node_id => Agens.Job.Node` plus a `:starting_node_id`. Each Node declares a
+  Serving and, optionally, an objective, tools, resources, or a Sub-Job. Routing between Nodes is
+  dynamic and graph-based: the Serving's Router returns `next` instructions
+  (`{:route, node_id, count}`, `{:yield, node_id}`, `{:sub, job_id}`, `:end`, `:retry`) based on the
+  Node's structured outputs. There is no static `next` field on a Node — the graph is defined entirely
+  by the routing decisions emitted at runtime.
 
   ### Events
-  Agens emits several events that can be handled by the caller using `handle_info/3` for purposes such as UI updates, pubsub, logging, persistence and other side effects.
+
+  Lifecycle and per-Node activity are surfaced through the `Agens.Backend` behaviour. Configured
+  backends (see `Agens.backends/0` for the defaults) receive callbacks for every significant event.
+  The default emit backend forwards them to the caller process as messages, suitable for
+  `handle_info/2` in a UI/pubsub layer; the default log backend writes structured logs. Implement
+  your own `Agens.Backend` for custom persistence or side effects.
+
+  The default emit backend sends:
 
   #### Job
-  ```
-  {:job_started, job.name}
-  ```
 
-  Emitted when a job has started.
+      {:job_started, job_id, run_id}
+      {:job_status, {run_id, status}}
+      {:job_complete, run_id}
+      {:job_error, message, error}
 
-  ```
-  {:job_ended, job.name, :complete}
-  ```
+  #### Node
 
-  Emitted when a job has been completed.
+      {:node_started, message}
+      {:node_retry, message}
+      {:node_result, message}
 
-  ```
-  {:job_error, {job.name, step_index}, {:error, reason | exception}}
-  ```
+  #### Tool / Resource / Prompt
 
-  Emitted when a job has ended due to an error or unhandled exception.
+  The following are emitted when applicable (e.g. `:tool_call` only when the Node has `:tools` set,
+  `:resource_load` only when `:resources` are configured):
 
-  #### Step
-  ```
-  {:step_started, {job.name, step_index}, message.input}
-  ```
+      {:tool_call, message, tool_call}
+      {:resource_load, message, resource}
+      {:prompt, {system, user}}
 
-  Emitted when a step has started. Includes the input data provided to the step, whether from the user or a previous step.
+  #### Yield
 
-  ```
-  {:step_result, {job.name, step_index}, message.result}
-  ```
+  Emitted while a yielding Node waits on, or aggregates, parallel threads:
 
-  Emitted when a result has been returned from the Serving. Includes the Serving result, which will be passed to the Tool (if applicable), conditions (if applicable), or the next step of the job.
-
-  #### Tool
-  The following events are emitted only if the `Agens.Job.Node` has tools defined via its `:tools` field:
-
-  ```
-  {:tool_started, {job.name, step_index}, message.result}
-  ```
-
-  Emitted when a Tool is about to be called. `message.result` here is the Serving result, which will be overriden by the value returned from the Tool prior to final output.
-
-  ```
-  {:tool_raw, {job.name, step_index}, message.raw}
-  ```
-
-  Emitted after completing the Tool function call. It provides the raw result of the Tool before any post-processing.
-
-  ```
-  {:tool_result, {job.name, step_index}, message.result}
-  ```
-
-  Emitted after post-processing of the raw Tool result. This is the final result of the Tool, which will be passed to conditions or the next step of the job.
+      {:yield_wait, {message, total_count, ready_count}}
+      {:yield_done, {message, total_count}}
 
   ## Routing and Sub-Jobs
 
