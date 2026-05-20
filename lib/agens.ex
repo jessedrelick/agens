@@ -20,6 +20,7 @@ defmodule Agens do
 
   - `Agens.Serving` - used to interact with language models
   - `Agens.Job` - used to define multi-agent workflows
+  - `Agens.Router` - used to map language model outputs to route instructions
   - `Agens.Message` - used to facilitate communication between Jobs and Servings
   """
 
@@ -27,28 +28,35 @@ defmodule Agens do
 
   alias Agens.{Job, Serving}
 
+  @typedoc "Summary of a supervised Agens child process."
+  @type process_info :: %{
+          pid: pid(),
+          type: :job | :serving,
+          name: binary(),
+          config: Job.Config.t() | Serving.Config.t()
+        }
+
   @doc false
   @spec child_spec(keyword()) :: Supervisor.child_spec()
-  def child_spec(args) do
+  def child_spec(_args) do
     %{
       id: __MODULE__,
-      start: {__MODULE__, :start_link, [args]},
+      start: {__MODULE__, :start_link, [[]]},
       type: :supervisor
     }
   end
 
   @doc false
   @spec start_link(keyword()) :: Supervisor.on_start()
-  def start_link(args) do
-    opts = Keyword.fetch!(args, :opts)
-    DynamicSupervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(_args) do
+    DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
   @doc false
   @impl true
-  @spec init(keyword()) :: {:ok, DynamicSupervisor.sup_flags()}
-  def init(opts) do
-    DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [opts])
+  @spec init(:ok) :: {:ok, DynamicSupervisor.sup_flags()}
+  def init(:ok) do
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
 
   @doc false
@@ -78,14 +86,6 @@ defmodule Agens do
     |> :crypto.strong_rand_bytes()
     |> Base.encode16(case: :lower)
   end
-
-  @typedoc "Summary of a supervised Agens child process."
-  @type process_info :: %{
-          pid: pid(),
-          type: :job | :serving,
-          name: binary(),
-          config: Job.Config.t() | Serving.Config.t()
-        }
 
   @doc """
   Returns a list of all supervised Agens child processes (Jobs and Servings)
@@ -119,18 +119,6 @@ defmodule Agens do
   end
 
   @doc """
-  Invokes `fun` with `args` on every configured backend module.
-
-  Returns the list of per-backend results in declaration order. See `backends/0`
-  for how the backend list is resolved.
-  """
-  @spec backends(atom(), list()) :: list()
-  def backends(fun, args) when is_atom(fun) and is_list(args) do
-    backends()
-    |> Enum.map(&apply(&1, fun, args))
-  end
-
-  @doc """
   Returns the configured list of `Agens.Backend` implementations.
 
   Reads `:agens` application env key `:backends`, defaulting to
@@ -139,5 +127,12 @@ defmodule Agens do
   @spec backends() :: [module()]
   def backends() do
     Application.get_env(:agens, :backends, [Agens.Backend.Emit, Agens.Backend.Log])
+  end
+
+  @doc false
+  @spec backends(atom(), list()) :: list()
+  def backends(fun, args) when is_atom(fun) and is_list(args) do
+    backends()
+    |> Enum.map(&apply(&1, fun, args))
   end
 end

@@ -295,7 +295,12 @@ defmodule Agens.RouterTest do
     test "enum type includes enum values" do
       schema =
         Output.to_json_schema([
-          %Output{key: "tier", type: "enum", description: "Tier", values: ["low", "mid", "high"]}
+          %Output{
+            key: "tier",
+            type: "enum",
+            description: "Tier",
+            meta: %{choices: ["low", "mid", "high"]}
+          }
         ])
 
       assert schema["tier"]["type"] == "string"

@@ -48,7 +48,7 @@ defmodule Test.Support.ErrorSubBackend do
     nodes = %{
       "sub_node_0" => %Agens.Job.Node{
         serving: :test_serving,
-        agent_id: :sub_error_agent
+        agent_id: "sub_error_agent"
       }
     }
 

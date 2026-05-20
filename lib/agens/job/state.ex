@@ -46,7 +46,7 @@ defmodule Agens.Job.State do
     Map.update!(state, :tasks, fn val -> Map.delete(val, ref) end)
   end
 
-  @spec get_node(t(), any()) :: JobNode.t() | nil
+  @spec get_node(t(), binary()) :: JobNode.t() | nil
   def get_node(%__MODULE__{config: job_config}, node_id) do
     Map.get(job_config.nodes, node_id)
   end

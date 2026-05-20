@@ -11,8 +11,8 @@ defmodule Agens.Router.Output do
     * `:key` - The output key name. Must match a property in the Serving's structured response.
     * `:type` - One of `"int"`, `"enum"`, `"bool"`, or `"string"`.
     * `:description` - Human-readable description rendered into the JSON Schema.
-    * `:values` - Allowed values for `"enum"` outputs.
-    * `:meta` - Optional metadata. For `"int"`, supports `:min` and `:max`.
+    * `:meta` - Optional per-type constraint map. For `"int"`, supports `:min` and `:max`.
+      For `"enum"`, supports `:choices` (the allowed string values).
     * `:value` - The resolved value at runtime; `nil` until populated from the Serving response.
   """
 
@@ -20,19 +20,18 @@ defmodule Agens.Router.Output do
           key: String.t(),
           type: String.t(),
           description: String.t(),
-          values: list(String.t()) | nil,
           meta: map() | nil,
           value: any()
         }
 
-  defstruct [:key, :type, :description, :values, :meta, :value]
+  defstruct [:key, :type, :description, :meta, :value]
 
   @doc """
   Converts a list of `Agens.Router.Output` declarations into a JSON Schema `properties` map.
 
-  Each output is mapped to a typed JSON Schema fragment. `"int"` outputs honor optional
-  `:min`/`:max` constraints from `:meta`. The returned map is suitable for use as the
-  `outputs` property in a Serving's structured response schema.
+  Each output is mapped to a typed JSON Schema fragment. Per-type constraints are read from
+  `:meta`: `"int"` honors `:min`/`:max`; `"enum"` honors `:choices`. The returned map is
+  suitable for use as the `outputs` property in a Serving's structured response schema.
   """
   @spec to_json_schema(list(t())) :: map()
   def to_json_schema(outputs) when is_list(outputs) do
@@ -56,7 +55,7 @@ defmodule Agens.Router.Output do
       "type" => "string",
       "description" => output.description,
       "title" => "outputs.#{output.key}",
-      "enum" => output.values || []
+      "enum" => (output.meta && output.meta[:choices]) || []
     }
   end
 

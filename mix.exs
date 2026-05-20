@@ -64,8 +64,7 @@ defmodule Agens.MixProject do
         "Language Models",
         "NLP",
         "Task Orchestration",
-        "Workflow Automation",
-        "Bumblebee"
+        "Workflow Automation"
       ],
       categories: [
         "Machine Learning",

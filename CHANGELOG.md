@@ -11,7 +11,7 @@ In addition, this release removes the use of `Registry`, adds better error handl
 - Added pass-through `args` and `finalize` function to `Agens.Serving`
 - Added `{:job_error, {job.name, step_index}, {:error, reason | exception}}` event to `Agens.Job`
 - Added child specs to `Agens` and `Agens.Supervisor`
-- Added `{:error, :job_already_running}` when calling `Agens.Job.run/2` on running job
+- Added `{:error, :job_already_running}` when calling Agens.Job.run/2 on running job
 - Added `{:error, :input_required}` when calling `Message.send/1` with empty `input`
 
 ### Breaking Changes

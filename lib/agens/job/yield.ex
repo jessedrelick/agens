@@ -2,7 +2,7 @@ defmodule Agens.Job.Yield do
   @moduledoc false
 
   @type thread_id :: binary()
-  @type next_node_id :: any()
+  @type next_node_id :: binary()
   @type thread :: {thread_id(), next_node_id()}
 
   @type t :: %__MODULE__{

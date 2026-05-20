@@ -6,7 +6,7 @@ defmodule AgensDemo.EdgeRouter do
   defmodule Edge do
     @type t :: %__MODULE__{
             type: :route | :fallback | :yield | :end | :retry,
-            to_id: any(),
+            to_id: binary(),
             count: pos_integer(),
             conditions: list(Agens.Router.Condition.t())
           }

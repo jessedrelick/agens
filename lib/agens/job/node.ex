@@ -2,6 +2,13 @@ defmodule Agens.Job.Node do
   @moduledoc """
   The Node struct defines a single node within a Job.
 
+  A Node is a combination of a text `:objective`, zero or more MCP `:tools` and `:resources`, an
+  optional `:agent_id` for loading context, and an optional `:sub` Job to run in place of this
+  Node's inference call. The `:serving` field is the only required link to a running process — it
+  names the `Agens.Serving` that performs inference (or, when `:sub` is set, the Serving whose
+  `c:Agens.Serving.handle_sub/3` callback maps the Sub-Job's result back into this Node's outputs
+  and routing).
+
   ## Fields
 
     * `:serving` - The `Agens.Serving` to run inference against. Required, even when `:sub` is set; the Serving owns routing for the Node's result (via the Router's `outputs/1` + `resolve/2`, or via `handle_sub/3` when `:sub` is set).
@@ -19,7 +26,7 @@ defmodule Agens.Job.Node do
 
   @type t :: %__MODULE__{
           serving: atom(),
-          agent_id: any() | nil,
+          agent_id: binary() | nil,
           sub: binary() | nil,
           objective: String.t() | nil,
           tools: list(schema()) | nil,

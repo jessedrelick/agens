@@ -42,14 +42,14 @@ defmodule Test.Support.Serving do
   # Private
   # ===========================================================================
 
-  defp map_input(:first_agent, "invalid next") do
+  defp map_input("first_agent", "invalid next") do
     %Result{
       body: "invalid next test",
       next: "invalid next node"
     }
   end
 
-  defp map_input(:first_agent, input) do
+  defp map_input("first_agent", input) do
     body =
       %{
         "D" => "C",
@@ -64,7 +64,7 @@ defmodule Test.Support.Serving do
     }
   end
 
-  defp map_input(:second_agent, input) do
+  defp map_input("second_agent", input) do
     body =
       %{
         "C" => "E",
@@ -79,57 +79,57 @@ defmodule Test.Support.Serving do
     }
   end
 
-  defp map_input(:verifier_agent, "G") do
+  defp map_input("verifier_agent", "G") do
     %Result{
       body: "TRUE",
       next: [:end]
     }
   end
 
-  defp map_input(:verifier_agent, input) do
+  defp map_input("verifier_agent", input) do
     %Result{
       body: input,
       next: [{:route, "node_0", 1}]
     }
   end
 
-  defp map_input(:parallel_agent, input) do
+  defp map_input("parallel_agent", input) do
     %Result{
       body: input,
       next: [{:route, "node_10", 4}]
     }
   end
 
-  defp map_input(:retry_agent, "error") do
+  defp map_input("retry_agent", "error") do
     {:retry, "validation error"}
   end
 
-  defp map_input(:retry_agent, "explicit") do
+  defp map_input("retry_agent", "explicit") do
     %Result{
       body: "explicit retry",
       next: [:retry]
     }
   end
 
-  defp map_input(:retry_agent, "explicit_with_reason") do
+  defp map_input("retry_agent", "explicit_with_reason") do
     %Result{
       body: "explicit retry with reason",
       next: [{:retry, "LLM provided reason"}]
     }
   end
 
-  defp map_input(:retry_agent, "fatal") do
+  defp map_input("retry_agent", "fatal") do
     {:error, :fatal_error}
   end
 
-  defp map_input(:resource_agent, _input) do
+  defp map_input("resource_agent", _input) do
     %Result{
       body: "resource agent result",
       next: [:end]
     }
   end
 
-  defp map_input(:tool_agent, input) do
+  defp map_input("tool_agent", input) do
     tool_call = Tools.tool_call("tool_call_id")
 
     %Result{
@@ -139,45 +139,45 @@ defmodule Test.Support.Serving do
     }
   end
 
-  defp map_input(:error_agent, _input) do
+  defp map_input("error_agent", _input) do
     raise "unexpected error test"
   end
 
-  defp map_input(:end_agent, _input) do
+  defp map_input("end_agent", _input) do
     %Result{
       body: "end",
       next: [:end]
     }
   end
 
-  defp map_input(:split_agent, input) do
+  defp map_input("split_agent", input) do
     %Result{
       body: input,
       next: [{:route, "node_10", 4}]
     }
   end
 
-  defp map_input(:concurrent_agent, input) do
+  defp map_input("concurrent_agent", input) do
     %Result{
       body: input,
       next: [{:yield, "node_20"}]
     }
   end
 
-  defp map_input(:yield_agent, input) do
+  defp map_input("yield_agent", input) do
     %Result{
       body: input
     }
   end
 
-  defp map_input(:sub_agent, input) do
+  defp map_input("sub_agent", input) do
     %Result{
       body: input,
       next: [{:sub, "sub_job"}]
     }
   end
 
-  defp map_input(:sub_error_agent, _input) do
+  defp map_input("sub_error_agent", _input) do
     {:error, :sub_fatal_error}
   end
 

@@ -15,7 +15,7 @@ Drawing inspiration from popular tools in the Python ecosystem, such as [LangCha
 > - `Agens.Job.Step` has been replaced by `Agens.Job.Node`. Jobs are now graphs of Nodes, not sequences of Steps.
 > - Routing is dynamic and lives on the Serving (via `Agens.Router`), not on static step configuration.
 > - Observability moved to the `Agens.Backend` behaviour (default backends emit messages to the caller and write structured logs).
-> - Tool calls are configured per-Node via the `:tools` field and executed by the Serving's `c:Agens.Serving.tool_call/3` callback (modeled after MCP tool calls).
+> - Tool calls are configured per-Node via the `:tools` field and executed by the Serving's `c:Agens.Serving.tool_call/3` callback (now modeled after MCP tool calls).
 
 ## Installation
 Add `agens` to your list of dependencies in `mix.exs`:
@@ -23,7 +23,7 @@ Add `agens` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:agens, "~> 0.1.3"}
+    {:agens, "~> 0.2.0"}
   ]
 end
 ```
@@ -47,7 +47,7 @@ See `Agens.Supervisor` for more information.
 ---
 **2. Define and start a Serving**
 
-A **Serving** wraps language model inference. It can be a `Bumblebee`/`Nx.Serving` or a `GenServer` calling an external LM API. Implement the `Agens.Serving` behaviour and `use Agens.Serving` to opt into the framework.
+A **Serving** wraps language model inference. Implement the `Agens.Serving` behaviour, `use Agens.Serving`, and call your LM of choice (HTTP API, `Nx.Serving`/`Bumblebee` pipeline, anything else) inside `c:Agens.Serving.handle_message/3`.
 
 ```elixir
 defmodule MyApp.Serving do
@@ -197,97 +197,6 @@ elixir examples/phoenix.exs
 ```
 
 It will be available at [http://localhost:8080](http://localhost:8080).
-
-## Configuration
-`Agens.Supervisor` accepts an `opts` keyword list:
-
-```elixir
-opts = [
-  prefixes: my_custom_prefixes  # %Agens.Prefixes{}
-]
-
-children = [
-  {Agens.Supervisor, name: Agens.Supervisor, opts: opts}
-]
-
-Supervisor.start_link(children, strategy: :one_for_one)
-```
-
-The current `Agens.Prefixes` struct (default values shown):
-
-```elixir
-%Agens.Prefixes{
-  context:
-    {"Context", "The following is critical context relevant to this task"},
-  objective:
-    {"Node Objective", "The objective of this node is to"},
-  description:
-    {"Job Description", "This is part of a multi-node job to achieve the following"},
-  input:
-    {"Input", "The following is the original input from the user"},
-  previous_result:
-    {"Previous Result", "The following is the result from the previous node in this job"},
-  schema:
-    {"Schema",
-     "It is critical to only return a JSON object matching the exact specification below"},
-  retry:
-    {"Retry",
-     "The response did not pass validation. Please try again and fix the following validation errors"},
-  tool_defs: {"Tool Definitions", "..."},
-  tool_calls: {"Tool Calls", "The following MCP tool calls were made by this node"},
-  tool_results:
-    {"Tool Results",
-     "The following are the results of MCP tool calls for this node. Use these results to formulate your response in `body` and `outputs`"},
-  resources:
-    {"Resources", "The following resources are provided as context for this node"}
-}
-```
-
-Per-Serving overrides go on `Agens.Serving.Config` via the `:prefixes` field. See `Agens.Prefixes` for more.
-
-Backends are configured via the `:agens` application env:
-
-```elixir
-config :agens, backends: [Agens.Backend.Emit, Agens.Backend.Log]
-```
-
-## Prompting
-Agens builds the final system/user prompt sent to the LM by stitching together fields from the running `Agens.Message`. Each field with a value gets its own headed section in the prompt; `nil` values are omitted entirely. The goal is to balance detail with token usage by populating only the fields that matter for a given Node.
-
-### Input
-The `input` value is the only required field for building prompts. It is the value passed to `Agens.Job.run/3`, or the `result` of the previous Node, propagated as `previous_result` on the next Node's message.
-
-### Job
-`Agens.Job.Config.description` is sent with every Node's prompt in the Job. Use this for goals or constraints that apply to the whole workflow; keep it concise.
-
-### Node
-`Agens.Job.Node.objective` is sent only when the corresponding Node is running. This is the right place for Node-specific instructions.
-
-`Agens.Job.Node.agent_id` is an opaque identifier handed to the Serving's `c:Agens.Serving.load_context/2` callback. Use it to load agent-specific context (e.g. a per-persona system prompt, a history loader, retrieval results) into the message before the prompt is built.
-
-### Tools
-Tools attached to a Node via `:tools` are surfaced to the LM under the `Tool Definitions` prefix as MCP-style tool schemas. When the LM emits `tool_calls`, Agens invokes the Serving's `c:Agens.Serving.tool_call/3` callback for each one and merges results back into the next prompt under `Tool Results`.
-
-### Resources
-`Agens.Resource` entries on a Node are resolved (via the Serving's `c:Agens.Serving.load_resource/3` callback) before inference and inlined under the `Resources` prefix.
-
-### Structured Outputs
-When a Router declares `outputs/1`, Agens builds a JSON Schema constraining the LM's response and surfaces it under the `Schema` prefix. The parsed outputs are then handed to the Router's `resolve/2` for routing.
-
-### Retries
-If validation or routing fails, the next prompt includes the `Retry` prefix with a reason. Use `Agens.Job.Config.max_retries` to cap the number of attempts per Node.
-
-### Summary
-| Source                  | Field                                                          |
-| ----------------------- | -------------------------------------------------------------- |
-| User / previous Node    | `input` / `previous_result`                                    |
-| `Agens.Job.Config`      | `description`                                                  |
-| `Agens.Job.Node`        | `objective`, `tools`, `resources`, `agent_id` (loaded context) |
-| `Agens.Router`          | `outputs` (drives the response schema)                         |
-
-> **Note:**
->
-> Depending on your use case, some fields may be more relevant than others. It's often beneficial to be more descriptive at granular levels (Node `objective`, Router `outputs`) while taking a more minimal approach at higher levels (Job `description`).
 
 ## Name
 The name Agens comes from the Latin word for 'Agents' or 'Actors.' It also draws from **intellectus agens**, a term in medieval philosophy meaning ['active intellect'](https://en.wikipedia.org/wiki/Active_intellect), which describes the mind's ability to actively process and abstract information. This reflects the goal of the Agens project: to create intelligent, autonomous agents that manage workflows within the Elixir ecosystem.

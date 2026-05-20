@@ -6,7 +6,7 @@ defmodule Agens.Job.Config do
 
     * `:id` - The unique identifier of the Job.
     * `:description` - An optional string added to the LM prompt that describes the goal of the Job.
-    * `:nodes` - A map of `node_id => Agens.Job.Node` defining the workflow graph.
+    * `:nodes` - A map of `node_id => Agens.Job.Node` defining the workflow nodes.
     * `:starting_node_id` - The id of the Node that runs first when the Job is started.
     * `:outputs` - Optional output specification used when extracting structured data from the final Serving result.
     * `:max_retries` - Maximum retry attempts per Node before the Job errors out. Defaults to `3`.
@@ -20,9 +20,9 @@ defmodule Agens.Job.Config do
           id: binary(),
           description: String.t() | nil,
           nodes: %{
-            any() => Node.t()
+            binary() => Node.t()
           },
-          starting_node_id: any(),
+          starting_node_id: binary(),
           outputs: keyword() | nil,
           max_retries: non_neg_integer()
         }

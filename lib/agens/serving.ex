@@ -2,13 +2,11 @@ defmodule Agens.Serving do
   @moduledoc """
   The Serving module provides functions for starting, stopping and running Servings.
 
-  `Agens.Serving` accepts a `GenServer` module or `Nx.Serving` struct for processing messages.
+  A Serving is a module that implements the `Agens.Serving` behaviour and is started as a `GenServer`. Its job is to take a prepared `Agens.Message`, perform LM inference, and return a structured `Agens.Serving.Result`. The actual inference call inside `c:handle_message/3` can target anything — an HTTP API (OpenAI, Anthropic, Ollama, etc), an in-process `Nx.Serving`/`Bumblebee` pipeline, a local rules engine — Agens is unopinionated about the backend.
 
-  A single `Agens.Serving` process can be reused across many `Agens.Job.Node`s and Jobs. In most cases you will only need to start one text generation Serving to be used by most, if not all, of your Nodes.
+  A single `Agens.Serving` process can be reused across many `Agens.Job.Node`s and Jobs. In most cases you will only need to start one text-generation Serving to be used by most, if not all, of your Nodes.
 
-  In some cases, you may have additional servings for more specific use cases such as image generation, speech recognition, etc.
-
-  Servings were built with the `Bumblebee` library in mind, as well as `Nx.Serving`. `GenServer` is supported for working with LM APIs instead, which may be more cost effective and easier to get started with.
+  In some cases, you may have additional Servings for more specific use cases such as image generation, speech recognition, etc.
 
   ## Routing
 
@@ -50,10 +48,10 @@ defmodule Agens.Serving do
 
     ## Fields
     - `:name` - The unique name for the Serving process.
-    - `:serving` - The `Nx.Serving` struct or `GenServer` module for the `Agens.Serving`.
+    - `:serving` - The module implementing the `Agens.Serving` behaviour (i.e. one that calls `use Agens.Serving`).
     - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
     - `:finalize` - A function that accepts the prepared prompt (including any applied prefixes) and returns a modified version of the prompt. Useful for wrapping the prompt or applying final processing before sending to the LM for inference. If `nil`, the prepared prompt will be used as-is.
-    - `:args` - Additional arguments to be passed to the `Nx.Serving` or `GenServer` module. See the [Nx.Serving](https://hexdocs.pm/nx/Nx.Serving.html) or [GenServer](https://hexdocs.pm/elixir/GenServer.html) documentation for more information.
+    - `:args` - Additional arguments passed through to the Serving module on start. Available to the Serving's `c:Agens.Serving.start/1` callback via the initial `state.config.args` and typically used to configure the backend (model name, API base URL, credentials, etc).
     - `:timeout` - Timeout in milliseconds for LM inference. Defaults to `60_000`.
     """
 
@@ -89,10 +87,10 @@ defmodule Agens.Serving do
     """
 
     @typedoc "Identifier of a target Node for `:route` / `:yield` instructions."
-    @type node_id :: any()
+    @type node_id :: binary()
 
     @typedoc "Identifier of a target Sub-Job for `:sub` instructions."
-    @type job_id :: any()
+    @type job_id :: binary()
 
     @typedoc "Repetition count for a `:route` instruction (used to fan out to multiple threads)."
     @type count :: integer()
@@ -116,28 +114,31 @@ defmodule Agens.Serving do
     defstruct [:body, next: [], outputs: %{}, tool_calls: []]
   end
 
-  defmodule State do
-    @moduledoc false
-
-    @type t :: %{
-            required(:config) => Config.t(),
-            optional(atom()) => any()
-          }
-  end
-
   alias Agens.{Message, Prompt, Schema}
 
-  @callback start(State.t()) :: {:ok, State.t()}
-  @callback handle_message(State.t(), Agens.Message.t(), map()) ::
+  @typedoc """
+  The internal state passed to every Serving callback.
+
+  Always a map containing at least `:config` (the `Agens.Serving.Config` the Serving was started
+  with). Additional keys are managed by the macro injected by `use Agens.Serving` (queue, counters,
+  etc) and may be augmented by `c:start/1`.
+  """
+  @type state :: %{
+          required(:config) => Config.t(),
+          optional(atom()) => any()
+        }
+
+  @callback start(state()) :: {:ok, state()}
+  @callback handle_message(state(), Agens.Message.t(), map()) ::
               {:ok, term()} | {:error, term()}
-  @callback handle_result({:ok, term()} | {:error, any()}, State.t(), Agens.Message.t()) ::
+  @callback handle_result({:ok, term()} | {:error, any()}, state(), Agens.Message.t()) ::
               {:ok, Result.t()} | {:error, any()} | {:retry, String.t()}
-  @callback handle_sub(State.t(), Agens.Message.t(), Agens.Message.t()) ::
+  @callback handle_sub(state(), Agens.Message.t(), Agens.Message.t()) ::
               {:ok, Result.t()} | {:error, any()}
 
-  @callback load_context(State.t(), Message.t()) :: String.t() | nil
-  @callback load_resource(State.t(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
-  @callback tool_call(State.t(), map(), Message.t()) :: {binary() | integer(), any()}
+  @callback load_context(state(), Message.t()) :: String.t() | nil
+  @callback load_resource(state(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
+  @callback tool_call(state(), map(), Message.t()) :: {binary() | integer(), any()}
   @callback build_prompt(Message.t(), Agens.Prefixes.t(), binary() | nil) ::
               {String.t(), String.t()}
   @callback build_schema(Message.t()) :: map()
@@ -279,12 +280,11 @@ defmodule Agens.Serving do
         }
       end
 
-      @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
-      def start_link(extra, %Config{} = config) do
+      @spec start_link(Config.t()) :: GenServer.on_start()
+      def start_link(%Config{} = config) do
         config =
           if is_nil(config.prefixes) do
-            prefixes = Keyword.get(extra, :prefixes, Agens.Prefixes.default())
-            Map.put(config, :prefixes, prefixes)
+            Map.put(config, :prefixes, Agens.Prefixes.default())
           else
             config
           end
@@ -295,7 +295,7 @@ defmodule Agens.Serving do
       end
 
       @impl GenServer
-      @spec init(Config.t()) :: {:ok, State.t()} | {:stop, term()}
+      @spec init(Config.t()) :: {:ok, Agens.Serving.state()} | {:stop, term()}
       def init(%Config{} = config) do
         state = %{
           config: config,
@@ -350,7 +350,7 @@ defmodule Agens.Serving do
       def handle_call({:run, msg}, from, state) do
         queue = :queue.in({msg, from}, state.queue)
         state = Map.put(state, :queue, queue)
-        :telemetry.execute([:agens, :serving, :enqueue], %{}, %{name: msg.agent_id})
+        :telemetry.execute([:agens, :serving, :enqueue], %{}, %{name: state.config.name})
 
         maybe_execute(state)
       end

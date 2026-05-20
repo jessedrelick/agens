@@ -57,7 +57,6 @@ defmodule AgensDemo.Job do
         key: o["key"],
         type: o["type"],
         description: o["description"],
-        values: o["values"],
         meta: o["meta"] && Map.new(o["meta"], fn {k, v} -> {String.to_atom(k), v} end)
       }
     end)

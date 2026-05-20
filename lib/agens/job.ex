@@ -74,9 +74,14 @@ defmodule Agens.Job do
   # ===========================================================================
 
   @doc """
-  Starts a new Job process using the provided `Agens.Job.Config`.
+  Starts a new supervised Job process for the given `Agens.Job.Config` and `run_id`.
 
-  `start/1` does not run the Job, only starts the supervised process. See `run/2` for running the Job.
+  Validates the config (raises `ArgumentError` if any Node is missing `:serving`) and registers
+  the process in `Agens.Registry` under `run_id`. The same `Config` can be started multiple times
+  in parallel by passing distinct `run_id`s — typically obtained from `Agens.generate_uid/0`.
+
+  `start/2` only starts the supervised process; it does not run the Job. Call `run/3` to begin
+  execution.
   """
   @spec start(Config.t(), binary()) :: {:ok, pid} | {:error, term}
   def start(config, run_id) do
@@ -86,7 +91,9 @@ defmodule Agens.Job do
   end
 
   @doc """
-  Retrieves the Job configuration by Job name or `pid`.
+  Retrieves the `Agens.Job.Config` of a running Job by `run_id` or `pid`.
+
+  Returns `{:error, :run_not_found}` if no Job is running under the given `run_id`.
   """
   @spec get_config(pid | binary()) :: {:ok, Config.t()} | {:error, :run_not_found}
   def get_config(pid) when is_pid(pid) do
@@ -98,9 +105,24 @@ defmodule Agens.Job do
   end
 
   @doc """
-  Runs a Job with the given input by Job name or `pid`.
+  Runs a Job that was previously started with `start/2`.
 
-  A supervised process for the Job must be started first using `start/1`.
+  Identifies the Job by its `run_id` (or directly by `pid`) and begins execution at the
+  Config's `:starting_node_id` with the given `input`. Returns immediately with `:ok` once
+  the run is accepted; subsequent progress is surfaced through the configured `Agens.Backend`s.
+
+  ## Options
+
+    * `:caller` - The pid to attribute backend events to (used as the first argument of every
+      `Agens.Backend` callback). Defaults to the calling process.
+    * `:sub` - Internal use. An `Agens.Job.Sub` struct supplied by the runtime when this Job
+      is being executed as a Sub-Job of a parent run.
+
+  ## Errors
+
+    * `{:error, :run_not_found}` - No Job process is registered under the given `run_id`.
+    * `{:error, :job_already_running}` - The Job has already started and not yet completed.
+    * `{:error, :input_required}` - `input` was `nil`.
   """
   @spec run(pid | binary(), String.t(), keyword()) ::
           :ok | {:error, :run_not_found | :job_already_running | :input_required}
@@ -144,22 +166,15 @@ defmodule Agens.Job do
   end
 
   @doc false
-  @spec start_link(keyword(), {Config.t(), binary()}) :: GenServer.on_start()
-  def start_link(extra, {config, run_id}) do
-    opts =
-      extra
-      |> Keyword.put(:config, config)
-      |> Keyword.put(:run_id, run_id)
-
-    GenServer.start_link(__MODULE__, opts, name: via(run_id))
+  @spec start_link({Config.t(), binary()}) :: GenServer.on_start()
+  def start_link({%Config{} = config, run_id}) do
+    GenServer.start_link(__MODULE__, {config, run_id}, name: via(run_id))
   end
 
   @doc false
   @impl true
-  @spec init(keyword()) :: {:ok, State.t()}
-  def init(opts) do
-    config = Keyword.fetch!(opts, :config)
-    run_id = Keyword.fetch!(opts, :run_id)
+  @spec init({Config.t(), binary()}) :: {:ok, State.t()}
+  def init({%Config{} = config, run_id}) do
     {:ok, %State{status: :init, config: config, run_id: run_id}}
   end
 
@@ -238,7 +253,7 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast({{:route, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  @spec handle_cast({{:route, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast(
         {{:route, node_id}, %Message{result: result} = message},
         %State{config: %Config{nodes: nodes}} = state
@@ -257,7 +272,7 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast({{:yield, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  @spec handle_cast({{:yield, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast({{:yield, node_id}, %Message{} = message}, %State{} = state) do
     yield = Yield.thread_ready(state.yield, message.thread_id, node_id)
     total_count = length(yield.threads)
@@ -279,7 +294,7 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast({{:sub, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  @spec handle_cast({{:sub, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast({{:sub, job_id}, %Message{} = message}, %State{} = state) do
     run_sub(state, message, job_id, nil)
 

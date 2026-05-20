@@ -38,7 +38,7 @@ defmodule Agens.Backend do
   @type run_id :: binary()
 
   @typedoc "A Node identifier within a Job."
-  @type node_id :: any()
+  @type node_id :: binary()
 
   @typedoc "A Job status atom (e.g. `:running`, `:complete`, `:error`)."
   @type status :: atom()
