@@ -18,11 +18,11 @@ defmodule Agens.Message do
 
   ### Input / output
 
-    * `:input` - The input string for this Node's prompt. Required (`@enforce_keys`). Either the initial value from `Agens.Job.run/3` or the `result` of the previous Node propagated forward.
+    * `:input` - The original input string passed to `Agens.Job.run/3`. Required (`@enforce_keys`). Carried forward unchanged across every Node in the run.
     * `:system` - The prepared system prompt string, populated by the Serving's `c:Agens.Serving.build_prompt/3` callback before inference.
     * `:user` - The prepared user prompt string, populated alongside `:system`.
     * `:result` - The Serving's response body for this Node.
-    * `:previous_result` - The previous Node's `:result`, available for inclusion in the next prompt under the `Previous Result` prefix.
+    * `:previous_result` - The `:result` of the previous Node in the Job. `nil` on the starting Node; rolls forward on each `:route` transition. Surfaced in the next prompt under the `Previous Result` prefix.
     * `:outputs` - Map of structured outputs parsed from the Serving's response, keyed by `Agens.Router.Output.key`. Used by `c:Agens.Router.resolve/2` to determine routing.
 
   ### Job / Node references

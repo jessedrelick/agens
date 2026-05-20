@@ -329,6 +329,13 @@ defmodule Agens.Job do
       retry: message.retries
     })
 
+    :telemetry.execute([:agens, :node, :retry], %{}, %{
+      job_id: state.config.id,
+      run_id: state.run_id,
+      node_id: message.node_id,
+      retry: message.retries
+    })
+
     Agens.backends(:node_retry, [state.caller, message])
     message = %Message{message | result: nil}
     GenServer.cast(self(), {{:route, message.node_id}, message})
@@ -382,6 +389,12 @@ defmodule Agens.Job do
             outputs: outputs,
             next: next
         }
+
+        :telemetry.execute([:agens, :node, :result], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
 
         Agens.backends(:node_result, [state.caller, message])
         do_next(message, message, self(), state)
@@ -509,6 +522,12 @@ defmodule Agens.Job do
           | result: message.input
         }
 
+        :telemetry.execute([:agens, :node, :start], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
+
         Agens.backends(:node_started, [state.caller, message])
 
         run_sub(state, message, node.sub, message)
@@ -527,6 +546,12 @@ defmodule Agens.Job do
             tool_calls: message.tool_calls,
             tool_results: message.tool_results
         }
+
+        :telemetry.execute([:agens, :node, :start], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
 
         Agens.backends(:node_started, [state.caller, message])
 
@@ -589,48 +614,48 @@ defmodule Agens.Job do
         |> Task.async_stream(
           fn args ->
             tool_name = args["name"]
+            meta = %{job_id: job_id, run_id: run_id, name: tool_name}
 
-            :telemetry.execute([:agens, :tool, :call], %{}, %{
-              job_id: job_id,
-              run_id: run_id,
-              name: tool_name
-            })
+            :telemetry.span([:agens, :tool, :call], meta, fn ->
+              result =
+                case Agens.Serving.call_tool(message.serving_name, args, message) do
+                  {:error, reason} ->
+                    Agens.backends(:tool_call, [
+                      state.caller,
+                      message,
+                      %{
+                        name: tool_name,
+                        arguments: args["input"] || %{},
+                        result: nil,
+                        error: inspect(reason)
+                      }
+                    ])
 
-            case Agens.Serving.call_tool(message.serving_name, args, message) do
-              {:error, reason} ->
-                Agens.backends(:tool_call, [
-                  state.caller,
-                  message,
-                  %{
-                    name: tool_name,
-                    arguments: args["input"] || %{},
-                    result: nil,
-                    error: inspect(reason)
-                  }
-                ])
+                    {args["id"], {:error, reason}}
 
-                {args["id"], {:error, reason}}
+                  {tool_id, result} ->
+                    {error, normalized_result} =
+                      case result do
+                        {:error, reason} -> {inspect(reason), nil}
+                        other -> {nil, other}
+                      end
 
-              {tool_id, result} ->
-                {error, normalized_result} =
-                  case result do
-                    {:error, reason} -> {inspect(reason), nil}
-                    other -> {nil, other}
-                  end
+                    Agens.backends(:tool_call, [
+                      state.caller,
+                      message,
+                      %{
+                        name: tool_name,
+                        arguments: args["input"] || %{},
+                        result: normalized_result,
+                        error: error
+                      }
+                    ])
 
-                Agens.backends(:tool_call, [
-                  state.caller,
-                  message,
-                  %{
-                    name: tool_name,
-                    arguments: args["input"] || %{},
-                    result: normalized_result,
-                    error: error
-                  }
-                ])
+                    {tool_id, result}
+                end
 
-                {tool_id, result}
-            end
+              {result, meta}
+            end)
           end,
           ordered: true,
           timeout: timeout,
@@ -651,6 +676,12 @@ defmodule Agens.Job do
   end
 
   defp handle_result(%Message{} = message, original, server_pid, %State{} = state) do
+    :telemetry.execute([:agens, :node, :result], %{}, %{
+      job_id: state.config.id,
+      run_id: state.run_id,
+      node_id: message.node_id
+    })
+
     Agens.backends(:node_result, [state.caller, message])
     message = %Message{message | retry_reason: nil, id: nil}
     do_next(message, original, server_pid, state)
@@ -798,21 +829,19 @@ defmodule Agens.Job do
       resources
       |> Task.async_stream(
         fn resource ->
-          :telemetry.execute([:agens, :resource, :load], %{}, %{
-            run_id: message.run_id,
-            job_id: message.job_id,
-            name: resource.name
-          })
+          meta = %{run_id: message.run_id, job_id: message.job_id, name: resource.name}
 
-          loaded =
-            case Agens.Serving.load_resource(message.serving_name, resource, message) do
-              {:ok, loaded} -> loaded
-              {:error, _} -> resource
-            end
+          :telemetry.span([:agens, :resource, :load], meta, fn ->
+            loaded =
+              case Agens.Serving.load_resource(message.serving_name, resource, message) do
+                {:ok, loaded} -> loaded
+                {:error, _} -> resource
+              end
 
-          Agens.backends(:resource_load, [state.caller, message, loaded])
+            Agens.backends(:resource_load, [state.caller, message, loaded])
 
-          loaded
+            {loaded, meta}
+          end)
         end,
         ordered: true,
         timeout: timeout,

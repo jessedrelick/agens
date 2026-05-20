@@ -14,9 +14,29 @@ defmodule Agens.Prefixes do
 
   However, if you have not defined an `objective` for the current `Agens.Job.Node`, the `heading` and `detail` will also be omitted.
 
-  Default prompt prefixes can be overridden globally with the `prefixes` option in `Agens.Supervisor`, or for individual servings with `Agens.Serving.Config`.
+  Default prefixes are returned by `default/0`. To customize, build an `%Agens.Prefixes{}` struct and set it on the `:prefixes` field of `Agens.Serving.Config`. To share custom prefixes across many Servings, define a module that returns the struct and reference it from each Serving's Config.
 
-  See the [Prompting](README.md#prompting) section in the README for more information.
+  ## Fields and Sources
+
+  Each field maps a prompt section to a value sourced from the running `Agens.Message`. Fields with `nil`/empty values are omitted from the final prompt entirely.
+
+  | Field             | Source                                                                                  |
+  | ----------------- | --------------------------------------------------------------------------------------- |
+  | `context`         | `c:Agens.Serving.load_context/2` (derived from `agent_id`)                    |
+  | `objective`       | `Agens.Job.Node.objective`                                                              |
+  | `description`     | `Agens.Job.Config.description`                                                          |
+  | `input`           | The original value passed to `Agens.Job.run/3` (never overwritten across Nodes)         |
+  | `previous_result` | The `result` of the previous Node in the Job (`nil` on the starting Node)               |
+  | `schema`          | JSON schema built from the Router's declared `outputs/1` (plus response/tool-call shape)|
+  | `retry`           | Validation/retry reason when re-running a Node                                          |
+  | `tool_defs`       | `Agens.Job.Node.tools` (MCP-style tool schemas)                                         |
+  | `tool_calls`      | Tool call requests emitted by the LM in the previous turn                               |
+  | `tool_results`    | Resolved tool-call results merged back from `c:Agens.Serving.tool_call/3`               |
+  | `resources`       | Loaded `Agens.Resource` content (from `c:Agens.Serving.load_resource/3`)                |
+
+  > **Note:**
+  >
+  > Depending on your use case, some fields may be more relevant than others. It's often beneficial to be more descriptive at granular levels (Node `objective`, Router `outputs`) while taking a more minimal approach at higher levels (Job `description`).
   """
 
   @type pair :: {heading :: String.t(), detail :: String.t()}
@@ -68,7 +88,11 @@ defmodule Agens.Prefixes do
   making additional tool calls. The available tools are:
   """
 
-  @doc false
+  @doc """
+  Returns the default `Agens.Prefixes` struct used when a Serving's `Agens.Serving.Config.prefixes` is `nil`.
+
+  Customize by building your own struct (typically starting from this default and overriding select fields) and setting it on the relevant `Agens.Serving.Config`.
+  """
   @spec default() :: t
   def default() do
     %__MODULE__{
