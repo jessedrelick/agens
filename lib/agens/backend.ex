@@ -2,9 +2,9 @@ defmodule Agens.Backend do
   @moduledoc """
   Behaviour for side-effecting backends that observe and extend a running Job.
 
-  A backend receives callbacks for lifecycle events (start, status changes, completion, errors),
-  per-Node activity (started, retried, result), tool calls, resource loads, prompt finalization,
-  yield coordination, and Sub-Job resolution.
+  A backend receives callbacks for lifecycle events (run, status changes, completion, explicit end,
+  errors), per-Node activity (started, retried, result), tool calls, resource loads, prompt
+  finalization, yield coordination, and Sub-Job resolution.
 
   Backends are configured via the `:backends` application environment key:
 
@@ -19,7 +19,7 @@ defmodule Agens.Backend do
         @behaviour Agens.Backend
 
         @impl true
-        def start(_caller, _job_id, run_id), do: IO.puts("started \#{run_id}")
+        def run(_caller, _job_id, run_id), do: IO.puts("running \#{run_id}")
 
         # ... other callbacks ...
       end
@@ -51,14 +51,33 @@ defmodule Agens.Backend do
           required(:error) => binary() | nil
         }
 
-  @doc "Invoked when a Job has started."
-  @callback start(pid(), job_id(), run_id()) :: :ok
+  @doc """
+  Invoked when a Job begins execution, immediately after `Agens.Job.run/3` is accepted.
+
+  Fires once per Job run, paired with the `[:agens, :job, :run]` telemetry event. Distinct from
+  `Agens.Job.start/2` (which only starts the supervised process and emits the `[:agens, :job, :start]`
+  telemetry event but no backend callback).
+  """
+  @callback run(pid(), job_id(), run_id()) :: :ok
 
   @doc "Invoked when a Job's status transitions (e.g. `:init` → `:running`)."
   @callback status(pid(), run_id(), status()) :: :ok
 
-  @doc "Invoked when a Job completes successfully."
+  @doc """
+  Invoked when a Job completes by running every Node to completion (no Node returned `:end`).
+
+  Paired with the `[:agens, :job, :complete]` telemetry event. For Jobs that terminate because a
+  Serving's `next` returned `:end`, see `c:ended/2`.
+  """
   @callback complete(pid(), run_id()) :: :ok
+
+  @doc """
+  Invoked when a Job terminates because a Serving's `next` returned an `:end` instruction.
+
+  Paired with the `[:agens, :job, :end]` telemetry event. Distinct from `c:complete/2`, which fires
+  when the Job runs to natural completion of all Nodes.
+  """
+  @callback ended(pid(), run_id()) :: :ok
 
   @doc "Invoked when a Job errors out. Receives the failing `Agens.Message` and the error reason."
   @callback error(pid(), Message.t(), any()) :: :ok

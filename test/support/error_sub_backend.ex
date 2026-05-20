@@ -4,13 +4,16 @@ defmodule Test.Support.ErrorSubBackend do
   alias Test.Support.Backend
 
   @impl true
-  def start(caller, job_id, run_id), do: Backend.start(caller, job_id, run_id)
+  def run(caller, job_id, run_id), do: Backend.run(caller, job_id, run_id)
 
   @impl true
   def status(caller, run_id, status), do: Backend.status(caller, run_id, status)
 
   @impl true
   def complete(caller, run_id), do: Backend.complete(caller, run_id)
+
+  @impl true
+  def ended(caller, run_id), do: Backend.ended(caller, run_id)
 
   @impl true
   def error(caller, message, error), do: Backend.error(caller, message, error)

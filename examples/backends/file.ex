@@ -5,13 +5,16 @@ defmodule AgensDemo.FileBackend do
   alias AgensDemo.History
 
   @impl true
-  def start(_caller, _job_id, _run_id), do: :ok
+  def run(_caller, _job_id, _run_id), do: :ok
 
   @impl true
   def status(_caller, _run_id, _status), do: :ok
 
   @impl true
   def complete(_caller, _run_id), do: :ok
+
+  @impl true
+  def ended(_caller, _run_id), do: :ok
 
   @impl true
   def error(_caller, %Message{}, _error), do: :ok

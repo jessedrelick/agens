@@ -6,8 +6,8 @@ defmodule Agens.Backend.Emit do
   @behaviour Agens.Backend
 
   @impl true
-  def start(caller, job_id, run_id) do
-    send(caller, {:job_started, job_id, run_id})
+  def run(caller, job_id, run_id) do
+    send(caller, {:job_run, job_id, run_id})
 
     :ok
   end
@@ -22,6 +22,13 @@ defmodule Agens.Backend.Emit do
   @impl true
   def complete(caller, run_id) do
     send(caller, {:job_complete, run_id})
+
+    :ok
+  end
+
+  @impl true
+  def ended(caller, run_id) do
+    send(caller, {:job_ended, run_id})
 
     :ok
   end

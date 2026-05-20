@@ -10,8 +10,8 @@ defmodule Agens.Backend.Log do
   @name "Log"
 
   @impl true
-  def start(_caller, job_id, run_id) do
-    Logger.info("[Agens: #{@name}] Starting job: #{job_id} run_id: #{run_id}")
+  def run(_caller, job_id, run_id) do
+    Logger.info("[Agens: #{@name}] Running job: #{job_id} run_id: #{run_id}")
 
     :ok
   end
@@ -26,6 +26,13 @@ defmodule Agens.Backend.Log do
   @impl true
   def complete(_caller, run_id) do
     Logger.info("[Agens: #{@name}] Run `#{run_id}` complete")
+
+    :ok
+  end
+
+  @impl true
+  def ended(_caller, run_id) do
+    Logger.info("[Agens: #{@name}] Run `#{run_id}` ended")
 
     :ok
   end

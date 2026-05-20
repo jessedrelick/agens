@@ -16,9 +16,9 @@ defmodule Agens.Backend.EmitTest do
     )
   end
 
-  test "start/3 sends {:job_started, job_id, run_id} to caller" do
-    assert :ok == Emit.start(self(), "job_1", "run_1")
-    assert_received {:job_started, "job_1", "run_1"}
+  test "run/3 sends {:job_run, job_id, run_id} to caller" do
+    assert :ok == Emit.run(self(), "job_1", "run_1")
+    assert_received {:job_run, "job_1", "run_1"}
   end
 
   test "status/3 sends {:job_status, {run_id, status}} to caller" do
@@ -29,6 +29,11 @@ defmodule Agens.Backend.EmitTest do
   test "complete/2 sends {:job_complete, run_id} to caller" do
     assert :ok == Emit.complete(self(), "run_1")
     assert_received {:job_complete, "run_1"}
+  end
+
+  test "ended/2 sends {:job_ended, run_id} to caller" do
+    assert :ok == Emit.ended(self(), "run_1")
+    assert_received {:job_ended, "run_1"}
   end
 
   test "error/3 sends {:job_error, message, error} to caller" do

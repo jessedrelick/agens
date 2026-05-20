@@ -17,9 +17,9 @@ defmodule Agens.Backend.LogTest do
     )
   end
 
-  test "start/3 logs job info and returns :ok" do
-    log = capture_log(fn -> assert :ok == Log.start(nil, "job_1", "run_1") end)
-    assert log =~ "Starting job"
+  test "run/3 logs job info and returns :ok" do
+    log = capture_log(fn -> assert :ok == Log.run(nil, "job_1", "run_1") end)
+    assert log =~ "Running job"
     assert log =~ "job_1"
     assert log =~ "run_1"
   end
@@ -34,6 +34,12 @@ defmodule Agens.Backend.LogTest do
     log = capture_log(fn -> assert :ok == Log.complete(nil, "run_1") end)
     assert log =~ "run_1"
     assert log =~ "complete"
+  end
+
+  test "ended/2 logs explicit end and returns :ok" do
+    log = capture_log(fn -> assert :ok == Log.ended(nil, "run_1") end)
+    assert log =~ "run_1"
+    assert log =~ "ended"
   end
 
   test "error/3 logs error details and returns :ok" do

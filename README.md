@@ -173,7 +173,7 @@ The `Agens.Backend` behaviour fans out lifecycle and Node activity to one or mor
 config :agens, backends: [Agens.Backend.Emit, Agens.Backend.Log, MyApp.PubSubBackend]
 ```
 
-The default emit backend sends `{:job_started, _, _}`, `{:node_started, msg}`, `{:node_result, msg}`, `{:tool_call, msg, call}`, `{:resource_load, msg, resource}`, `{:job_complete, _}` and more to the caller process — handle them with `handle_info/2` in a LiveView or any GenServer. See `Agens.Backend` for the full list of callbacks.
+The default emit backend sends `{:job_run, _, _}`, `{:node_started, msg}`, `{:node_result, msg}`, `{:tool_call, msg, call}`, `{:resource_load, msg, resource}`, `{:job_complete, _}` (natural completion) or `{:job_ended, _}` (explicit `:end` instruction), and more to the caller process — handle them with `handle_info/2` in a LiveView or any GenServer. See `Agens.Backend` for the full list of callbacks.
 
 ---
 **Sub-Jobs**

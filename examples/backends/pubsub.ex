@@ -7,8 +7,8 @@ defmodule AgensDemo.PubSubBackend do
   @topic_prefix "agens"
 
   @impl true
-  def start(_caller, _job_id, run_id) do
-    broadcast(run_id, {:job_started, run_id})
+  def run(_caller, _job_id, run_id) do
+    broadcast(run_id, {:job_run, run_id})
   end
 
   @impl true
@@ -19,6 +19,11 @@ defmodule AgensDemo.PubSubBackend do
   @impl true
   def complete(_caller, run_id) do
     broadcast(run_id, {:job_complete, run_id})
+  end
+
+  @impl true
+  def ended(_caller, run_id) do
+    broadcast(run_id, {:job_ended, run_id})
   end
 
   @impl true

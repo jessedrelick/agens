@@ -21,9 +21,10 @@ defmodule Agens.Job do
 
   #### Job
 
-      {:job_started, job_id, run_id}
+      {:job_run, job_id, run_id}
       {:job_status, {run_id, status}}
       {:job_complete, run_id}
+      {:job_ended, run_id}
       {:job_error, message, error}
 
   #### Node
@@ -229,7 +230,7 @@ defmodule Agens.Job do
       ) do
     server_pid = self()
     first_thread_id = Agens.generate_uid()
-    Agens.backends(:start, [state.caller, id, state.run_id])
+    Agens.backends(:run, [state.caller, id, state.run_id])
     state = change_status(state, :running)
     GenServer.cast(server_pid, {:thread, first_thread_id})
 
@@ -416,7 +417,7 @@ defmodule Agens.Job do
     :telemetry.execute([:agens, :job, :end], %{}, %{run_id: state.run_id})
 
     state = change_status(state, :ended)
-    Agens.backends(:complete, [state.caller, state.run_id])
+    Agens.backends(:ended, [state.caller, state.run_id])
 
     {:stop, :normal, state}
   end

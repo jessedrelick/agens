@@ -101,7 +101,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:job_error,
                       %Message{
@@ -121,7 +121,7 @@ defmodule Agens.JobTest do
 
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:node_started,
                       %Message{
@@ -204,7 +204,7 @@ defmodule Agens.JobTest do
       {:error, {:already_started, ^pid}} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       # Agent 1
       assert_receive {:node_started,
@@ -282,7 +282,7 @@ defmodule Agens.JobTest do
 
       # END
       assert_receive {:job_status, {^run_id, :running}}
-      assert_receive {:job_complete, ^run_id}
+      assert_receive {:job_ended, ^run_id}
     end
   end
 
@@ -316,7 +316,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       # Fan out
       assert_receive {:node_started,
@@ -480,7 +480,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started,
@@ -573,7 +573,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started,
@@ -673,7 +673,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started,
@@ -742,7 +742,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:node_started, %Message{retries: 0}}
 
@@ -790,7 +790,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:node_started, %Message{retries: 0}}
 
@@ -837,7 +837,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:node_started, %Message{retries: 0}}
 
@@ -877,14 +877,14 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started, %Message{}}
       assert_receive {:prompt, _prompt}
       assert_receive {:node_result, %Message{next: [:end]}}
 
-      assert_receive {:job_complete, ^run_id}
+      assert_receive {:job_ended, ^run_id}
     end
   end
 
@@ -912,7 +912,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started, %Message{}}
@@ -939,7 +939,7 @@ defmodule Agens.JobTest do
 
       # result = Job.run(name, input, "node_id", nil)
       # assert result == :ok
-      # assert_receive {:job_started, ^name}
+      # assert_receive {:job_run, ^name}
     end
   end
 
@@ -974,7 +974,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
 
       assert_receive {:node_started, %Message{}}
@@ -1020,7 +1020,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, "input", [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:node_started, %Message{resources: [%Resource{content: nil}]}}
       assert_receive {:prompt, {system, _user}}
 
@@ -1152,7 +1152,7 @@ defmodule Agens.JobTest do
 
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^job_id, ^run_id}
+      assert_receive {:job_run, ^job_id, ^run_id}
 
       assert_receive {:node_started,
                       %Message{node_objective: ^node_objective, job_description: ^job_description}}
@@ -1200,7 +1200,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       # Fan out
       assert_receive {:node_started,
@@ -1389,7 +1389,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
       assert_receive {:prompt, _prompt}
 
@@ -1413,7 +1413,7 @@ defmodule Agens.JobTest do
                       }}
 
       # Sub Job
-      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+      assert_receive {:job_run, ^sub_id, ^sub_run_id}
       assert_receive {:job_status, {^sub_run_id, :running}}
       assert_receive {:prompt, _prompt}
 
@@ -1469,7 +1469,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
       assert_receive {:prompt, _prompt}
 
@@ -1482,7 +1482,7 @@ defmodule Agens.JobTest do
                       }}
 
       # Sub Job
-      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+      assert_receive {:job_run, ^sub_id, ^sub_run_id}
       assert_receive {:job_status, {^sub_run_id, :running}}
 
       assert_receive {:node_started,
@@ -1552,7 +1552,7 @@ defmodule Agens.JobTest do
       assert is_pid(pid)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_status, {^run_id, :running}}
       assert_receive {:prompt, _prompt}
 
@@ -1565,7 +1565,7 @@ defmodule Agens.JobTest do
                       }}
 
       # Sub Job
-      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+      assert_receive {:job_run, ^sub_id, ^sub_run_id}
       assert_receive {:job_status, {^sub_run_id, :running}}
 
       assert_receive {:node_started,
@@ -1776,7 +1776,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, "input", [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
       assert_receive {:job_error, %Message{node_id: "node_0"}, :job_not_loaded}
     end
   end
@@ -1817,7 +1817,7 @@ defmodule Agens.JobTest do
       {:ok, _pid} = Job.start(job, run_id)
       :ok = Job.run(run_id, input, [])
 
-      assert_receive {:job_started, ^id, ^run_id}
+      assert_receive {:job_run, ^id, ^run_id}
 
       assert_receive {:node_started,
                       %Message{
@@ -1827,7 +1827,7 @@ defmodule Agens.JobTest do
                         input: ^input
                       }}
 
-      assert_receive {:job_started, ^sub_id, ^sub_run_id}
+      assert_receive {:job_run, ^sub_id, ^sub_run_id}
 
       assert_receive {:node_started,
                       %Message{
