@@ -52,8 +52,8 @@ defmodule AgensDemo.PubSubBackend do
   end
 
   @impl true
-  def resource_load(_caller, %Message{run_id: run_id} = message, resource) do
-    broadcast(run_id, {:resource_load, message, resource})
+  def resource_load(_caller, %Message{run_id: run_id} = message, %{} = resource_load) do
+    broadcast(run_id, {:resource_load, message, resource_load})
   end
 
   @impl true
@@ -70,7 +70,7 @@ defmodule AgensDemo.PubSubBackend do
   end
 
   @impl true
-  def sub(_caller, _job_id), do: nil
+  def sub(_job_id), do: nil
 
   defp broadcast(run_id, event) do
     Phoenix.PubSub.broadcast(@pubsub, "#{@topic_prefix}:#{run_id}", event)

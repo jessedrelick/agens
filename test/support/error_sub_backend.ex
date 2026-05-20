@@ -32,8 +32,8 @@ defmodule Test.Support.ErrorSubBackend do
     do: Backend.tool_call(caller, message, tool_call)
 
   @impl true
-  def resource_load(caller, message, resource),
-    do: Backend.resource_load(caller, message, resource)
+  def resource_load(caller, message, resource_load),
+    do: Backend.resource_load(caller, message, resource_load)
 
   @impl true
   def prompt(message), do: Backend.prompt(message)
@@ -47,7 +47,7 @@ defmodule Test.Support.ErrorSubBackend do
     do: Backend.yield_done(caller, message, total_count)
 
   @impl true
-  def sub(_caller, _job_id) do
+  def sub(_job_id) do
     nodes = %{
       "sub_node_0" => %Agens.Job.Node{
         serving: :test_serving,

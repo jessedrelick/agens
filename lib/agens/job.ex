@@ -325,11 +325,6 @@ defmodule Agens.Job do
   def handle_cast({{:retry, reason}, %Message{} = message}, %State{} = state) do
     message = %Message{message | retries: message.retries + 1, retry_reason: reason}
 
-    :telemetry.execute([:agens, :job, :retry], %{}, %{
-      run_id: state.run_id,
-      retry: message.retries
-    })
-
     :telemetry.execute([:agens, :node, :retry], %{}, %{
       job_id: state.config.id,
       run_id: state.run_id,
@@ -758,7 +753,7 @@ defmodule Agens.Job do
   defp run_sub(state, message, job_id, parent_node_message) do
     spec =
       :sub
-      |> Agens.backends([self(), job_id])
+      |> Agens.backends([job_id])
       |> Enum.find(&match?(%Sub{}, &1))
 
     if !spec do
@@ -833,15 +828,19 @@ defmodule Agens.Job do
           meta = %{run_id: message.run_id, job_id: message.job_id, name: resource.name}
 
           :telemetry.span([:agens, :resource, :load], meta, fn ->
-            loaded =
+            {loaded, error} =
               case Agens.Serving.load_resource(message.serving_name, resource, message) do
-                {:ok, loaded} -> loaded
-                {:error, _} -> resource
+                {:ok, loaded} -> {loaded, nil}
+                {:error, reason} -> {resource, inspect(reason)}
               end
 
-            Agens.backends(:resource_load, [state.caller, message, loaded])
+            Agens.backends(:resource_load, [
+              state.caller,
+              message,
+              %{resource: loaded, error: error}
+            ])
 
-            {loaded, meta}
+            {loaded, Map.put(meta, :error, error)}
           end)
         end,
         ordered: true,

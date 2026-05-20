@@ -82,7 +82,6 @@ defmodule Agens.Metrics do
       counter("agens.job.run", event_name: [:agens, :job, :run], tags: []),
       counter("agens.job.stop", event_name: [:agens, :job, :stop], tags: []),
       counter("agens.job.status", event_name: [:agens, :job, :status], tags: [:status]),
-      counter("agens.job.retry", event_name: [:agens, :job, :retry], tags: [:retry]),
       counter("agens.job.complete", event_name: [:agens, :job, :complete], tags: []),
       counter("agens.job.sub", event_name: [:agens, :job, :sub], tags: []),
       counter("agens.job.end", event_name: [:agens, :job, :end], tags: []),

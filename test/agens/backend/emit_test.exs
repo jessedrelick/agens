@@ -67,11 +67,12 @@ defmodule Agens.Backend.EmitTest do
     assert_received {:tool_call, ^msg, ^tc}
   end
 
-  test "resource_load/3 sends {:resource_load, message, resource} to caller" do
+  test "resource_load/3 sends {:resource_load, message, resource_load} to caller" do
     msg = message()
     resource = %Resource{uri: "file://test", name: "test", description: "test"}
-    assert :ok == Emit.resource_load(self(), msg, resource)
-    assert_received {:resource_load, ^msg, ^resource}
+    load = %{resource: resource, error: nil}
+    assert :ok == Emit.resource_load(self(), msg, load)
+    assert_received {:resource_load, ^msg, ^load}
   end
 
   test "prompt/1 sends {:prompt, {system, user}} to message.caller" do
@@ -92,7 +93,7 @@ defmodule Agens.Backend.EmitTest do
     assert_received {:yield_done, {^msg, 5}}
   end
 
-  test "sub/2 returns nil" do
-    assert nil == Emit.sub(self(), "job_1")
+  test "sub/1 returns nil" do
+    assert nil == Emit.sub("job_1")
   end
 end

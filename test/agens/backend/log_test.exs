@@ -84,10 +84,20 @@ defmodule Agens.Backend.LogTest do
   test "resource_load/3 logs resource load and returns :ok" do
     msg = message()
     resource = %Agens.Resource{uri: "file://test", name: "my_resource", description: "test"}
-    log = capture_log(fn -> assert :ok == Log.resource_load(nil, msg, resource) end)
+    load = %{resource: resource, error: nil}
+    log = capture_log(fn -> assert :ok == Log.resource_load(nil, msg, load) end)
     assert log =~ "Resource load"
     assert log =~ "my_resource"
     assert log =~ "run_1"
+  end
+
+  test "resource_load/3 logs error reason when load failed" do
+    msg = message()
+    resource = %Agens.Resource{uri: "file://missing", name: "missing", description: "missing"}
+    load = %{resource: resource, error: ":enoent"}
+    log = capture_log(fn -> assert :ok == Log.resource_load(nil, msg, load) end)
+    assert log =~ "missing"
+    assert log =~ ":enoent"
   end
 
   test "prompt/1 returns :ok without logging" do
@@ -110,7 +120,7 @@ defmodule Agens.Backend.LogTest do
     assert log =~ "5"
   end
 
-  test "sub/2 returns nil" do
-    assert nil == Log.sub(nil, "job_1")
+  test "sub/1 returns nil" do
+    assert nil == Log.sub("job_1")
   end
 end

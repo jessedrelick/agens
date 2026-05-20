@@ -2,7 +2,7 @@ defmodule Agens.Job.Sub do
   @moduledoc """
   Describes a sub-Job to be started in place of a Serving call on a Job Node.
 
-  A `Sub` is returned from the `c:Agens.Backend.sub/2` callback and carries the
+  A `Sub` is returned from the `c:Agens.Backend.sub/1` callback and carries the
   configuration and run identifiers needed to nest a Job inside a parent Job.
 
   ## Fields

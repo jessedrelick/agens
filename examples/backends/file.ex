@@ -38,7 +38,7 @@ defmodule AgensDemo.FileBackend do
   def tool_call(_caller, %Message{}, %{}), do: :ok
 
   @impl true
-  def resource_load(_caller, %Message{}, _resource), do: :ok
+  def resource_load(_caller, %Message{}, %{}), do: :ok
 
   @impl true
   def prompt(%Message{}), do: :ok
@@ -50,5 +50,5 @@ defmodule AgensDemo.FileBackend do
   def yield_done(_caller, %Message{}, _total), do: :ok
 
   @impl true
-  def sub(_caller, _job_id), do: nil
+  def sub(_job_id), do: nil
 end

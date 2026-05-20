@@ -67,8 +67,8 @@ defmodule Test.Support.Backend do
   end
 
   @impl true
-  def resource_load(caller, %Message{} = message, resource) do
-    send(caller, {:resource_load, message, resource})
+  def resource_load(caller, %Message{} = message, %{} = resource_load) do
+    send(caller, {:resource_load, message, resource_load})
 
     :ok
   end
@@ -91,7 +91,7 @@ defmodule Test.Support.Backend do
   end
 
   @impl true
-  def sub(_caller, _job_id) do
+  def sub(_job_id) do
     nodes = %{
       "sub_node_0" => %Agens.Job.Node{
         serving: :test_serving,

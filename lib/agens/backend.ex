@@ -24,7 +24,7 @@ defmodule Agens.Backend do
         # ... other callbacks ...
       end
 
-  Most callbacks return `:ok`. `c:sub/2` is special: it returns an `Agens.Job.Sub` struct
+  Most callbacks return `:ok`. `c:sub/1` is special: it returns an `Agens.Job.Sub` struct
   describing a Sub-Job to be started, or `nil` if the backend does not handle that `job_id`.
   Returning `nil` lets a later backend in the list resolve the Sub-Job.
   """
@@ -48,6 +48,18 @@ defmodule Agens.Backend do
           required(:name) => binary(),
           required(:arguments) => map(),
           required(:result) => any() | nil,
+          required(:error) => binary() | nil
+        }
+
+  @typedoc """
+  Normalized record of a resource load as observed by a backend.
+
+  `:resource` is the resolved `Agens.Resource` when loading succeeded, or the original
+  declaration when it failed (the runtime falls back to the bare resource). `:error` is
+  `nil` on success or an inspected error reason string on failure.
+  """
+  @type resource_load :: %{
+          required(:resource) => Resource.t(),
           required(:error) => binary() | nil
         }
 
@@ -94,8 +106,8 @@ defmodule Agens.Backend do
   @doc "Invoked when a tool call has been performed (successfully or not)."
   @callback tool_call(pid(), Message.t(), tool_call()) :: :ok
 
-  @doc "Invoked when a resource has been loaded for a Node."
-  @callback resource_load(pid(), Message.t(), Resource.t()) :: :ok
+  @doc "Invoked when a resource has been loaded for a Node (successfully or not)."
+  @callback resource_load(pid(), Message.t(), resource_load()) :: :ok
 
   @doc """
   Invoked with the finalized `Agens.Message` after `Agens.Prompt` has built the system and user prompts.
@@ -116,5 +128,5 @@ defmodule Agens.Backend do
   Backends in the configured list are consulted in order; the first to return a `Sub` wins.
   Backends that don't handle the given `job_id` must return `nil`.
   """
-  @callback sub(pid(), job_id()) :: Agens.Job.Sub.t() | nil
+  @callback sub(job_id()) :: Agens.Job.Sub.t() | nil
 end

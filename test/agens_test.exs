@@ -13,7 +13,7 @@ defmodule Agens.AgensTest do
 
   describe "backends/2" do
     test "applies the given function to all configured backends and returns results" do
-      results = Agens.backends(:sub, [self(), "some_job"])
+      results = Agens.backends(:sub, ["some_job"])
       assert is_list(results)
       assert length(results) == length(Agens.backends())
     end

@@ -83,9 +83,9 @@ defmodule Agens.Backend.Log do
   end
 
   @impl true
-  def resource_load(_caller, %Message{} = message, resource) do
+  def resource_load(_caller, %Message{} = message, %{resource: resource, error: error}) do
     Logger.info(
-      "[Agens: #{@name}] Resource load: #{resource.name} run_id: #{message.run_id} node: #{message.node_id}"
+      "[Agens: #{@name}] Resource load: #{resource.name} run_id: #{message.run_id} node: #{message.node_id} error: #{inspect(error)}"
     )
 
     :ok
@@ -109,5 +109,5 @@ defmodule Agens.Backend.Log do
   end
 
   @impl true
-  def sub(_caller, _job_id), do: nil
+  def sub(_job_id), do: nil
 end

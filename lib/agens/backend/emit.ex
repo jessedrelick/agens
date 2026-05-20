@@ -69,8 +69,8 @@ defmodule Agens.Backend.Emit do
   end
 
   @impl true
-  def resource_load(caller, %Message{} = message, resource) do
-    send(caller, {:resource_load, message, resource})
+  def resource_load(caller, %Message{} = message, %{} = resource_load) do
+    send(caller, {:resource_load, message, resource_load})
 
     :ok
   end
@@ -93,5 +93,5 @@ defmodule Agens.Backend.Emit do
   end
 
   @impl true
-  def sub(_caller, _job_id), do: nil
+  def sub(_job_id), do: nil
 end
