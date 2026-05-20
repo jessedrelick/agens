@@ -13,13 +13,16 @@ defmodule Agens.Job.Yield do
   @enforce_keys []
   defstruct threads: [], ready: []
 
+  @spec new() :: t()
   def new(), do: %__MODULE__{}
 
+  @spec ready?(t()) :: boolean()
   def ready?(%__MODULE__{threads: threads, ready: ready}) do
     ready_map = Enum.into(ready, %{})
     Enum.all?(threads, &Map.has_key?(ready_map, &1))
   end
 
+  @spec thread_ready(t() | nil, thread_id(), next_node_id()) :: t()
   def thread_ready(nil, thread_id, next_node_id),
     do: thread_ready(%__MODULE__{}, thread_id, next_node_id)
 
@@ -27,12 +30,14 @@ defmodule Agens.Job.Yield do
     Map.update(yield, :ready, [], &[{thread_id, next_node_id} | &1])
   end
 
+  @spec thread_add(t() | nil, thread_id()) :: t()
   def thread_add(nil, thread_id), do: thread_add(%__MODULE__{}, thread_id)
 
   def thread_add(%__MODULE__{} = yield, thread_id) do
     Map.update(yield, :threads, [thread_id], &[thread_id | &1])
   end
 
+  @spec thread_done(t() | nil, thread_id()) :: t()
   def thread_done(nil, _thread_id), do: %__MODULE__{}
 
   def thread_done(%__MODULE__{} = yield, thread_id) do

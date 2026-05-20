@@ -61,6 +61,17 @@ defmodule Agens.Job do
   ```
 
   Emitted after post-processing of the raw Tool result. This is the final result of the Tool, which will be passed to conditions or the next step of the job.
+
+  ## Routing and Sub-Jobs
+
+  Every `Agens.Job.Node` declares a `:serving`, even when it also declares `:sub`. The Node's Serving owns routing: the parent Node's `next` instructions are always produced by the Serving's router (`c:Agens.Serving.handle_result/3` for normal inference, `c:Agens.Serving.handle_sub/3` for a resolved Sub-Job). There is no static `next` field on `Agens.Job.Node` — all routing is dynamic.
+
+  Two distinct Sub flows are supported:
+
+  - **Sub Node** (`Agens.Job.Node` with `:sub` set) — the Sub-Job runs *in place of* inference on the parent Node. When the Sub completes, the parent invokes `c:Agens.Serving.handle_sub/3` on the Node's declared Serving to map the Sub's final `Agens.Message` into the parent Node's `outputs` and `next`.
+  - **Sub via routing instruction** (`{:sub, job_id}` returned in a Serving's `next`) — the Sub-Job runs as additional work *after* the Node's inference has completed and routing was already decided. The Sub's terminal message drives subsequent routing in the parent; `handle_sub/3` is not invoked.
+
+  Configuration is validated on `start/2`. Missing `:serving` on any Node raises `ArgumentError` immediately rather than failing at runtime.
   """
 
   defguard is_status(status)
@@ -83,6 +94,7 @@ defmodule Agens.Job do
   """
   @spec start(Config.t(), binary()) :: {:ok, pid} | {:error, term}
   def start(config, run_id) do
+    Config.validate!(config)
     :telemetry.execute([:agens, :job, :start], %{}, %{job_id: config.id, run_id: run_id})
     DynamicSupervisor.start_child(Agens, {__MODULE__, {config, run_id}})
   end
@@ -277,7 +289,7 @@ defmodule Agens.Job do
   @impl true
   @spec handle_cast({{:sub, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
   def handle_cast({{:sub, job_id}, %Message{} = message}, %State{} = state) do
-    run_sub(state, message, job_id)
+    run_sub(state, message, job_id, nil)
 
     {:noreply, state}
   end
@@ -339,10 +351,40 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast({:sub_done, Message.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_cast({:sub_done, %Message{} = message}, %State{} = state) do
-    do_next(message, message, self(), state)
+  @spec handle_cast({:sub_route_done, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({:sub_route_done, %Message{} = sub_message}, %State{} = state) do
+    do_next(sub_message, sub_message, self(), state)
     {:noreply, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_cast({:sub_node_done, Message.t(), Message.t()}, State.t()) ::
+          {:noreply, State.t()}
+  def handle_cast(
+        {:sub_node_done, %Message{} = sub_message, %Message{} = parent_node_message},
+        %State{} = state
+      ) do
+    parent_node = State.get_node(state, parent_node_message.node_id)
+
+    case Agens.Serving.handle_sub(parent_node.serving, sub_message, parent_node_message) do
+      {:ok, %Agens.Serving.Result{body: body, outputs: outputs, next: next}} ->
+        message = %Message{
+          parent_node_message
+          | result: body,
+            outputs: outputs,
+            next: next
+        }
+
+        Agens.backends(:node_result, [state.caller, message])
+        do_next(message, message, self(), state)
+
+        {:noreply, state}
+
+      {:error, reason} ->
+        GenServer.cast(self(), {{:error, reason}, parent_node_message})
+        {:noreply, state}
+    end
   end
 
   @doc false
@@ -457,8 +499,7 @@ defmodule Agens.Job do
       not is_nil(node.sub) ->
         message = %Message{
           build_message(message, node, state)
-          | result: message.input,
-            next: node.next || []
+          | result: message.input
         }
 
         Agens.backends(:node_started, [state.caller, message])
@@ -675,7 +716,7 @@ defmodule Agens.Job do
     State.change_status(state, status)
   end
 
-  defp run_sub(state, message, job_id, parent_node_message \\ nil) do
+  defp run_sub(state, message, job_id, parent_node_message) do
     spec =
       :sub
       |> Agens.backends([self(), job_id])
@@ -705,14 +746,24 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
-           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
-         } =
-           state,
-         {:done, %Message{result: result} = sub_message}
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: nil}
+         },
+         {:done, %Message{} = sub_message}
        ) do
-    final = if parent_msg, do: %{parent_msg | result: result}, else: sub_message
-    Agens.backends(:node_result, [state.caller, final])
-    run_id_to_pid(parent_run_id, :ok, fn pid -> GenServer.cast(pid, {:sub_done, final}) end)
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, {:sub_route_done, sub_message})
+    end)
+  end
+
+  defp maybe_notify_parent(
+         %State{
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: %Message{} = parent_msg}
+         },
+         {:done, %Message{} = sub_message}
+       ) do
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, {:sub_node_done, sub_message, parent_msg})
+    end)
   end
 
   defp maybe_notify_parent(

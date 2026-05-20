@@ -9,6 +9,39 @@ defmodule Agens.Serving do
   In some cases, you may have additional servings for more specific use cases such as image generation, speech recognition, etc.
 
   Servings were built with the `Bumblebee` library in mind, as well as `Nx.Serving`. `GenServer` is supported for working with LM APIs instead, which may be more cost effective and easier to get started with.
+
+  ## Routing
+
+  A Serving owns routing for any Node that declares it. The router can be the Serving module itself (the "merged" pattern) or a separate module (the "split" pattern):
+
+      # Merged: Serving is its own Router
+      defmodule MyServing do
+        use Agens.Serving
+        use Agens.Router
+
+        # ...handle_message/3, handle_result/3, outputs/1, resolve/2
+      end
+
+      # Split: a dedicated Router module reused across Servings
+      defmodule MyRouter do
+        use Agens.Router
+        # outputs/1, resolve/2
+      end
+
+      defmodule MyServing do
+        use Agens.Serving, router: MyRouter
+        # ...handle_message/3, handle_result/3
+      end
+
+  When `:router` is omitted it defaults to `__MODULE__`, so merging is the zero-config path.
+
+  After `handle_result/3` or `handle_sub/3` returns a `Result`, the macro auto-invokes the router's `route/1` on the message+outputs **only when the returned `next` is empty/nil**. Callbacks that need to set `next` explicitly (e.g. `:end`, `:retry`) can still do so directly and the router will not override.
+
+  ## Sub-Jobs (`handle_sub/3`)
+
+  When a Node declares both `:serving` and `:sub`, the Sub-Job runs in place of a Serving inference call. Once the Sub completes, the parent invokes `c:handle_sub/3` on the Node's declared Serving to derive the parent Node's `outputs` and `next` from the Sub's final `Agens.Message`.
+
+  The default implementation generates the router's `outputs/1` keys with `nil` values and lets the router's `resolve/2` produce the fallback `next`. Override `c:handle_sub/3` when the Sub's output schema differs from the parent's — typical implementations map the Sub's `outputs`/`body` into the parent's output schema, optionally via an LM call.
   """
 
   defmodule Config do
@@ -74,6 +107,8 @@ defmodule Agens.Serving do
               {:ok, term()} | {:error, term()}
   @callback handle_result({:ok, term()} | {:error, any()}, State.t(), Agens.Message.t()) ::
               {:ok, Result.t()} | {:error, any()} | {:retry, String.t()}
+  @callback handle_sub(State.t(), Agens.Message.t(), Agens.Message.t()) ::
+              {:ok, Result.t()} | {:error, any()}
 
   @callback load_context(State.t(), Message.t()) :: String.t() | nil
   @callback load_resource(State.t(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
@@ -86,6 +121,7 @@ defmodule Agens.Serving do
   @callback tools_schema(Message.t()) :: {binary(), map()}
 
   @optional_callbacks [
+    handle_sub: 3,
     load_context: 2,
     load_resource: 3,
     tool_call: 3,
@@ -150,6 +186,29 @@ defmodule Agens.Serving do
         end
       end
 
+      if !Module.defines?(__MODULE__, {:handle_sub, 3}) do
+        @impl Agens.Serving
+        def handle_sub(_state, %Message{result: sub_result}, %Message{} = parent_node_message) do
+          router = @__agens_router__
+
+          outputs =
+            if Code.ensure_loaded?(router) and function_exported?(router, :outputs, 1) do
+              router
+              |> apply(:outputs, [parent_node_message])
+              |> Map.new(fn %Agens.Router.Output{key: k} -> {k, nil} end)
+            else
+              %{}
+            end
+
+          {:ok,
+           %Agens.Serving.Result{
+             body: sub_result,
+             outputs: outputs,
+             next: []
+           }}
+        end
+      end
+
       if !Module.defines?(__MODULE__, {:build_schema, 1}) do
         @impl Agens.Serving
         def build_schema(%Message{} = msg) do
@@ -174,6 +233,7 @@ defmodule Agens.Serving do
 
   defmacro __using__(opts) do
     limit = Keyword.get(opts, :limit, 10)
+    router = Keyword.get(opts, :router)
 
     quote do
       use GenServer
@@ -181,6 +241,8 @@ defmodule Agens.Serving do
       alias Agens.Serving.{Config, Result}
 
       @behaviour Agens.Serving
+
+      @__agens_router__ unquote(router) || __MODULE__
 
       @before_compile unquote(__MODULE__)
 
@@ -244,6 +306,22 @@ defmodule Agens.Serving do
       end
 
       @impl GenServer
+      def handle_call({:handle_sub, sub_message, parent_node_message}, from, state) do
+        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
+          :telemetry.execute([:agens, :serving, :sub], %{}, %{name: state.config.name})
+
+          reply =
+            state
+            |> handle_sub(sub_message, parent_node_message)
+            |> maybe_route(parent_node_message)
+
+          GenServer.reply(from, reply)
+        end)
+
+        {:noreply, state}
+      end
+
+      @impl GenServer
       def handle_call({:run, msg}, from, state) do
         queue = :queue.in({msg, from}, state.queue)
         state = Map.put(state, :queue, queue)
@@ -298,6 +376,7 @@ defmodule Agens.Serving do
                 state
                 |> handle_message(msg, schema)
                 |> handle_result(state, msg)
+                |> maybe_route(msg)
               end)
 
             result =
@@ -327,6 +406,20 @@ defmodule Agens.Serving do
       def tools_schema(%Message{}), do: {"tool_calls", Schema.tools()}
 
       defoverridable response_schema: 1, outputs_schema: 1, tools_schema: 1
+
+      defp maybe_route({:ok, %Result{next: next} = result}, %Message{} = msg)
+           when next in [nil, []] do
+        router = @__agens_router__
+
+        if Code.ensure_loaded?(router) and function_exported?(router, :route, 1) do
+          routed_next = apply(router, :route, [%Message{msg | outputs: result.outputs}])
+          {:ok, %Result{result | next: routed_next}}
+        else
+          {:ok, result}
+        end
+      end
+
+      defp maybe_route(other, _msg), do: other
     end
   end
 
@@ -391,6 +484,23 @@ defmodule Agens.Serving do
     name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
       GenServer.call(pid, {:run, message}, :infinity)
+    end)
+  end
+
+  @doc """
+  Invokes the `c:handle_sub/3` callback on the given Serving with the
+  Sub-Job's final `Agens.Message` and the parent Node's `Agens.Message`.
+
+  The Serving's returned `Result` determines the parent Node's `outputs`
+  and `next` instructions.
+  """
+  @spec handle_sub(atom(), Message.t(), Message.t()) ::
+          {:ok, Result.t()} | {:error, term()}
+  def handle_sub(serving_name, %Message{} = sub_message, %Message{} = parent_node_message)
+      when is_atom(serving_name) do
+    serving_name
+    |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->
+      GenServer.call(pid, {:handle_sub, sub_message, parent_node_message}, :infinity)
     end)
   end
 end

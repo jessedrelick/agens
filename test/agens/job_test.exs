@@ -17,6 +17,12 @@ defmodule Agens.JobTest do
     }
     |> Agens.Serving.start()
 
+    %Agens.Serving.Config{
+      name: :sub_routing_serving,
+      serving: Test.Support.SubRoutingServing
+    }
+    |> Agens.Serving.start()
+
     :ok
   end
 
@@ -1452,6 +1458,7 @@ defmodule Agens.JobTest do
         description: "to spawn a sub job via node sub field",
         nodes: %{
           "node_0" => %Job.Node{
+            serving: :test_serving,
             sub: sub_id,
             objective: "test sub job"
           }
@@ -1531,8 +1538,8 @@ defmodule Agens.JobTest do
         description: "to spawn a sub job and then execute a subsequent node",
         nodes: %{
           "node_0" => %Job.Node{
-            sub: sub_id,
-            next: [{:route, "node_1", 1}]
+            serving: :sub_routing_serving,
+            sub: sub_id
           },
           "node_1" => %Job.Node{
             serving: :test_serving,
@@ -1762,7 +1769,7 @@ defmodule Agens.JobTest do
         id: id,
         starting_node_id: "node_0",
         nodes: %{
-          "node_0" => %Job.Node{sub: "nonexistent_sub_job"}
+          "node_0" => %Job.Node{serving: :test_serving, sub: "nonexistent_sub_job"}
         }
       }
 
@@ -1801,6 +1808,7 @@ defmodule Agens.JobTest do
         description: "to test sub error propagation",
         nodes: %{
           "node_0" => %Job.Node{
+            serving: :test_serving,
             sub: sub_id
           }
         }
