@@ -1,12 +1,12 @@
 defmodule Agens.Job do
   @moduledoc """
-  A Job defines a multi-agent workflow as a graph of `Agens.Job.Node`s.
+  A Job defines a multi-agent workflow as a map of `Agens.Job.Node`s.
 
   A Job is a map of `node_id => Agens.Job.Node` plus a `:starting_node_id`. Each Node declares a
   Serving and, optionally, an objective, tools, resources, or a Sub-Job. Routing between Nodes is
-  dynamic and graph-based: the Serving's Router returns `next` instructions
+  dynamic and can be driven by either code or the LM: the Serving's Router returns `next` instructions
   (`{:route, node_id, count}`, `{:yield, node_id}`, `{:sub, job_id}`, `:end`, `:retry`) based on the
-  Node's structured outputs. There is no static `next` field on a Node — the graph is defined entirely
+  Node's structured outputs. There is no static `next` field on a Node — execution is defined entirely
   by the routing decisions emitted at runtime.
 
   ### Events

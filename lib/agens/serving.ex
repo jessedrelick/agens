@@ -127,22 +127,173 @@ defmodule Agens.Serving do
           optional(atom()) => any()
         }
 
+  @doc """
+  Initialization hook called once during `init/1`.
+
+  Receives the initial state (already populated with `:config`, `:queue`, `:count`, and `:limit`)
+  and returns `{:ok, state}`. Typical implementations stash provider-specific configuration from
+  `state.config.args` (API base URLs, credentials, model identifiers, HTTP clients) into the
+  state for use in `c:handle_message/3`.
+  """
   @callback start(state()) :: {:ok, state()}
+
+  @doc """
+  Performs the LM inference call for a single Node run.
+
+  Receives the current `state`, the prepared `Agens.Message` (with `:system` and `:user` already
+  populated by `c:build_prompt/3` and `:agent_id`/`:objective`/etc. carried through from the
+  Node), and the JSON `schema` assembled from the Router's declared outputs and the Node's tools.
+
+  The host writes the actual HTTP call (OpenAI, Anthropic, Ollama, etc) or `Nx.Serving` /
+  `Bumblebee` invocation here, returning either `{:ok, parsed}` — where `parsed` is whatever
+  shape the host wants `c:handle_result/3` to receive — or `{:error, reason}`.
+  """
   @callback handle_message(state(), Agens.Message.t(), map()) ::
               {:ok, term()} | {:error, term()}
+
+  @doc """
+  Validates the parsed LM response and converts it into an `Agens.Serving.Result`.
+
+  Receives the tagged tuple from `c:handle_message/3`, the current `state`, and the `Agens.Message`
+  the inference ran against. Returns one of:
+
+    * `{:ok, %Agens.Serving.Result{}}` — the response passed validation; routing continues.
+    * `{:retry, reason}` — the response failed validation; the runtime increments the retry
+      counter and re-runs the Node with `reason` injected under the `Retry` prefix. Bounded by
+      `Agens.Job.Config.max_retries`.
+    * `{:error, reason}` — hard error; the Job terminates via the normal error path.
+
+  This is the seam for custom validation — domain-specific business rules, structured-output
+  shape checks, downstream API errors that should retry rather than abort.
+  """
   @callback handle_result({:ok, term()} | {:error, any()}, state(), Agens.Message.t()) ::
               {:ok, Result.t()} | {:error, any()} | {:retry, String.t()}
+
+  @doc """
+  Maps a completed Sub-Job's final message back onto the parent Node's `Agens.Serving.Result`.
+
+  Invoked when a Node declares both `:serving` and `:sub` and the Sub-Job runs in place of
+  inference. The first message is the Sub's final `Agens.Message` (with `:result` populated by
+  the Sub's last Node); the second is the parent Node's `Agens.Message` at the point the Sub
+  was launched.
+
+  Returns `{:ok, %Agens.Serving.Result{}}` populating the parent Node's `outputs` and `next`.
+  Typical implementations either reshape the Sub's `outputs` to match the parent's output schema
+  directly, or feed the Sub's body into an LM call to derive parent outputs.
+
+  Optional — the default implementation populates `body` from the Sub's `:result` and zeroes
+  `outputs` against the router's declared keys, leaving routing to the router's `route/1`
+  fallback.
+  """
   @callback handle_sub(state(), Agens.Message.t(), Agens.Message.t()) ::
               {:ok, Result.t()} | {:error, any()}
 
+  @doc """
+  Loads per-agent context for injection under the `Context` prefix.
+
+  Called before `c:build_prompt/3` on every Node run, with the current `state` and the
+  `Agens.Message` (which carries the Node's `:agent_id`). Return a string to surface as context,
+  or `nil` to omit the section. Typical uses: per-agent system prompts/personas, retrieved
+  memory, and **conversation history for turn-based / multi-turn Servings** — Agens does not
+  store messages across runs, so multi-turn flows load prior turns here keyed by `run_id`,
+  `parent_run_id`, or an application-defined conversation id carried via `agent_id`.
+
+  Optional — defaults to `nil`.
+  """
   @callback load_context(state(), Message.t()) :: String.t() | nil
+
+  @doc """
+  Resolves an `Agens.Resource` declared on the Node before inference.
+
+  Called once per declared resource. Receives the current `state`, the `Agens.Resource` struct
+  (URI, name, optional description), and the `Agens.Message`. Return the resource with `:content`
+  populated — file contents, vector-DB result, MCP `resources/read` response, HTTP GET body, or
+  whatever the URI maps to in your application. Loaded content is surfaced under the `Resources`
+  prefix in the prompt.
+
+  Optional — defaults to returning the resource unchanged.
+  """
   @callback load_resource(state(), Agens.Resource.t(), Message.t()) :: Agens.Resource.t()
+
+  @doc """
+  Executes a single tool call requested by the LM.
+
+  Invoked for each entry in the LM response's `tool_calls`. Receives the current `state`, the
+  tool-call `args` map (matching the tool's declared parameter schema), and the `Agens.Message`.
+  Returns `{tool_id, result}` — where `tool_id` matches the LM's tool-call id and `result` is
+  whatever JSON-serializable value should be surfaced under the `Tool Results` prefix on the
+  next Node run — or `{:error, reason}` on failure.
+
+  The host writes the actual tool effect: hitting an MCP server, calling an HTTP API,
+  executing local code, querying a database.
+
+  Optional — defaults to `{:error, :tool_exec_not_implemented}`.
+  """
   @callback tool_call(state(), map(), Message.t()) :: {binary() | integer(), any()}
+
+  @doc """
+  Renders an `Agens.Message` into the `{system, user}` prompt pair sent to the LM.
+
+  Receives the message, the Serving's `Agens.Prefixes`, and any context string returned by
+  `c:load_context/2`. The default implementation calls `Agens.Prompt.build/3` and joins each
+  section into two heading-prefixed strings — appropriate for OpenAI-style system/user
+  concatenation.
+
+  Override for providers that need a different shape, e.g. a chat-message array with role
+  labels for Anthropic, multi-turn message lists, or custom delimiters. The two-string return
+  contract is fixed; the strings can be whatever the provider's `c:handle_message/3` expects to
+  receive on `message.system` / `message.user`.
+
+  Optional — defaults to the heading-and-detail format described above.
+  """
   @callback build_prompt(Message.t(), Agens.Prefixes.t(), binary() | nil) ::
               {String.t(), String.t()}
+
+  @doc """
+  Builds the full JSON schema sent to the LM for structured-output enforcement.
+
+  Default implementation composes `c:response_schema/1`, `c:outputs_schema/1`, and
+  `c:tools_schema/1` into one object: it starts from `response_schema/1`, layers the
+  outputs and tools fragments under their declared property keys, and sets `required` to all
+  top-level properties (strict-mode compatible).
+
+  Override only when the layered callbacks below can't express the shape you need.
+
+  Optional.
+  """
   @callback build_schema(Message.t()) :: map()
+
+  @doc """
+  Returns the base response-shape JSON schema (root object passed to `c:build_schema/1`).
+
+  Default is `Agens.Schema.response/0` — a minimal `{type: "object", properties: %{}}` shell
+  that `c:build_schema/1` augments with `outputs` and `tool_calls` properties. Override to
+  declare additional top-level response fields the LM should emit.
+
+  Optional.
+  """
   @callback response_schema(Message.t()) :: map()
+
+  @doc """
+  Returns the `{property_key, schema}` pair for the structured-output fragment of the response.
+
+  Default returns `{"outputs", Agens.Schema.outputs()}` — an empty placeholder. Most Servings
+  override this to derive a strict schema from the Router's declared `Agens.Router.Output` list
+  (see `examples/servings/instructor_serving.ex`).
+
+  Optional.
+  """
   @callback outputs_schema(Message.t()) :: {binary(), map()}
+
+  @doc """
+  Returns the `{property_key, schema}` pair for the tool-call fragment of the response.
+
+  Default returns `{"tool_calls", Agens.Schema.tools()}`. Override when the Node's tool
+  schemas need provider-specific shaping or when the property key needs to match a provider's
+  expected tool-call field name.
+
+  Optional.
+  """
   @callback tools_schema(Message.t()) :: {binary(), map()}
 
   @optional_callbacks [
@@ -501,13 +652,7 @@ defmodule Agens.Serving do
     {:ok, GenServer.call(pid, :get_config)}
   end
 
-  @doc """
-  Invokes the `c:tool_call/3` callback on the given Serving with `args` and `message`.
-
-  The Serving executes the tool synchronously on a supervised task. Returns the
-  Serving-specific `{tool_id, result}` tuple, or `{:error, term()}` if the Serving
-  is not running or the tool implementation errors.
-  """
+  @doc false
   @spec call_tool(atom(), map(), Message.t()) :: {binary() | integer(), any()} | {:error, term()}
   def call_tool(serving_name, args, message) when is_atom(serving_name) do
     serving_name
@@ -516,13 +661,7 @@ defmodule Agens.Serving do
     end)
   end
 
-  @doc """
-  Invokes the `c:load_resource/3` callback on the given Serving to resolve a `Agens.Resource`.
-
-  The Serving runs the resolution on a supervised task and returns the loaded resource
-  (typically with `:content` populated). Returns `{:error, :serving_not_found}` if the
-  Serving is not running.
-  """
+  @doc false
   @spec load_resource(atom(), Agens.Resource.t(), Message.t()) ::
           {:ok, Agens.Resource.t()} | {:error, term()}
   def load_resource(serving_name, resource, message) when is_atom(serving_name) do
@@ -542,13 +681,7 @@ defmodule Agens.Serving do
     end)
   end
 
-  @doc """
-  Invokes the `c:handle_sub/3` callback on the given Serving with the
-  Sub-Job's final `Agens.Message` and the parent Node's `Agens.Message`.
-
-  The Serving's returned `Result` determines the parent Node's `outputs`
-  and `next` instructions.
-  """
+  @doc false
   @spec handle_sub(atom(), Message.t(), Message.t()) ::
           {:ok, Result.t()} | {:error, term()}
   def handle_sub(serving_name, %Message{} = sub_message, %Message{} = parent_node_message)
