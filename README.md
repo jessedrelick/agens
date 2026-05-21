@@ -12,7 +12,7 @@ Drawing inspiration from popular tools in the Python ecosystem, such as [LangCha
 > Agens has changed significantly since the original 0.1 release (August 2024). The 0.2 line is a substantial redesign:
 >
 > - The `Agens.Agent` module has been removed. `agent_id` survives as an opaque identifier used by a Serving's `c:Agens.Serving.load_context/2` callback.
-> - `Agens.Job.Step` has been replaced by `Agens.Job.Node`. Jobs are now graphs of Nodes, not sequences of Steps.
+> - `Agens.Job.Step` has been replaced by `Agens.Job.Node`. Jobs are now a list of Nodes, not sequences of Steps.
 > - Routing is dynamic and lives on the Serving (via `Agens.Router`), not on static step configuration.
 > - Observability moved to the `Agens.Backend` behaviour (default backends emit messages to the caller and write structured logs).
 > - Tool calls are configured per-Node via the `:tools` field and executed by the Serving's `c:Agens.Serving.tool_call/3` callback (now modeled after MCP tool calls).
