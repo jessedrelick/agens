@@ -80,6 +80,7 @@ defmodule Agens.MixProject do
       main: "Agens",
       extras: [
         {"README.md", [title: "Agens"]},
+        {"docs/design-philosophy.md", [title: "Design Philosophy"]},
         {"docs/host-responsibilities.md", [title: "Host Application Responsibilities"]},
         {"CHANGELOG.md", [title: "Changelog"]},
         "LICENSE"
