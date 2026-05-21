@@ -761,7 +761,7 @@ defmodule Agens.Job do
     else
       spec = %{spec | parent_run_id: state.run_id, parent_node_message: parent_node_message}
 
-      :telemetry.execute([:agens, :job, :sub], %{}, %{
+      :telemetry.execute([:agens, :sub, :start], %{}, %{
         job_id: spec.config.id,
         run_id: spec.run_id,
         parent_run_id: state.run_id
@@ -780,10 +780,18 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
+           run_id: run_id,
+           config: config,
            sub: %Sub{parent_run_id: parent_run_id, parent_node_message: nil}
          },
          {:done, %Message{} = sub_message}
        ) do
+    :telemetry.execute([:agens, :sub, :done], %{}, %{
+      job_id: config.id,
+      run_id: run_id,
+      parent_run_id: parent_run_id
+    })
+
     run_id_to_pid(parent_run_id, :ok, fn pid ->
       GenServer.cast(pid, {:sub_route_done, sub_message})
     end)
@@ -791,10 +799,18 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
+           run_id: run_id,
+           config: config,
            sub: %Sub{parent_run_id: parent_run_id, parent_node_message: %Message{} = parent_msg}
          },
          {:done, %Message{} = sub_message}
        ) do
+    :telemetry.execute([:agens, :sub, :done], %{}, %{
+      job_id: config.id,
+      run_id: run_id,
+      parent_run_id: parent_run_id
+    })
+
     run_id_to_pid(parent_run_id, :ok, fn pid ->
       GenServer.cast(pid, {:sub_node_done, sub_message, parent_msg})
     end)
@@ -802,10 +818,19 @@ defmodule Agens.Job do
 
   defp maybe_notify_parent(
          %State{
+           run_id: run_id,
+           config: config,
            sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
          },
          {{:error, reason}, message}
        ) do
+    :telemetry.execute([:agens, :sub, :error], %{}, %{
+      job_id: config.id,
+      run_id: run_id,
+      parent_run_id: parent_run_id,
+      reason: inspect(reason)
+    })
+
     error_message = parent_msg || message
 
     run_id_to_pid(parent_run_id, :ok, fn pid ->

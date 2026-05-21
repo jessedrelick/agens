@@ -333,7 +333,11 @@ defmodule Agens.Serving do
       @impl GenServer
       def handle_call({:handle_sub, sub_message, parent_node_message}, from, state) do
         Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
-          :telemetry.execute([:agens, :serving, :sub], %{}, %{name: state.config.name})
+          :telemetry.execute([:agens, :sub, :handle], %{}, %{
+            name: state.config.name,
+            run_id: sub_message.run_id,
+            parent_run_id: parent_node_message.run_id
+          })
 
           reply =
             state

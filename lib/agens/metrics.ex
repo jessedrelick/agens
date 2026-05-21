@@ -36,10 +36,13 @@ defmodule Agens.Metrics do
 
   Metrics are emitted for the following event prefixes:
 
-    * `[:agens, :serving, ...]` - Serving lifecycle, sub dispatch, enqueue, and result duration /
-      exceptions (via `:telemetry.span/3`).
-    * `[:agens, :job, ...]` - Job lifecycle, status changes, retries, yields, sub-jobs and errors.
+    * `[:agens, :serving, ...]` - Serving lifecycle, enqueue, and result duration / exceptions
+      (via `:telemetry.span/3`).
+    * `[:agens, :job, ...]` - Job lifecycle, status changes, yields and errors.
     * `[:agens, :node, ...]` - Per-Node start, result, and retry events.
+    * `[:agens, :sub, ...]` - Sub-Job lifecycle from the parent's perspective: dispatch (`:start`),
+      `c:Agens.Serving.handle_sub/3` invocation (`:handle`), completion routed back to parent
+      (`:done`), and propagated failure (`:error`).
     * `[:agens, :tool, :call, ...]` - Tool calls with duration and exception coverage (span).
     * `[:agens, :resource, :load, ...]` - Resource loads with duration and exception coverage (span).
   """
@@ -57,7 +60,6 @@ defmodule Agens.Metrics do
       # Serving lifecycle
       counter("agens.serving.start", event_name: [:agens, :serving, :start], tags: []),
       counter("agens.serving.enqueue", event_name: [:agens, :serving, :enqueue], tags: []),
-      counter("agens.serving.sub", event_name: [:agens, :serving, :sub], tags: []),
       counter("agens.serving.stop", event_name: [:agens, :serving, :stop], tags: []),
 
       # Serving inference (span)
@@ -83,7 +85,6 @@ defmodule Agens.Metrics do
       counter("agens.job.stop", event_name: [:agens, :job, :stop], tags: []),
       counter("agens.job.status", event_name: [:agens, :job, :status], tags: [:status]),
       counter("agens.job.complete", event_name: [:agens, :job, :complete], tags: []),
-      counter("agens.job.sub", event_name: [:agens, :job, :sub], tags: []),
       counter("agens.job.end", event_name: [:agens, :job, :end], tags: []),
       counter("agens.job.yield_wait", event_name: [:agens, :job, :yield_wait], tags: []),
       counter("agens.job.yield_done", event_name: [:agens, :job, :yield_done], tags: []),
@@ -93,6 +94,12 @@ defmodule Agens.Metrics do
       counter("agens.node.start", event_name: [:agens, :node, :start], tags: []),
       counter("agens.node.result", event_name: [:agens, :node, :result], tags: []),
       counter("agens.node.retry", event_name: [:agens, :node, :retry], tags: [:retry]),
+
+      # Sub-Job lifecycle (parent perspective)
+      counter("agens.sub.start", event_name: [:agens, :sub, :start], tags: []),
+      counter("agens.sub.handle", event_name: [:agens, :sub, :handle], tags: []),
+      counter("agens.sub.done", event_name: [:agens, :sub, :done], tags: []),
+      counter("agens.sub.error", event_name: [:agens, :sub, :error], tags: []),
 
       # Tool calls (span)
       counter("agens.tool.call",
