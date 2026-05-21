@@ -17,6 +17,20 @@ Drawing inspiration from popular tools in the Python ecosystem, such as [LangCha
 > - Observability moved to the `Agens.Backend` behaviour (default backends emit messages to the caller and write structured logs).
 > - Tool calls are configured per-Node via the `:tools` field and executed by the Serving's `c:Agens.Serving.tool_call/3` callback (now modeled after MCP tool calls).
 
+## Features
+
+- **Flexible routing** — graph-based, step-based/sequential, or LM-driven dynamic routing, all supported through the `Agens.Router` behaviour. Routing is decided per-request from the running `Agens.Message` and structured outputs, rather than baked into static configuration.
+- **LM-agnostic Servings** — call any backend (external APIs like OpenAI, Anthropic, Ollama, or local pipelines like `Nx.Serving` / `Bumblebee`) from your Serving's `c:Agens.Serving.handle_message/3` callback. Agens makes no provider assumptions.
+- **Concurrency control** — built-in FIFO queue and configurable in-flight limit per Serving (via `use Agens.Serving, limit: N`). A flood of `:run` calls drains gracefully through bounded concurrency rather than overwhelming the LM provider or local pipeline.
+- **Strict structured outputs** — JSON schema assembled per-request from the Router's declared outputs, compatible with OpenAI strict mode and similar grammar-constrained sampling.
+- **MCP-style tool calls and resources** — tools attached per-Node and executed via the Serving's `c:Agens.Serving.tool_call/3` callback; resources resolved via `c:Agens.Serving.load_resource/3` before inference.
+- **Sub-Jobs** — compose Jobs hierarchically. A Sub-Job can run in place of a Node's inference (with its result mapped back via `c:Agens.Serving.handle_sub/3`) or be dispatched as additional routed-to work after inference.
+- **Parallel routing primitives** — fan-out with `{:route, node_id, count}`, yield/aggregation with `{:yield, node_id}`, retry with LM-supplied reasons via `{:retry, reason}`, explicit termination via `:end`.
+- **Customizable prompt assembly** — override every section heading/detail via per-Serving `Agens.Prefixes`, or replace `c:Agens.Serving.build_prompt/3` entirely for full control over how the running `Agens.Message` is rendered into the final system/user prompt.
+- **Pluggable observability** — implement the `Agens.Backend` behaviour to fan lifecycle events out to your own logging, persistence, or UI layer; defaults emit messages to the caller process and write structured logs.
+- **Telemetry coverage** — comprehensive `Telemetry.Metrics` definitions in `Agens.Metrics` for Job/Node/Sub/Serving/tool/resource lifecycle, ready to feed a Prometheus/StatsD reporter.
+- **JSON-defined Jobs** — load Job configurations from JSON via `Agens.Job.Config.from_json/1`, useful for runtime-loaded workflows or non-Elixir authoring.
+
 ## Installation
 Add `agens` to your list of dependencies in `mix.exs`:
 

@@ -49,8 +49,7 @@ defmodule Agens.Serving do
     ## Fields
     - `:name` - The unique name for the Serving process.
     - `:serving` - The module implementing the `Agens.Serving` behaviour (i.e. one that calls `use Agens.Serving`).
-    - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, default prompt prefixes will be used instead. Default prompt prefixes can also be overridden by using the `prefixes` options in `Agens.Supervisor`.
-    - `:finalize` - A function that accepts the prepared prompt (including any applied prefixes) and returns a modified version of the prompt. Useful for wrapping the prompt or applying final processing before sending to the LM for inference. If `nil`, the prepared prompt will be used as-is.
+    - `:prefixes` - An `Agens.Prefixes` struct of custom prompt prefixes. If `nil`, the default prefixes returned by `Agens.Prefixes.default/0` will be used.
     - `:args` - Additional arguments passed through to the Serving module on start. Available to the Serving's `c:Agens.Serving.start/1` callback via the initial `state.config.args` and typically used to configure the backend (model name, API base URL, credentials, etc).
     - `:timeout` - Timeout in milliseconds for LM inference. Defaults to `60_000`.
     """
