@@ -272,6 +272,10 @@ defmodule Agens.Serving do
 
       @before_compile unquote(__MODULE__)
 
+      # =========================================================================
+      # Lifecycle
+      # =========================================================================
+
       @spec child_spec(Config.t()) :: Supervisor.child_spec()
       def child_spec(%Config{} = config) do
         %{
@@ -307,6 +311,10 @@ defmodule Agens.Serving do
         start(state)
       end
 
+      # =========================================================================
+      # GenServer callbacks
+      # =========================================================================
+
       @impl GenServer
       def handle_call(:get_config, _from, state) do
         {:reply, state.config, state}
@@ -314,37 +322,28 @@ defmodule Agens.Serving do
 
       @impl GenServer
       def handle_call({:load_resource, resource, message}, from, state) do
-        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
-          GenServer.reply(from, load_resource(state, resource, message))
-        end)
-
+        async_reply(from, fn -> load_resource(state, resource, message) end)
         {:noreply, state}
       end
 
       @impl GenServer
       def handle_call({:tool_call, args, message}, from, state) do
-        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
-          GenServer.reply(from, tool_call(state, args, message))
-        end)
-
+        async_reply(from, fn -> tool_call(state, args, message) end)
         {:noreply, state}
       end
 
       @impl GenServer
       def handle_call({:handle_sub, sub_message, parent_node_message}, from, state) do
-        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
+        async_reply(from, fn ->
           :telemetry.execute([:agens, :sub, :handle], %{}, %{
             name: state.config.name,
             run_id: sub_message.run_id,
             parent_run_id: parent_node_message.run_id
           })
 
-          reply =
-            state
-            |> handle_sub(sub_message, parent_node_message)
-            |> maybe_route(parent_node_message)
-
-          GenServer.reply(from, reply)
+          state
+          |> handle_sub(sub_message, parent_node_message)
+          |> maybe_route(parent_node_message)
         end)
 
         {:noreply, state}
@@ -364,6 +363,31 @@ defmodule Agens.Serving do
         state = Map.update!(state, :count, &max(&1 - 1, 0))
 
         maybe_execute(state)
+      end
+
+      # =========================================================================
+      # Agens.Serving callbacks
+      # =========================================================================
+
+      @impl Agens.Serving
+      def response_schema(%Message{}), do: Schema.response()
+
+      @impl Agens.Serving
+      def outputs_schema(%Message{}), do: {"outputs", Schema.outputs()}
+
+      @impl Agens.Serving
+      def tools_schema(%Message{}), do: {"tool_calls", Schema.tools()}
+
+      defoverridable response_schema: 1, outputs_schema: 1, tools_schema: 1
+
+      # =========================================================================
+      # Private helpers
+      # =========================================================================
+
+      defp async_reply(from, fun) do
+        Task.Supervisor.start_child(Agens.JobSupervisor, fn ->
+          GenServer.reply(from, fun.())
+        end)
       end
 
       defp maybe_execute(%{count: count, limit: limit} = state) when count < limit do
@@ -424,17 +448,6 @@ defmodule Agens.Serving do
 
         Map.update!(state, :count, &(&1 + 1))
       end
-
-      @impl Agens.Serving
-      def response_schema(%Message{}), do: Schema.response()
-
-      @impl Agens.Serving
-      def outputs_schema(%Message{}), do: {"outputs", Schema.outputs()}
-
-      @impl Agens.Serving
-      def tools_schema(%Message{}), do: {"tool_calls", Schema.tools()}
-
-      defoverridable response_schema: 1, outputs_schema: 1, tools_schema: 1
 
       defp maybe_route({:ok, %Result{next: next} = result}, %Message{} = msg)
            when next in [nil, []] do

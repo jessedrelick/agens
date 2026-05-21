@@ -361,18 +361,17 @@ defmodule Agens.Job do
 
   @doc false
   @impl true
-  @spec handle_cast({:sub_route_done, Message.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_cast({:sub_route_done, %Message{} = sub_message}, %State{} = state) do
+  @spec handle_cast(
+          {:sub_finished, Message.t(), Message.t() | nil, :routed | :node},
+          State.t()
+        ) :: {:noreply, State.t()}
+  def handle_cast({:sub_finished, %Message{} = sub_message, nil, :routed}, %State{} = state) do
     do_next(sub_message, sub_message, self(), state)
     {:noreply, state}
   end
 
-  @doc false
-  @impl true
-  @spec handle_cast({:sub_node_done, Message.t(), Message.t()}, State.t()) ::
-          {:noreply, State.t()}
   def handle_cast(
-        {:sub_node_done, %Message{} = sub_message, %Message{} = parent_node_message},
+        {:sub_finished, %Message{} = sub_message, %Message{} = parent_node_message, :node},
         %State{} = state
       ) do
     parent_node = State.get_node(state, parent_node_message.node_id)
@@ -782,7 +781,7 @@ defmodule Agens.Job do
          %State{
            run_id: run_id,
            config: config,
-           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: nil}
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
          },
          {:done, %Message{} = sub_message}
        ) do
@@ -792,27 +791,10 @@ defmodule Agens.Job do
       parent_run_id: parent_run_id
     })
 
-    run_id_to_pid(parent_run_id, :ok, fn pid ->
-      GenServer.cast(pid, {:sub_route_done, sub_message})
-    end)
-  end
-
-  defp maybe_notify_parent(
-         %State{
-           run_id: run_id,
-           config: config,
-           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: %Message{} = parent_msg}
-         },
-         {:done, %Message{} = sub_message}
-       ) do
-    :telemetry.execute([:agens, :sub, :done], %{}, %{
-      job_id: config.id,
-      run_id: run_id,
-      parent_run_id: parent_run_id
-    })
+    status = if parent_msg, do: :node, else: :routed
 
     run_id_to_pid(parent_run_id, :ok, fn pid ->
-      GenServer.cast(pid, {:sub_node_done, sub_message, parent_msg})
+      GenServer.cast(pid, {:sub_finished, sub_message, parent_msg, status})
     end)
   end
 
