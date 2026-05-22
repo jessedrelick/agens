@@ -7,12 +7,12 @@ defmodule Agens.MixProject do
     [
       app: :agens,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description:
-        "Create multi-agent workflows with AI and Language Models using OTP components for reliable and scalable automation.",
+        "Multi-agent workflows with language models on OTP — dynamic routing, MCP-shaped tools and resources, structured outputs, and pluggable observability.",
       package: package(),
       docs: docs(),
       aliases: aliases(),
@@ -55,6 +55,8 @@ defmodule Agens.MixProject do
       maintainers: ["Jesse Drelick"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/jessedrelick/agens"},
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      build_tools: ["mix"],
       keywords: [
         "AI",
         "Agents",
@@ -62,14 +64,15 @@ defmodule Agens.MixProject do
         "Multi-Agent Systems",
         "LLM",
         "Language Models",
-        "NLP",
+        "MCP",
+        "Routing",
+        "Structured Outputs",
         "Task Orchestration",
         "Workflow Automation"
       ],
       categories: [
         "Machine Learning",
         "Artificial Intelligence",
-        "Natural Language Processing",
         "Automation"
       ]
     ]

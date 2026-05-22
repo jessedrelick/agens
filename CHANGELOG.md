@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.0 (2026-05-22)
 A substantial redesign of the framework around dynamic routing, MCP-shaped tools/resources, and a pluggable backend layer. Jobs are now a list of `Agens.Job.Node`s instead of a sequence of `Step`s, routing is decided per-request by an `Agens.Router` on top of structured outputs, and observability/persistence are unified under the `Agens.Backend` behaviour. The framework is intentionally adapter-less: LM provider integration lives in your Serving's `c:Agens.Serving.handle_message/3` callback, and tool calls are surfaced through the structured-output schema rather than per-provider tool-call APIs.
 
 See [Host Application Responsibilities](docs/host-responsibilities.md) and [Design Philosophy](docs/design-philosophy.md) for the new boundaries and the reasoning behind them.

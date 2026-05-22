@@ -1720,6 +1720,8 @@ defmodule Agens.JobTest do
   # ===========================================================================
 
   describe "stop" do
+    @describetag :capture_log
+
     setup do
       original = Application.get_env(:agens, :backends)
       Application.put_env(:agens, :backends, [Agens.Backend.Log])

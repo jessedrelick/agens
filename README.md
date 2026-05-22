@@ -1,4 +1,4 @@
-![](https://github.com/jessedrelick/agens/actions/workflows/main.yml/badge.svg)
+[![CI](https://github.com/jessedrelick/agens/actions/workflows/main.yml/badge.svg)](https://github.com/jessedrelick/agens/actions/workflows/main.yml)
 [![Hexdocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/agens)
 [![Hex.pm](https://img.shields.io/hexpm/v/agens.svg)](https://hex.pm/packages/agens)
 [![codecov](https://codecov.io/gh/jessedrelick/agens/graph/badge.svg?token=KTJXB4SGCJ)](https://codecov.io/gh/jessedrelick/agens)
