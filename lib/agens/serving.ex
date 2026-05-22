@@ -229,7 +229,8 @@ defmodule Agens.Serving do
 
   Optional — defaults to `{:error, :tool_exec_not_implemented}`.
   """
-  @callback tool_call(state(), map(), Message.t()) :: {binary() | integer(), any()}
+  @callback tool_call(state(), map(), Message.t()) ::
+              {binary() | integer(), any()} | {:error, term()}
 
   @doc """
   Renders an `Agens.Message` into the `{system, user}` prompt pair sent to the LM.
