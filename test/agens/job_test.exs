@@ -981,7 +981,7 @@ defmodule Agens.JobTest do
       assert_receive {:prompt, _prompt}
 
       assert_receive {:tool_call, %Message{run_id: ^run_id},
-                      %{name: ^tool_name, arguments: _, result: _, error: _}}
+                      %{tool: %{name: ^tool_name, arguments: _, result: _}, error: _}}
 
       assert_receive {:node_result, %Message{tool_results: tool_results}}
       result = Map.get(tool_results, tool_call_id)
@@ -1015,12 +1015,12 @@ defmodule Agens.JobTest do
       :ok = Job.run(run_id, input, [])
 
       assert_receive {:tool_call, %Message{run_id: ^run_id},
-                      %{name: "outer_error_tool", result: nil, error: outer_error}}
+                      %{tool: %{name: "outer_error_tool", result: nil}, error: outer_error}}
 
       assert outer_error =~ "outer_failed"
 
       assert_receive {:tool_call, %Message{run_id: ^run_id},
-                      %{name: "inner_error_tool", result: nil, error: inner_error}}
+                      %{tool: %{name: "inner_error_tool", result: nil}, error: inner_error}}
 
       assert inner_error =~ "inner_failed"
     end

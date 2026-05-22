@@ -619,9 +619,11 @@ defmodule Agens.Job do
                       state.caller,
                       message,
                       %{
-                        name: tool_name,
-                        arguments: args["input"] || %{},
-                        result: nil,
+                        tool: %{
+                          name: tool_name,
+                          arguments: args["input"] || %{},
+                          result: nil
+                        },
                         error: inspect(reason)
                       }
                     ])
@@ -639,9 +641,11 @@ defmodule Agens.Job do
                       state.caller,
                       message,
                       %{
-                        name: tool_name,
-                        arguments: args["input"] || %{},
-                        result: normalized_result,
+                        tool: %{
+                          name: tool_name,
+                          arguments: args["input"] || %{},
+                          result: normalized_result
+                        },
                         error: error
                       }
                     ])

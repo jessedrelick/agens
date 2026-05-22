@@ -43,11 +43,19 @@ defmodule Agens.Backend do
   @typedoc "A Job status atom (e.g. `:running`, `:complete`, `:error`)."
   @type status :: atom()
 
-  @typedoc "Normalized record of a tool call invocation as observed by a backend."
+  @typedoc """
+  Normalized record of a tool call invocation as observed by a backend.
+
+  The `:tool` key carries the call data (name, arguments, and the resolved result on success).
+  `:error` is `nil` on success or an inspected error reason string on failure. The outer shape
+  mirrors `t:resource_load/0` to keep backend implementations symmetric.
+  """
   @type tool_call :: %{
-          required(:name) => binary(),
-          required(:arguments) => map(),
-          required(:result) => any() | nil,
+          required(:tool) => %{
+            required(:name) => binary(),
+            required(:arguments) => map(),
+            required(:result) => any() | nil
+          },
           required(:error) => binary() | nil
         }
 

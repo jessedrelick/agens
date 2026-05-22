@@ -74,7 +74,7 @@ defmodule Agens.Backend.LogTest do
 
   test "tool_call/3 logs tool invocation and returns :ok" do
     msg = message()
-    tc = %{name: "my_tool", arguments: %{}, result: "ok", error: nil}
+    tc = %{tool: %{name: "my_tool", arguments: %{}, result: "ok"}, error: nil}
     log = capture_log(fn -> assert :ok == Log.tool_call(nil, msg, tc) end)
     assert log =~ "Tool call"
     assert log =~ "my_tool"
