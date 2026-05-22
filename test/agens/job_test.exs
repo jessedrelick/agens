@@ -993,6 +993,37 @@ defmodule Agens.JobTest do
       # assert_receive {:node_result, %Message{}}
       # assert_receive {:job_complete, ^run_id}
     end
+
+    test "tool errors surface in :tool_call backend events" do
+      input = "T"
+      id = "test_tool_error_job"
+      run_id = "test_tool_error_run_id"
+
+      job = %Job.Config{
+        id: id,
+        starting_node_id: "node_0",
+        nodes: %{
+          "node_0" => %Job.Node{
+            serving: :test_serving,
+            agent_id: "tool_error_agent",
+            tools: [Tools.tool_def()]
+          }
+        }
+      }
+
+      {:ok, _pid} = Job.start(job, run_id)
+      :ok = Job.run(run_id, input, [])
+
+      assert_receive {:tool_call, %Message{run_id: ^run_id},
+                      %{name: "outer_error_tool", result: nil, error: outer_error}}
+
+      assert outer_error =~ "outer_failed"
+
+      assert_receive {:tool_call, %Message{run_id: ^run_id},
+                      %{name: "inner_error_tool", result: nil, error: inner_error}}
+
+      assert inner_error =~ "inner_failed"
+    end
   end
 
   describe "resources" do
@@ -1855,6 +1886,25 @@ defmodule Agens.JobTest do
                         node_id: "node_0",
                         input: ^input
                       }, :sub_fatal_error}
+    end
+  end
+
+  # ===========================================================================
+  # Config validation
+  # ===========================================================================
+
+  describe "Config.validate!/1" do
+    test "raises ArgumentError when a Node is missing :serving" do
+      config =
+        Job.Config.from_map(%{
+          "id" => "missing_serving_job",
+          "starting_node_id" => "node_0",
+          "nodes" => %{"node_0" => %{"agent_id" => "a", "objective" => "o"}}
+        })
+
+      assert_raise ArgumentError, ~r/"node_0" is missing required field :serving/, fn ->
+        Job.Config.validate!(config)
+      end
     end
   end
 

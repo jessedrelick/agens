@@ -15,6 +15,11 @@ defmodule Test.Support.Serving do
   end
 
   @impl true
+  def tool_call(_state, %{"name" => "outer_error_tool"}, _message), do: {:error, :outer_failed}
+
+  def tool_call(_state, %{"name" => "inner_error_tool", "id" => id}, _message),
+    do: {id, {:error, :inner_failed}}
+
   def tool_call(_state, tool_call, _message), do: Tools.tool_exec(tool_call)
 
   @impl true
@@ -136,6 +141,17 @@ defmodule Test.Support.Serving do
       body: input,
       next: [],
       tool_calls: [tool_call]
+    }
+  end
+
+  defp map_input("tool_error_agent", input) do
+    %Result{
+      body: input,
+      next: [],
+      tool_calls: [
+        %{"id" => "outer_id", "name" => "outer_error_tool", "arguments" => []},
+        %{"id" => "inner_id", "name" => "inner_error_tool", "arguments" => []}
+      ]
     }
   end
 

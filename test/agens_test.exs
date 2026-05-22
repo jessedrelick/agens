@@ -44,4 +44,41 @@ defmodule Agens.AgensTest do
       assert result == {:error, :not_found}
     end
   end
+
+  describe "active_processes/0" do
+    setup do
+      {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
+      :ok
+    end
+
+    test "returns process info for running Jobs and Servings" do
+      {:ok, _} =
+        Agens.Serving.start(%Agens.Serving.Config{
+          name: :active_processes_serving,
+          serving: Test.Support.Serving
+        })
+
+      job = %Agens.Job.Config{
+        id: "active_processes_job",
+        starting_node_id: "node_0",
+        nodes: %{
+          "node_0" => %Agens.Job.Node{serving: :active_processes_serving}
+        }
+      }
+
+      {:ok, _} = Agens.Job.start(job, "active_processes_run_id")
+
+      processes = Agens.active_processes()
+      assert is_list(processes)
+
+      job_info = Enum.find(processes, &(&1.type == :job and &1.name == "active_processes_job"))
+      assert %{pid: pid, config: %Agens.Job.Config{id: "active_processes_job"}} = job_info
+      assert is_pid(pid)
+
+      serving_info =
+        Enum.find(processes, &(&1.type == :serving and &1.name == "active_processes_serving"))
+
+      assert %{config: %Agens.Serving.Config{name: :active_processes_serving}} = serving_info
+    end
+  end
 end
