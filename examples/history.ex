@@ -1,5 +1,5 @@
 defmodule AgensDemo.History do
-  @base_dir "examples/tmp"
+  @base_dir "tmp"
 
   def write(%Agens.Message{} = message, kind \\ :result) do
     dir = run_dir(message.run_id)

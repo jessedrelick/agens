@@ -50,7 +50,9 @@ defmodule AgensDemo.EdgeRouter do
 
   defp edges("industry_brief", "writer") do
     [
-      %Edge{type: :end, conditions: [%Condition{key: "quality", op: "gte", value: "8"}]},
+      # An explicit `:end` Edge can be used to explicitly end a Job
+      # Otherwise, no matching Edges/route instructions will implicitly `:complete` a Job
+      # %Edge{type: :end, conditions: [%Condition{key: "quality", op: "gte", value: "8"}]},
       %Edge{type: :retry, conditions: [%Condition{key: "quality", op: "lt", value: "8"}]}
     ]
   end

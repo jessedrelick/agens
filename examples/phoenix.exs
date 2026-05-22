@@ -5,7 +5,7 @@ Application.put_env(:agens_demo, AgensDemo.Endpoint,
   secret_key_base: String.duplicate("a", 64)
 )
 
-Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBackend])
+Application.put_env(:agens, :backends, [Agens.Backend.Log, AgensDemo.PubSubBackend, AgensDemo.FileBackend])
 
 Mix.install([
   {:plug_cowboy, "~> 2.7"},
@@ -24,6 +24,7 @@ Code.require_file("mcp/resources.ex", __DIR__)
 Code.require_file("mcp/server.ex", __DIR__)
 Code.require_file("mcp/client.ex", __DIR__)
 Code.require_file("history.ex", __DIR__)
+Code.require_file("backends/file.ex", __DIR__)
 Code.require_file("phoenix/job.ex", __DIR__)
 Code.require_file("phoenix/log_hook.ex", __DIR__)
 Code.require_file("router/edge_router.ex", __DIR__)

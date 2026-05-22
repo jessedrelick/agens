@@ -39,12 +39,20 @@ defmodule AgensDemo.LogHook do
     {:cont, append_log(socket, :node_result, %{agent_id: message.agent_id})}
   end
 
-  def log({:tool_call, _message, %{name: tool_name} = tool_call}, socket) do
-    {:cont, append_log(socket, :tool_call, %{tool: tool_name, error: tool_call[:error]})}
+  def log({:tool_call, _message, %{error: nil, name: tool_name}}, socket) do
+    {:cont, append_log(socket, :tool_call, %{tool: tool_name})}
   end
 
-  def log({:resource_load, _message, resource}, socket) do
+  def log({:tool_call, _message, %{error: error, name: tool_name}}, socket) do
+    {:cont, append_log(socket, :tool_error, %{error: error, tool: tool_name})}
+  end
+
+  def log({:resource_load, _message, %{error: nil, resource: resource}}, socket) do
     {:cont, append_log(socket, :resource_load, %{name: resource.name, uri: resource.uri})}
+  end
+
+  def log({:resource_load, _message, %{error: error, resource: resource}}, socket) do
+    {:cont, append_log(socket, :resource_error, %{error: error, name: resource.name, uri: resource.uri})}
   end
 
   def log({:yield_wait, message, total, ready}, socket) do
