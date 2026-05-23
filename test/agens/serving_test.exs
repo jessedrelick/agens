@@ -1,9 +1,14 @@
 defmodule Agens.ServingTest do
   use ExUnit.Case, async: false
 
-  alias Agens.{Message, Serving}
+  alias Agens.{Message, Prefixes, Serving}
+  alias Agens.Serving.Result
 
   defp msg(), do: %Message{input: "test"}
+
+  def forward_telemetry(_event, _measurements, meta, test_pid) do
+    send(test_pid, {:enqueue, meta.name})
+  end
 
   defmodule DefaultServing do
     use Agens.Serving
@@ -109,6 +114,29 @@ defmodule Agens.ServingTest do
     def build_schema(%Message{}) do
       %{"title" => "Fully Custom", "type" => "object", "properties" => %{}}
     end
+  end
+
+  defmodule QueueServing do
+    use Agens.Serving, limit: 1
+
+    @impl true
+    def start(state), do: {:ok, state}
+
+    @impl true
+    def handle_message(_state, %Message{caller: caller, input: input}, _schema) do
+      send(caller, {:started, input, self()})
+
+      receive do
+        :release -> :ok
+      after
+        5_000 -> :ok
+      end
+
+      {:ok, %Result{body: input}}
+    end
+
+    @impl true
+    def handle_result({:ok, result}, _state, _msg), do: {:ok, result}
   end
 
   defp start_agens(_ctx) do
@@ -298,6 +326,166 @@ defmodule Agens.ServingTest do
       assert props["outputs"]["required"] == ["summary"]
       # tools uses default (array of objects with id/name/arguments)
       assert props["tool_calls"]["type"] == "array"
+    end
+  end
+
+  describe "build_prompt/3 - default" do
+    test "renders binary fields with heading and detail in system/user strings" do
+      message = %Message{
+        input: "hello world",
+        node_objective: "answer the question",
+        job_description: "the full job"
+      }
+
+      {system, user} = DefaultServing.build_prompt(message, Prefixes.default(), nil)
+
+      assert system =~ "## Node Objective"
+      assert system =~ "The objective of this node is to:"
+      assert system =~ "answer the question"
+      assert system =~ "## Job Description"
+      assert system =~ "the full job"
+
+      assert user =~ "## Input"
+      assert user =~ "The following is the original input from the user:"
+      assert user =~ "hello world"
+    end
+
+    test "includes context in the system prompt when a binary context is provided" do
+      {system, _user} =
+        DefaultServing.build_prompt(%Message{input: "x"}, Prefixes.default(), "extra context")
+
+      assert system =~ "## Context"
+      assert system =~ "extra context"
+    end
+
+    test "omits context section when context is nil" do
+      {system, _user} =
+        DefaultServing.build_prompt(%Message{input: "x"}, Prefixes.default(), nil)
+
+      refute system =~ "## Context"
+    end
+
+    test "defaults context to nil when omitted" do
+      {system, _user} = DefaultServing.build_prompt(%Message{input: "x"}, Prefixes.default())
+
+      refute system =~ "## Context"
+    end
+
+    test "JSON-encodes map values (tool_results)" do
+      message = %Message{
+        input: "x",
+        tool_results: %{"call_1" => "result_a"}
+      }
+
+      {_system, user} = DefaultServing.build_prompt(message, Prefixes.default(), nil)
+
+      assert user =~ "## Tool Results"
+      assert user =~ Jason.encode!(%{"call_1" => "result_a"})
+    end
+
+    test "JSON-encodes list values (tool_defs and tool_calls)" do
+      tool_defs = [%{"name" => "search", "description" => "search the web"}]
+      tool_calls = [%{"id" => "tc_1", "name" => "search", "arguments" => []}]
+
+      message = %Message{
+        input: "x",
+        tool_defs: tool_defs,
+        tool_calls: tool_calls
+      }
+
+      {system, user} = DefaultServing.build_prompt(message, Prefixes.default(), nil)
+
+      assert system =~ "## Tool Definitions"
+      assert system =~ Jason.encode!(tool_defs)
+
+      assert user =~ "## Tool Calls"
+      assert user =~ Jason.encode!(tool_calls)
+    end
+
+    test "omits sections whose values are nil or empty" do
+      {system, user} =
+        DefaultServing.build_prompt(%Message{input: "only input"}, Prefixes.default(), nil)
+
+      refute system =~ "## Node Objective"
+      refute system =~ "## Job Description"
+      refute user =~ "## Previous Result"
+      refute user =~ "## Tool Calls"
+    end
+  end
+
+  describe "queue behavior" do
+    setup [:start_agens]
+
+    defp queue_run(serving_name, input) do
+      caller = self()
+
+      spawn_link(fn ->
+        msg = %Message{caller: caller, input: input, serving_name: serving_name}
+        send(caller, {:done, input, Serving.run(msg)})
+      end)
+    end
+
+    test "queues runs beyond the limit and drains them FIFO as :result fires" do
+      {:ok, pid} =
+        Serving.start(%Serving.Config{name: :queue_serving, serving: QueueServing})
+
+      queue_run(:queue_serving, "a")
+      queue_run(:queue_serving, "b")
+      queue_run(:queue_serving, "c")
+
+      assert_receive {:started, "a", task_a}, 1_000
+      refute_receive {:started, "b", _}, 100
+
+      state = :sys.get_state(pid)
+      assert state.count == 1
+      assert state.limit == 1
+      assert :queue.len(state.queue) == 2
+
+      send(task_a, :release)
+      assert_receive {:done, "a", {:ok, %Result{body: "a"}}}, 1_000
+
+      assert_receive {:started, "b", task_b}, 1_000
+
+      state = :sys.get_state(pid)
+      assert state.count == 1
+      assert :queue.len(state.queue) == 1
+
+      send(task_b, :release)
+      assert_receive {:done, "b", {:ok, %Result{body: "b"}}}, 1_000
+
+      assert_receive {:started, "c", task_c}, 1_000
+      send(task_c, :release)
+      assert_receive {:done, "c", {:ok, %Result{body: "c"}}}, 1_000
+
+      # Allow the final :result message to be processed
+      :sys.get_state(pid)
+      state = :sys.get_state(pid)
+      assert state.count == 0
+      assert :queue.is_empty(state.queue)
+    end
+
+    test "emits [:agens, :serving, :enqueue] telemetry on each run" do
+      handler_id = "enqueue-test-#{System.unique_integer([:positive])}"
+
+      :telemetry.attach(
+        handler_id,
+        [:agens, :serving, :enqueue],
+        &__MODULE__.forward_telemetry/4,
+        self()
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      {:ok, _pid} =
+        Serving.start(%Serving.Config{name: :enqueue_telemetry_serving, serving: QueueServing})
+
+      queue_run(:enqueue_telemetry_serving, "x")
+
+      assert_receive {:enqueue, :enqueue_telemetry_serving}, 1_000
+      assert_receive {:started, "x", task}, 1_000
+
+      send(task, :release)
+      assert_receive {:done, "x", {:ok, _}}, 1_000
     end
   end
 end

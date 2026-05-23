@@ -22,5 +22,7 @@ defmodule Agens.PromptTest do
     keys = Enum.map(system, fn {_prefix, value} -> value end)
     refute "nil" in keys
     refute nil in keys
+    assert "obj" in keys
+    assert "desc" in keys
   end
 end

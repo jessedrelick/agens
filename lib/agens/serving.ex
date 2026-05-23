@@ -663,9 +663,9 @@ defmodule Agens.Serving do
   end
 
   @doc false
-  @spec load_resource(atom(), Agens.Resource.t(), Message.t()) ::
+  @spec call_resource(atom(), Agens.Resource.t(), Message.t()) ::
           {:ok, Agens.Resource.t()} | {:error, term()}
-  def load_resource(serving_name, resource, message) when is_atom(serving_name) do
+  def call_resource(serving_name, resource, message) when is_atom(serving_name) do
     Agens.serving_pid(serving_name, {:error, :serving_not_found}, fn pid ->
       {:ok, GenServer.call(pid, {:load_resource, resource, message}, :infinity)}
     end)
@@ -683,9 +683,9 @@ defmodule Agens.Serving do
   end
 
   @doc false
-  @spec handle_sub(atom(), Message.t(), Message.t()) ::
+  @spec call_sub(atom(), Message.t(), Message.t()) ::
           {:ok, Result.t()} | {:error, term()}
-  def handle_sub(serving_name, %Message{} = sub_message, %Message{} = parent_node_message)
+  def call_sub(serving_name, %Message{} = sub_message, %Message{} = parent_node_message)
       when is_atom(serving_name) do
     serving_name
     |> Agens.serving_pid({:error, :serving_not_found}, fn pid ->

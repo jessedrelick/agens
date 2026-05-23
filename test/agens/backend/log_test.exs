@@ -48,6 +48,7 @@ defmodule Agens.Backend.LogTest do
     assert log =~ "Error"
     assert log =~ "run_1"
     assert log =~ "node_1"
+    assert log =~ ":some_error"
   end
 
   test "node_started/2 logs node start info and returns :ok" do
@@ -79,6 +80,7 @@ defmodule Agens.Backend.LogTest do
     assert log =~ "Tool call"
     assert log =~ "my_tool"
     assert log =~ "run_1"
+    assert log =~ "nil"
   end
 
   test "resource_load/3 logs resource load and returns :ok" do
@@ -89,6 +91,7 @@ defmodule Agens.Backend.LogTest do
     assert log =~ "Resource load"
     assert log =~ "my_resource"
     assert log =~ "run_1"
+    assert log =~ "nil"
   end
 
   test "resource_load/3 logs error reason when load failed" do

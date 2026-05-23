@@ -376,7 +376,7 @@ defmodule Agens.Job do
       ) do
     parent_node = State.get_node(state, parent_node_message.node_id)
 
-    case Agens.Serving.handle_sub(parent_node.serving, sub_message, parent_node_message) do
+    case Agens.Serving.call_sub(parent_node.serving, sub_message, parent_node_message) do
       {:ok, %Agens.Serving.Result{body: body, outputs: outputs, next: next}} ->
         message = %Message{
           parent_node_message
@@ -840,7 +840,7 @@ defmodule Agens.Job do
 
           :telemetry.span([:agens, :resource, :load], meta, fn ->
             {loaded, error} =
-              case Agens.Serving.load_resource(message.serving_name, resource, message) do
+              case Agens.Serving.call_resource(message.serving_name, resource, message) do
                 {:ok, loaded} -> {loaded, nil}
                 {:error, reason} -> {resource, inspect(reason)}
               end
