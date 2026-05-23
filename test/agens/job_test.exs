@@ -1906,6 +1906,21 @@ defmodule Agens.JobTest do
         Job.Config.validate!(config)
       end
     end
+
+    test "Job.start/2 invokes Config.validate!/1 and raises on invalid config" do
+      {:ok, _pid} = start_supervised({Agens.Supervisor, name: Agens.Supervisor})
+
+      config =
+        Job.Config.from_map(%{
+          "id" => "start_validate_job",
+          "starting_node_id" => "node_0",
+          "nodes" => %{"node_0" => %{"agent_id" => "a"}}
+        })
+
+      assert_raise ArgumentError, ~r/"node_0" is missing required field :serving/, fn ->
+        Job.start(config, "start_validate_run_id")
+      end
+    end
   end
 
   # ===========================================================================
