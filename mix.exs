@@ -45,7 +45,7 @@ defmodule Agens.MixProject do
       {:jason, "~> 1.4"},
       {:telemetry_metrics, "~> 1.0"},
       {:dialyxir, "~> 1.4.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.17.1", only: :test}
     ]
   end
