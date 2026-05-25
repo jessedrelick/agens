@@ -1,124 +1,73 @@
 defmodule Agens.Job do
   @moduledoc """
-  A Job defines a multi-agent workflow through a sequence of steps.
+  A Job defines a multi-agent workflow as a map of `Agens.Job.Node`s.
 
-  An `Agens.Job` is mainly a sequence of steps, defined with the `Agens.Job.Step` struct, used to create advanced multi-agent workflows.
-
-  Conditions can be used in order to route to different steps based on a result, or can be used to end the Job.
+  A Job is a map of `node_id => Agens.Job.Node` plus a `:starting_node_id`. Each Node declares a
+  Serving and, optionally, an objective, tools, resources, or a Sub-Job. Routing between Nodes is
+  dynamic and can be driven by either code or the LM: the Serving's Router returns `next` instructions
+  (`{:route, node_id, count}`, `{:yield, node_id}`, `{:sub, job_id}`, `:end`, `:retry`) based on the
+  Node's structured outputs. There is no static `next` field on a Node — execution is defined entirely
+  by the routing decisions emitted at runtime.
 
   ### Events
-  Agens emits several events that can be handled by the caller using `handle_info/3` for purposes such as UI updates, pubsub, logging, persistence and other side effects.
+
+  Lifecycle and per-Node activity are surfaced through the `Agens.Backend` behaviour. Configured
+  backends (see `Agens.backends/0` for the defaults) receive callbacks for every significant event.
+  The default emit backend forwards them to the caller process as messages, suitable for
+  `handle_info/2` in a UI/pubsub layer; the default log backend writes structured logs. Implement
+  your own `Agens.Backend` for custom persistence or side effects.
+
+  The default emit backend sends:
 
   #### Job
-  ```
-  {:job_started, job.name}
-  ```
 
-  Emitted when a job has started.
+      {:job_run, job_id, run_id}
+      {:job_status, {run_id, status}}
+      {:job_complete, run_id}
+      {:job_ended, run_id}
+      {:job_error, message, error}
 
-  ```
-  {:job_ended, job.name, :complete}
-  ```
+  #### Node
 
-  Emitted when a job has been completed.
+      {:node_started, message}
+      {:node_retry, message}
+      {:node_result, message}
 
-  ```
-  {:job_error, {job.name, step_index}, {:error, reason | exception}}
-  ```
+  #### Tool / Resource / Prompt
 
-  Emitted when a job has ended due to an error or unhandled exception.
+  The following are emitted when applicable (e.g. `:tool_call` only when the Node has `:tools` set,
+  `:resource_load` only when `:resources` are configured):
 
-  #### Step
-  ```
-  {:step_started, {job.name, step_index}, message.input}
-  ```
+      {:tool_call, message, tool_call}
+      {:resource_load, message, resource}
+      {:prompt, {system, user}}
 
-  Emitted when a step has started. Includes the input data provided to the step, whether from the user or a previous step.
+  #### Yield
 
-  ```
-  {:step_result, {job.name, step_index}, message.result}
-  ```
+  Emitted while a yielding Node waits on, or aggregates, parallel threads:
 
-  Emitted when a result has been returned from the Serving. Includes the Serving result, which will be passed to the Tool (if applicable), conditions (if applicable), or the next step of the job.
+      {:yield_wait, {message, total_count, ready_count}}
+      {:yield_done, {message, total_count}}
 
-  #### Tool
-  The following events are emitted only if the Agent has a Tool specified in `Agens.Agent.Config`:
+  ## Routing and Sub-Jobs
 
-  ```
-  {:tool_started, {job.name, step_index}, message.result}
-  ```
+  Every `Agens.Job.Node` declares a `:serving`, even when it also declares `:sub`. The Node's Serving owns routing: the parent Node's `next` instructions are always produced by the Serving's router (`c:Agens.Serving.handle_result/3` for normal inference, `c:Agens.Serving.handle_sub/3` for a resolved Sub-Job). There is no static `next` field on `Agens.Job.Node` — all routing is dynamic.
 
-  Emitted when a Tool is about to be called. `message.result` here is the Serving result, which will be overriden by the value returned from the Tool prior to final output.
+  Two distinct Sub flows are supported:
 
-  ```
-  {:tool_raw, {job.name, step_index}, message.raw}
-  ```
+  - **Sub Node** (`Agens.Job.Node` with `:sub` set) — the Sub-Job runs *in place of* inference on the parent Node. When the Sub completes, the parent invokes `c:Agens.Serving.handle_sub/3` on the Node's declared Serving to map the Sub's final `Agens.Message` into the parent Node's `outputs` and `next`.
+  - **Sub via routing instruction** (`{:sub, job_id}` returned in a Serving's `next`) — the Sub-Job runs as additional work *after* the Node's inference has completed and routing was already decided. The Sub's terminal message drives subsequent routing in the parent; `handle_sub/3` is not invoked.
 
-  Emitted after completing the Tool function call. It provides the raw result of the Tool before any post-processing.
-
-  ```
-  {:tool_result, {job.name, step_index}, message.result}
-  ```
-
-  Emitted after post-processing of the raw Tool result. This is the final result of the Tool, which will be passed to conditions or the next step of the job.
+  Configuration is validated on `start/2`. Missing `:serving` on any Node raises `ArgumentError` immediately rather than failing at runtime.
   """
 
-  defmodule Step do
-    @moduledoc """
-    The Step struct defines a single step within a Job.
-
-    ## Fields
-    - `agent` - The name of the agent to be used in the Step.
-    - `objective` - An optional string to be added to the LM prompt explaining the purpose of the Step.
-    - `conditions` - An optional conditions map to control flow based on the result of the agent.
-    """
-
-    @type t :: %__MODULE__{
-            agent: atom(),
-            objective: String.t() | nil,
-            conditions: map() | nil
-          }
-
-    @enforce_keys [:agent]
-    defstruct [:agent, :objective, :conditions]
-  end
-
-  defmodule Config do
-    @moduledoc """
-    The Config struct defines the details of a Job.
-
-    ## Fields
-    - `name` - The unique name used to identify the Job.
-    - `description` - An optional string to be added to the LM prompt that describes the basic goal of the Job.
-    - `steps` - A list of `Agens.Job.Step` structs that define the sequence of agent actions to be performed.
-    """
-
-    @type t :: %__MODULE__{
-            name: atom(),
-            description: String.t() | nil,
-            steps: list(Step.t())
-          }
-
-    @enforce_keys [:name, :steps]
-    defstruct [:name, :description, :steps]
-  end
-
-  defmodule State do
-    @moduledoc false
-
-    @type t :: %__MODULE__{
-            status: :init | :running | :error | :completed,
-            step_index: non_neg_integer() | nil,
-            config: Config.t(),
-            parent: pid() | nil
-          }
-
-    @enforce_keys [:status, :config]
-    defstruct [:status, :step_index, :config, :parent]
-  end
+  defguard is_status(status)
+           when status in [:running, :error, :complete, :ended, :stopped]
 
   use GenServer
 
+  alias Agens.Job.{Config, State, Sub, Yield}
+  alias Agens.Job.Node, as: JobNode
   alias Agens.Message
 
   # ===========================================================================
@@ -126,39 +75,81 @@ defmodule Agens.Job do
   # ===========================================================================
 
   @doc """
-  Starts a new Job process using the provided `Agens.Job.Config`.
+  Starts a new supervised Job process for the given `Agens.Job.Config` and `run_id`.
 
-  `start/1` does not run the Job, only starts the supervised process. See `run/2` for running the Job.
+  Validates the config (raises `ArgumentError` if any Node is missing `:serving`) and registers
+  the process in `Agens.Registry` under `run_id`. The same `Config` can be started multiple times
+  in parallel by passing distinct `run_id`s — typically obtained from `Agens.generate_uid/0`.
+
+  `start/2` only starts the supervised process; it does not run the Job. Call `run/3` to begin
+  execution.
   """
-  @spec start(Config.t()) :: {:ok, pid} | {:error, term}
-  def start(config) do
-    DynamicSupervisor.start_child(Agens, {__MODULE__, config})
+  @spec start(Config.t(), binary()) :: {:ok, pid} | {:error, term}
+  def start(config, run_id) do
+    Config.validate!(config)
+    :telemetry.execute([:agens, :job, :start], %{}, %{job_id: config.id, run_id: run_id})
+    DynamicSupervisor.start_child(Agens, {__MODULE__, {config, run_id}})
   end
 
   @doc """
-  Retrieves the Job configuration by Job name or `pid`.
-  """
-  @spec get_config(pid | atom) :: {:ok, Config.t()} | {:error, :job_not_found}
-  def get_config(job_name) when is_atom(job_name) do
-    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> get_config(pid) end)
-  end
+  Retrieves the `Agens.Job.Config` of a running Job by `run_id` or `pid`.
 
+  Returns `{:error, :run_not_found}` if no Job is running under the given `run_id`.
+  """
+  @spec get_config(pid | binary()) :: {:ok, Config.t()} | {:error, :run_not_found}
   def get_config(pid) when is_pid(pid) do
     {:ok, GenServer.call(pid, :get_config)}
   end
 
-  @doc """
-  Runs a Job with the given input by Job name or `pid`.
-
-  A supervised process for the Job must be started first using `start/1`.
-  """
-  @spec run(pid | atom, String.t()) :: :ok | {:error, :job_not_found}
-  def run(job_name, input) when is_atom(job_name) do
-    Agens.name_to_pid(job_name, {:error, :job_not_found}, fn pid -> run(pid, input) end)
+  def get_config(run_id) when is_binary(run_id) do
+    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid -> get_config(pid) end)
   end
 
-  def run(pid, input) when is_pid(pid) do
-    GenServer.call(pid, {:run, input})
+  @doc """
+  Runs a Job that was previously started with `start/2`.
+
+  Identifies the Job by its `run_id` (or directly by `pid`) and begins execution at the
+  Config's `:starting_node_id` with the given `input`. Returns immediately with `:ok` once
+  the run is accepted; subsequent progress is surfaced through the configured `Agens.Backend`s.
+
+  ## Options
+
+    * `:caller` - The pid to attribute backend events to (used as the first argument of every
+      `Agens.Backend` callback). Defaults to the calling process.
+    * `:sub` - Internal use. An `Agens.Job.Sub` struct supplied by the runtime when this Job
+      is being executed as a Sub-Job of a parent run.
+
+  ## Errors
+
+    * `{:error, :run_not_found}` - No Job process is registered under the given `run_id`.
+    * `{:error, :job_already_running}` - The Job has already started and not yet completed.
+    * `{:error, :input_required}` - `input` was `nil`.
+  """
+  @spec run(pid | binary(), String.t(), keyword()) ::
+          :ok | {:error, :run_not_found | :job_already_running | :input_required}
+  def run(run_id, input, opts) when is_binary(run_id) do
+    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
+      run(pid, input, opts)
+    end)
+  end
+
+  def run(pid, input, opts) when is_pid(pid) do
+    GenServer.call(pid, {:run, input, opts})
+  end
+
+  @doc """
+  Stops a running Job by `run_id`.
+
+  Returns `:ok` when the Job process is found and stopped, or
+  `{:error, :run_not_found}` if no Job is running under the given `run_id`.
+  """
+  @spec stop(binary()) :: :ok | {:error, :run_not_found}
+  def stop(run_id) do
+    :telemetry.execute([:agens, :job, :stop], %{}, %{run_id: run_id})
+
+    run_id_to_pid(run_id, {:error, :run_not_found}, fn pid ->
+      GenServer.call(pid, :stop)
+    end)
   end
 
   # ===========================================================================
@@ -166,169 +157,758 @@ defmodule Agens.Job do
   # ===========================================================================
 
   @doc false
-  @spec child_spec(Config.t()) :: Supervisor.child_spec()
-  def child_spec(%Config{} = config) do
+  @spec child_spec({Config.t(), binary()}) :: Supervisor.child_spec()
+  def child_spec({%Config{} = config, run_id}) do
     %{
-      id: config.name,
-      start: {__MODULE__, :start_link, [config]},
+      id: run_id,
+      start: {__MODULE__, :start_link, [{config, run_id}]},
       restart: :transient
     }
   end
 
   @doc false
-  @spec start_link(keyword(), Config.t()) :: GenServer.on_start()
-  def start_link(extra, config) do
-    opts = Keyword.put(extra, :config, config)
-    GenServer.start_link(__MODULE__, opts, name: config.name)
+  @spec start_link({Config.t(), binary()}) :: GenServer.on_start()
+  def start_link({%Config{} = config, run_id}) do
+    GenServer.start_link(__MODULE__, {config, run_id}, name: via(run_id))
   end
 
   @doc false
   @impl true
-  @spec init(keyword()) :: {:ok, State.t()}
-  def init(opts) do
-    config = Keyword.fetch!(opts, :config)
-    {:ok, %State{status: :init, config: config}}
+  @spec init({Config.t(), binary()}) :: {:ok, State.t()}
+  def init({%Config{} = config, run_id}) do
+    {:ok, %State{status: :init, config: config, run_id: run_id}}
   end
 
   # ===========================================================================
-  # Callbacks
+  # Call
   # ===========================================================================
 
   @doc false
   @impl true
   @spec handle_call(:get_config, {pid, term}, State.t()) :: {:reply, Config.t(), State.t()}
-  def handle_call(:get_config, _from, state) do
+  def handle_call(:get_config, _from, %State{} = state) do
     {:reply, state.config, state}
   end
 
   @doc false
   @impl true
-  @spec handle_call({:run, String.t()}, {pid, term}, State.t()) :: {:reply, :ok, State.t()}
-  def handle_call({:run, _}, _, %{status: :running} = state) do
+  @spec handle_call(:stop, {pid, term}, State.t()) :: {:stop, :normal, :ok, State.t()}
+  def handle_call(:stop, _from, %State{} = state) do
+    state = change_status(state, :stopped)
+    {:stop, :normal, :ok, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_call({:run, String.t(), keyword()}, {pid, term}, State.t()) ::
+          {:reply, :ok | {:error, :job_already_running | :input_required}, State.t()}
+  def handle_call({:run, _, _}, _, %State{status: :running} = state) do
     {:reply, {:error, :job_already_running}, state}
   end
 
-  def handle_call({:run, input}, {parent, _}, state) do
-    new_state = %State{state | status: :running, step_index: 0, parent: parent}
+  def handle_call({:run, nil, _}, _, %State{} = state) do
+    {:reply, {:error, :input_required}, state}
+  end
+
+  def handle_call({:run, input, opts}, {pid, _}, %State{} = state) do
+    :telemetry.execute([:agens, :job, :run], %{}, %{job_id: state.config.id, run_id: state.run_id})
+
+    caller = Keyword.get(opts, :caller, pid)
+    sub = Keyword.get(opts, :sub)
+
+    new_state = %State{state | status: :running, caller: caller, sub: sub}
+
     {:reply, :ok, new_state, {:continue, {:run, input}}}
   end
 
   @doc false
   @impl true
   @spec handle_continue({:run, String.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_continue({:run, input}, %{config: %{name: name}} = state) do
-    send(state.parent, {:job_started, name})
-    do_step(input, state)
+  def handle_continue(
+        {:run, input},
+        %State{config: %{id: id, starting_node_id: first_node_id}} = state
+      ) do
+    server_pid = self()
+    first_thread_id = Agens.generate_uid()
+    Agens.backends(:run, [state.caller, id, state.run_id])
+    state = change_status(state, :running)
+    GenServer.cast(server_pid, {:thread, first_thread_id})
+
+    message = %Message{
+      job_id: state.config.id,
+      job_description: state.config.description,
+      run_id: state.run_id,
+      parent_run_id: state.sub && state.sub.parent_run_id,
+      input: input,
+      node_id: first_node_id,
+      caller: state.caller,
+      thread_id: first_thread_id
+    }
+
+    {:noreply, do_node(message, server_pid, state)}
+  end
+
+  # ===========================================================================
+  # Cast
+  # ===========================================================================
+
+  @doc false
+  @impl true
+  @spec handle_cast({{:route, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast(
+        {{:route, node_id}, %Message{result: result} = message},
+        %State{config: %Config{nodes: nodes}} = state
+      )
+      when is_map(nodes) do
+    server_pid = self()
+
+    message =
+      message
+      |> Map.put(:node_id, node_id)
+      |> Map.put(:previous_result, result)
+      |> Map.put(:result, nil)
+
+    {:noreply, do_node(message, server_pid, state)}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_cast({{:yield, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({{:yield, node_id}, %Message{} = message}, %State{} = state) do
+    yield = Yield.thread_ready(state.yield, message.thread_id, node_id)
+    total_count = length(yield.threads)
+    ready_count = length(yield.ready)
+    new_count = state.thread_count - 1
+
+    if Yield.ready?(yield) do
+      :telemetry.execute([:agens, :job, :yield_done], %{}, %{run_id: state.run_id})
+      Agens.backends(:yield_done, [state.caller, message, total_count])
+      GenServer.cast(self(), {{:route, node_id}, message})
+      new_yield = Yield.thread_add(Yield.new(), message.thread_id)
+      {:noreply, %{state | yield: new_yield, thread_count: new_count + 1}}
+    else
+      :telemetry.execute([:agens, :job, :yield_wait], %{}, %{run_id: state.run_id})
+      Agens.backends(:yield_wait, [state.caller, message, total_count, ready_count])
+      {:noreply, %{state | yield: yield, thread_count: new_count}}
+    end
+  end
+
+  @doc false
+  @impl true
+  @spec handle_cast({{:sub, binary()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({{:sub, job_id}, %Message{} = message}, %State{} = state) do
+    run_sub(state, message, job_id, nil)
+
     {:noreply, state}
   end
 
   @doc false
   @impl true
-  @spec handle_cast({:next, Message.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_cast({:next, %Message{} = message}, %State{step_index: index} = state) do
-    new_state = %State{state | step_index: index + 1}
-    do_step(message.result, new_state)
-    {:noreply, new_state}
+  @spec handle_cast({:tool_continue, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({:tool_continue, %Message{} = message}, %State{} = state) do
+    {:noreply, do_node(message, self(), state)}
   end
 
   @doc false
   @impl true
-  @spec handle_cast({:step, integer, Message.t()}, State.t()) :: {:noreply, State.t()}
-  def handle_cast({:step, index, %Message{} = message}, %State{} = state) do
-    unless is_integer(index) do
-      raise "Invalid step index: #{inspect(index)}"
+  @spec handle_cast({{:retry, any()}, Message.t()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast(
+        {{:retry, _reason}, %Message{retries: retries} = message},
+        %State{config: %{max_retries: max}} = state
+      )
+      when retries >= max do
+    GenServer.cast(self(), {{:error, :max_retries}, message})
+
+    {:noreply, state}
+  end
+
+  def handle_cast({{:retry, reason}, %Message{} = message}, %State{} = state) do
+    message = %Message{message | retries: message.retries + 1, retry_reason: reason}
+
+    :telemetry.execute([:agens, :node, :retry], %{}, %{
+      job_id: state.config.id,
+      run_id: state.run_id,
+      node_id: message.node_id,
+      retry: message.retries
+    })
+
+    Agens.backends(:node_retry, [state.caller, message])
+    message = %Message{message | result: nil}
+    GenServer.cast(self(), {{:route, message.node_id}, message})
+
+    {:noreply, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_cast({:done, Message.t()}, State.t()) ::
+          {:noreply, State.t()} | {:stop, :normal, State.t()}
+  def handle_cast({:done, message}, %State{} = state) do
+    new_count = state.thread_count - 1
+    yield = Yield.thread_done(state.yield, message.thread_id)
+
+    if new_count == 0 do
+      maybe_notify_parent(state, {:done, message})
+
+      :telemetry.execute([:agens, :job, :complete], %{}, %{run_id: state.run_id})
+      state = change_status(state, :complete)
+      Agens.backends(:complete, [state.caller, state.run_id])
+      {:stop, :normal, %{state | thread_count: 0}}
+    else
+      {:noreply, %{state | yield: yield, thread_count: new_count}}
     end
-
-    new_state = %State{state | step_index: index}
-    do_step(message.result, new_state)
-    {:noreply, new_state}
   end
 
   @doc false
   @impl true
-  @spec handle_cast(:end, State.t()) :: {:stop, :normal, State.t()}
-  def handle_cast(:end, %State{config: %Config{name: name}} = state) do
-    new_state = %State{state | status: :complete}
-    send(state.parent, {:job_ended, name, :complete})
-    {:stop, :normal, new_state}
+  @spec handle_cast(
+          {:sub_finished, Message.t(), Message.t() | nil, :routed | :node},
+          State.t()
+        ) :: {:noreply, State.t()}
+  def handle_cast({:sub_finished, %Message{} = sub_message, nil, :routed}, %State{} = state) do
+    do_next(sub_message, sub_message, self(), state)
+    {:noreply, state}
+  end
+
+  def handle_cast(
+        {:sub_finished, %Message{} = sub_message, %Message{} = parent_node_message, :node},
+        %State{} = state
+      ) do
+    parent_node = State.get_node(state, parent_node_message.node_id)
+
+    case Agens.Serving.call_sub(parent_node.serving, sub_message, parent_node_message) do
+      {:ok, %Agens.Serving.Result{body: body, outputs: outputs, next: next}} ->
+        message = %Message{
+          parent_node_message
+          | result: body,
+            outputs: outputs,
+            next: next
+        }
+
+        :telemetry.execute([:agens, :node, :result], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
+
+        Agens.backends(:node_result, [state.caller, message])
+        do_next(message, message, self(), state)
+
+        {:noreply, state}
+
+      {:error, reason} ->
+        GenServer.cast(self(), {{:error, reason}, parent_node_message})
+        {:noreply, state}
+    end
   end
 
   @doc false
   @impl true
-  @spec handle_cast({:error, atom()}, State.t()) :: {:stop, :shutdown, State.t()}
-  def handle_cast({:error, _reason} = err, %State{config: %Config{name: name}} = state) do
-    new_state = %State{state | status: :error}
-    send(state.parent, {:job_error, {name, state.step_index}, err})
-    {:stop, :shutdown, new_state}
+  @spec handle_cast({:end, Message.t()}, State.t()) :: {:stop, :normal, State.t()}
+  def handle_cast({:end, message}, %State{} = state) do
+    maybe_notify_parent(state, {:done, message})
+
+    :telemetry.execute([:agens, :job, :end], %{}, %{run_id: state.run_id})
+
+    state = change_status(state, :ended)
+    Agens.backends(:ended, [state.caller, state.run_id])
+
+    {:stop, :normal, state}
   end
+
+  @doc false
+  @impl true
+  @spec handle_cast({{:error, any()}, Message.t()}, State.t()) :: {:stop, :shutdown, State.t()}
+  def handle_cast({{:error, reason}, message}, %State{} = state) do
+    :telemetry.execute([:agens, :job, :error], %{}, %{run_id: state.run_id})
+    state = change_status(state, :error)
+    Agens.backends(:error, [state.caller, message, reason])
+    maybe_notify_parent(state, {{:error, reason}, message})
+
+    {:stop, :shutdown, state}
+  end
+
+  @doc false
+  @impl true
+  @spec handle_cast({:thread, binary()}, State.t()) :: {:noreply, State.t()}
+  def handle_cast({:thread, thread_id}, %State{} = state) do
+    yield = Yield.thread_add(state.yield, thread_id)
+    {:noreply, %{state | yield: yield, thread_count: state.thread_count + 1}}
+  end
+
+  # ===========================================================================
+  # Info
+  # ===========================================================================
+
+  # OTP message pattern matching yields reference() not the opaque Task.ref()
+  @dialyzer {:no_opaque, handle_info: 2}
+
+  @doc false
+  @impl true
+  @spec handle_info({Task.ref(), any()} | {:DOWN, Task.ref(), :process, pid(), any()}, State.t()) ::
+          {:noreply, State.t()}
+  def handle_info({ref, _result}, %State{} = state) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, State.remove_task(state, ref)}
+  end
+
+  @doc false
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, error}, %State{} = state) do
+    Process.demonitor(ref, [:flush])
+    message = State.get_message(state, ref)
+    GenServer.cast(self(), {{:error, error}, message})
+    {:noreply, State.remove_task(state, ref)}
+  end
+
+  # ===========================================================================
+  # Terminate
+  # ===========================================================================
 
   @doc false
   @impl true
   @spec terminate(:normal | :shutdown | {term(), list()}, State.t()) :: :ok
-  def terminate({exception, _}, %State{config: %{name: name}} = state) do
-    send(state.parent, {:job_error, {name, state.step_index}, {:error, exception}})
+  def terminate({exception, _}, %State{} = state) do
+    change_status(state, :error)
+    Agens.backends(:error, [state.caller, terminate_message(state), exception])
+
     :ok
   end
 
-  def terminate(_reason, _state) do
+  def terminate(_reason, %State{}) do
     :ok
+  end
+
+  @spec terminate_message(State.t()) :: Message.t()
+  defp terminate_message(%State{tasks: tasks} = state) do
+    case Map.values(tasks) do
+      [%Message{} = msg | _] ->
+        msg
+
+      _ ->
+        %Message{
+          input: "",
+          caller: state.caller,
+          run_id: state.run_id,
+          job_id: state.config.id,
+          job_description: state.config.description
+        }
+    end
   end
 
   # ===========================================================================
-  # Private
+  # Orchestration
   # ===========================================================================
 
   @doc false
-  @spec do_step(String.t(), State.t()) :: :ok
-  defp do_step(input, %State{config: job_config} = state) do
-    step = Enum.at(job_config.steps, state.step_index)
+  @spec do_node(Message.t(), pid(), State.t()) :: State.t()
+  defp do_node(message, server_pid, %State{} = state) do
+    node = State.get_node(state, message.node_id)
 
-    message = %Message{
-      parent_pid: state.parent,
-      input: input,
-      agent_name: step.agent,
-      job_name: job_config.name,
-      job_description: job_config.description,
-      step_index: state.step_index,
-      step_objective: step.objective
+    cond do
+      is_nil(node) ->
+        GenServer.cast(server_pid, {{:error, :invalid_node}, message})
+
+        state
+
+      not is_nil(node.sub) ->
+        message = %Message{
+          build_message(message, node, state)
+          | result: message.input
+        }
+
+        :telemetry.execute([:agens, :node, :start], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
+
+        Agens.backends(:node_started, [state.caller, message])
+
+        run_sub(state, message, node.sub, message)
+
+        state
+
+      true ->
+        message = %Message{
+          build_message(message, node, state)
+          | serving_name: node.serving,
+            node_objective: node.objective,
+            tool_defs: node.tools,
+            resources: node.resources,
+            retries: message.retries,
+            retry_reason: message.retry_reason,
+            tool_calls: message.tool_calls,
+            tool_results: message.tool_results
+        }
+
+        :telemetry.execute([:agens, :node, :start], %{}, %{
+          job_id: state.config.id,
+          run_id: state.run_id,
+          node_id: message.node_id
+        })
+
+        Agens.backends(:node_started, [state.caller, message])
+
+        task =
+          Task.Supervisor.async_nolink(Agens.JobSupervisor, fn ->
+            message = load_resources(message, state)
+
+            message
+            |> Message.send()
+            |> handle_result(message, server_pid, state)
+          end)
+
+        State.add_task(state, task.ref, message)
+    end
+  end
+
+  @spec handle_result(
+          Message.t() | {:error, atom()} | {:retry, String.t()},
+          Message.t(),
+          pid(),
+          State.t()
+        ) :: any()
+  defp handle_result({:retry, reason}, %Message{} = message, server_pid, %State{}) do
+    GenServer.cast(server_pid, {{:retry, reason}, message})
+  end
+
+  defp handle_result({:error, reason}, %Message{} = original, server_pid, %State{}) do
+    GenServer.cast(server_pid, {{:error, reason}, original})
+  end
+
+  defp handle_result(
+         %Message{tool_calls: tool_calls} = message,
+         original,
+         server_pid,
+         %State{} = state
+       )
+       when is_list(tool_calls) and length(tool_calls) > 0 do
+    %{config: %Config{id: job_id}, run_id: run_id} = state
+
+    incomplete_calls = incomplete_tool_calls(tool_calls, message.tool_results)
+
+    if length(incomplete_calls) < 1 do
+      message = %Message{message | tool_calls: nil}
+      handle_result(message, original, server_pid, state)
+    else
+      timeout = serving_timeout(message.serving_name)
+
+      prepared_calls =
+        Enum.map(incomplete_calls, fn %{"arguments" => arguments} = tool_call ->
+          input =
+            arguments
+            |> Enum.map(fn %{"key" => k, "value" => v} -> {k, v} end)
+            |> Enum.into(%{})
+
+          Map.put(tool_call, "input", input)
+        end)
+
+      new_results =
+        prepared_calls
+        |> Task.async_stream(
+          fn args ->
+            tool_name = args["name"]
+            meta = %{job_id: job_id, run_id: run_id, name: tool_name}
+
+            :telemetry.span([:agens, :tool, :call], meta, fn ->
+              result =
+                case Agens.Serving.call_tool(message.serving_name, args, message) do
+                  {:error, reason} ->
+                    Agens.backends(:tool_call, [
+                      state.caller,
+                      message,
+                      %{
+                        tool: %{
+                          name: tool_name,
+                          arguments: args["input"] || %{},
+                          result: nil
+                        },
+                        error: inspect(reason)
+                      }
+                    ])
+
+                    {args["id"], {:error, reason}}
+
+                  {tool_id, result} ->
+                    {error, normalized_result} =
+                      case result do
+                        {:error, reason} -> {inspect(reason), nil}
+                        other -> {nil, other}
+                      end
+
+                    Agens.backends(:tool_call, [
+                      state.caller,
+                      message,
+                      %{
+                        tool: %{
+                          name: tool_name,
+                          arguments: args["input"] || %{},
+                          result: normalized_result
+                        },
+                        error: error
+                      }
+                    ])
+
+                    {tool_id, result}
+                end
+
+              {result, meta}
+            end)
+          end,
+          ordered: true,
+          timeout: timeout,
+          on_timeout: :kill_task
+        )
+        |> Enum.zip(prepared_calls)
+        |> Enum.map(fn
+          {{:ok, {tool_id, result}}, _call} -> {tool_id, result}
+          {{:exit, reason}, call} -> {call["id"], {:error, reason}}
+        end)
+        |> Enum.into(%{})
+
+      merged = Map.merge(message.tool_results || %{}, new_results)
+
+      updated = %Message{message | tool_results: merged}
+      GenServer.cast(server_pid, {:tool_continue, updated})
+    end
+  end
+
+  defp handle_result(%Message{} = message, original, server_pid, %State{} = state) do
+    :telemetry.execute([:agens, :node, :result], %{}, %{
+      job_id: state.config.id,
+      run_id: state.run_id,
+      node_id: message.node_id
+    })
+
+    Agens.backends(:node_result, [state.caller, message])
+    message = %Message{message | retry_reason: nil, id: nil}
+    do_next(message, original, server_pid, state)
+  end
+
+  @dialyzer {:no_match, do_next: 4}
+  defp do_next(%Message{next: next} = message, _, server_pid, %State{}) when is_list(next) do
+    if n = end_or_retry?(next) do
+      GenServer.cast(server_pid, {n, message})
+    else
+      case get_instructions(next) do
+        [] ->
+          GenServer.cast(server_pid, {:done, message})
+
+        instructions ->
+          instructions
+          |> Enum.with_index()
+          |> Enum.each(fn {instruction, index} ->
+            msg =
+              if index == 0 do
+                message
+              else
+                thread_id = Agens.generate_uid()
+                GenServer.cast(server_pid, {:thread, thread_id})
+                %Message{message | thread_id: thread_id}
+              end
+
+            GenServer.cast(server_pid, {instruction, msg})
+          end)
+      end
+    end
+  end
+
+  defp do_next(%Message{next: _invalid_next} = message, _, server_pid, %State{}) do
+    GenServer.cast(server_pid, {{:error, :invalid_next}, message})
+  end
+
+  defp end_or_retry?(next) do
+    cond do
+      :end in next ->
+        :end
+
+      true ->
+        Enum.find(next, &match?({:retry, _}, &1)) ||
+          if(:retry in next, do: {:retry, nil})
+    end
+  end
+
+  defp get_instructions(next) do
+    yields = Enum.filter(next, &match?({:yield, _}, &1))
+    subs = Enum.filter(next, &match?({:sub, _}, &1))
+
+    next
+    |> Enum.filter(&match?({:route, _, _}, &1))
+    |> Enum.flat_map(fn {:route, node_id, count} ->
+      List.duplicate({:route, node_id}, count)
+    end)
+    |> Enum.concat(yields)
+    |> Enum.concat(subs)
+  end
+
+  # ===========================================================================
+  # Helpers
+  # ===========================================================================
+
+  @spec change_status(State.t(), atom()) :: State.t()
+  defp change_status(%State{} = state, status) when is_status(status) do
+    :telemetry.execute([:agens, :job, :status], %{}, %{status: status, run_id: state.run_id})
+    Agens.backends(:status, [state.caller, state.run_id, status])
+    State.change_status(state, status)
+  end
+
+  defp run_sub(state, message, job_id, parent_node_message) do
+    spec =
+      :sub
+      |> Agens.backends([job_id])
+      |> Enum.find(&match?(%Sub{}, &1))
+
+    if !spec do
+      GenServer.cast(self(), {{:error, :job_not_loaded}, message})
+    else
+      spec = %{spec | parent_run_id: state.run_id, parent_node_message: parent_node_message}
+
+      :telemetry.execute([:agens, :sub, :start], %{}, %{
+        job_id: spec.config.id,
+        run_id: spec.run_id,
+        parent_run_id: state.run_id
+      })
+
+      start(spec.config, spec.run_id)
+
+      run(spec.run_id, message.input,
+        sub: spec,
+        caller: state.caller
+      )
+    end
+  end
+
+  defp maybe_notify_parent(%State{sub: nil}, _msg), do: :ok
+
+  defp maybe_notify_parent(
+         %State{
+           run_id: run_id,
+           config: config,
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+         },
+         {:done, %Message{} = sub_message}
+       ) do
+    :telemetry.execute([:agens, :sub, :done], %{}, %{
+      job_id: config.id,
+      run_id: run_id,
+      parent_run_id: parent_run_id
+    })
+
+    status = if parent_msg, do: :node, else: :routed
+
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, {:sub_finished, sub_message, parent_msg, status})
+    end)
+  end
+
+  defp maybe_notify_parent(
+         %State{
+           run_id: run_id,
+           config: config,
+           sub: %Sub{parent_run_id: parent_run_id, parent_node_message: parent_msg}
+         },
+         {{:error, reason}, message}
+       ) do
+    :telemetry.execute([:agens, :sub, :error], %{}, %{
+      job_id: config.id,
+      run_id: run_id,
+      parent_run_id: parent_run_id,
+      reason: inspect(reason)
+    })
+
+    error_message = parent_msg || message
+
+    run_id_to_pid(parent_run_id, :ok, fn pid ->
+      GenServer.cast(pid, {{:error, reason}, error_message})
+    end)
+  end
+
+  @spec load_resources(Message.t(), State.t()) :: Message.t()
+  defp load_resources(%Message{resources: resources} = message, _state)
+       when is_nil(resources) or resources == [],
+       do: message
+
+  defp load_resources(%Message{resources: resources} = message, state) do
+    timeout = serving_timeout(message.serving_name)
+
+    loaded =
+      resources
+      |> Task.async_stream(
+        fn resource ->
+          meta = %{run_id: message.run_id, job_id: message.job_id, name: resource.name}
+
+          :telemetry.span([:agens, :resource, :load], meta, fn ->
+            {loaded, error} =
+              case Agens.Serving.call_resource(message.serving_name, resource, message) do
+                {:ok, loaded} -> {loaded, nil}
+                {:error, reason} -> {resource, inspect(reason)}
+              end
+
+            Agens.backends(:resource_load, [
+              state.caller,
+              message,
+              %{resource: loaded, error: error}
+            ])
+
+            {loaded, Map.put(meta, :error, error)}
+          end)
+        end,
+        ordered: true,
+        timeout: timeout,
+        on_timeout: :kill_task
+      )
+      |> Enum.zip(resources)
+      |> Enum.map(fn
+        {{:ok, loaded}, _original} -> loaded
+        {{:exit, _}, original} -> original
+      end)
+
+    %Message{message | resources: loaded}
+  end
+
+  @spec serving_timeout(atom()) :: timeout()
+  defp serving_timeout(serving_name) when is_atom(serving_name) do
+    case Agens.Serving.get_config(serving_name) do
+      {:ok, %Agens.Serving.Config{timeout: t}} -> t
+      _ -> :infinity
+    end
+  end
+
+  defp incomplete_tool_calls(calls, nil), do: calls
+
+  defp incomplete_tool_calls(calls, results) do
+    Enum.reject(calls, fn call -> Map.has_key?(results, call["id"]) end)
+  end
+
+  @spec build_message(Message.t(), JobNode.t(), State.t()) :: Message.t()
+  defp build_message(%Message{} = message, %JobNode{} = node, %State{} = state) do
+    %Message{
+      caller: state.caller,
+      id: message.id || Agens.generate_uid(),
+      run_id: state.run_id,
+      parent_run_id: state.sub && state.sub.parent_run_id,
+      job_id: state.config.id,
+      job_description: state.config.description,
+      agent_id: node.agent_id,
+      node_id: message.node_id,
+      input: message.input,
+      previous_result: message.previous_result,
+      thread_id: message.thread_id
     }
+  end
 
-    send(state.parent, {:step_started, {message.job_name, message.step_index}, message.input})
+  @spec run_id_to_pid(any(), any(), (pid() -> any())) :: any()
+  defp run_id_to_pid(run_id, err, cb) do
+    name = via(run_id)
 
-    message
-    |> Message.send()
-    |> case do
-      %Message{} = message ->
-        send(state.parent, {:step_result, {message.job_name, message.step_index}, message.result})
-
-        if step.conditions do
-          do_conditions(step.conditions, message)
-        else
-          GenServer.cast(self(), {:next, message})
-        end
-
-      {:error, reason} ->
-        GenServer.cast(self(), {:error, reason})
+    case GenServer.whereis(name) do
+      nil -> err
+      pid when is_pid(pid) -> cb.(pid)
     end
   end
 
-  @doc false
-  @spec do_conditions(map(), Message.t()) :: :ok
-  defp do_conditions(conditions, %Message{} = message) when is_map(conditions) do
-    conditions
-    |> Map.get(message.result)
-    |> case do
-      :end ->
-        GenServer.cast(self(), :end)
-
-      nil ->
-        case Map.get(conditions, "__DEFAULT__") do
-          :end ->
-            GenServer.cast(self(), :end)
-
-          step_index ->
-            GenServer.cast(self(), {:step, step_index, message})
-        end
-    end
+  defp via(run_id) do
+    {:via, Registry, {Agens.Registry, run_id}}
   end
 end

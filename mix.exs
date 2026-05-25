@@ -1,30 +1,22 @@
 defmodule Agens.MixProject do
   use Mix.Project
 
-  @version "0.1.3"
+  @version "0.2.0"
 
   def project do
     [
       app: :agens,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description:
-        "Create multi-agent workflows with AI and Language Models using OTP components for reliable and scalable automation.",
+        "Multi-agent workflows with language models on OTP — dynamic routing, MCP-shaped tools and resources, structured outputs, and pluggable observability.",
       package: package(),
       docs: docs(),
       aliases: aliases(),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        "test.all": :test,
-        "test.lm": :test,
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test
-      ]
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -35,14 +27,25 @@ defmodule Agens.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        coverage: :test,
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
+      ]
+    ]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:nx, "~> 0.7.3"},
-      {:bumblebee, "~> 0.5.3", only: :test},
-      {:exla, "~> 0.7.0", only: :test},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:jason, "~> 1.4"},
+      {:telemetry_metrics, "~> 1.0"},
+      {:dialyxir, "~> 1.4.7", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.17.1", only: :test}
     ]
   end
@@ -52,6 +55,8 @@ defmodule Agens.MixProject do
       maintainers: ["Jesse Drelick"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/jessedrelick/agens"},
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      build_tools: ["mix"],
       keywords: [
         "AI",
         "Agents",
@@ -59,15 +64,15 @@ defmodule Agens.MixProject do
         "Multi-Agent Systems",
         "LLM",
         "Language Models",
-        "NLP",
+        "MCP",
+        "Routing",
+        "Structured Outputs",
         "Task Orchestration",
-        "Workflow Automation",
-        "Bumblebee"
+        "Workflow Automation"
       ],
       categories: [
         "Machine Learning",
         "Artificial Intelligence",
-        "Natural Language Processing",
         "Automation"
       ]
     ]
@@ -76,26 +81,39 @@ defmodule Agens.MixProject do
   defp docs do
     [
       main: "Agens",
-      extras: [{"README.md", [title: "Agens"]}, {"CHANGELOG.md", [title: "Changelog"]}, "LICENSE"],
+      extras: [
+        {"README.md", [title: "Agens"]},
+        {"docs/design-philosophy.md", [title: "Design Philosophy"]},
+        {"docs/host-responsibilities.md", [title: "Host Application Responsibilities"]},
+        {"CHANGELOG.md", [title: "Changelog"]},
+        "LICENSE"
+      ],
       source_url: "https://github.com/jessedrelick/agens",
       groups_for_modules: [
-        Agent: [
-          Agens.Agent,
-          Agens.Agent.Config,
-          Agens.Agent.Prompt
-        ],
         Job: [
           Agens.Job,
-          Agens.Job.State,
           Agens.Job.Config,
-          Agens.Job.Step
+          Agens.Job.Node,
+          Agens.Job.Sub
+        ],
+        Router: [
+          Agens.Router,
+          Agens.Router.Condition,
+          Agens.Router.Output
         ],
         Serving: [
           Agens.Serving,
-          Agens.Serving.Config
+          Agens.Serving.Config,
+          Agens.Serving.Result
         ],
-        Tool: [
-          Agens.Tool
+        Misc: [
+          Agens.Backend,
+          Agens.Metrics,
+          Agens.Prefixes,
+          Agens.Prompt,
+          Agens.Resource,
+          Agens.Schema,
+          Agens.Supervisor
         ]
       ]
     ]

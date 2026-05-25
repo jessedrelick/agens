@@ -1,0 +1,43 @@
+{
+  "id": "industry_brief",
+  "description": "Research a topic and produce a structured industry brief",
+  "first_node": "planner",
+  "outputs": [
+    {
+      "key": "viable",
+      "type": "bool",
+      "description": "Is this a real, substantive topic suitable for an industry brief? Set false only if the topic is nonsensical or impossible to research."
+    },
+    {
+      "key": "confidence",
+      "type": "int",
+      "description": "Rate your confidence in the quality and completeness of your research from 1 to 10",
+      "meta": { "min": 1, "max": 10 }
+    },
+    {
+      "key": "quality",
+      "type": "int",
+      "description": "Rate the overall quality and completeness of the written brief from 1 to 10",
+      "meta": { "min": 1, "max": 10 }
+    }
+  ],
+  "nodes": {
+    "planner": {
+      "agent_id": "planner",
+      "serving": "demo_serving",
+      "objective": "Evaluate the topic and plan the research approach",
+      "resources": ["brief_guidelines"]
+    },
+    "researcher": {
+      "agent_id": "researcher",
+      "serving": "demo_serving",
+      "objective": "Research a specific angle of the topic using available tools",
+      "tools": ["web_search"]
+    },
+    "writer": {
+      "agent_id": "writer",
+      "serving": "demo_serving",
+      "objective": "Synthesize all research findings into a polished industry brief"
+    }
+  }
+}
